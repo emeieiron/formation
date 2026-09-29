@@ -174,8 +174,8 @@ class FormationHost(
   private class Seat(
     val id: PlayerId,
     val device: String,
-    val name: String,
-    val light: Int,
+    var name: String,
+    var light: Int,
     val seeker: Boolean,
     val claimKey: String,
     var wallet: String?,
@@ -219,6 +219,7 @@ class FormationHost(
       is ToHost.Play -> play(seat, message)
       is ToHost.SealIt -> sealed(seat, message)
       is ToHost.Wallet -> wallet(seat, message.address)
+      is ToHost.Profile -> profile(seat, message)
       ToHost.Leave -> left(seat)
       else -> {}
     }
@@ -261,6 +262,14 @@ class FormationHost(
       )
     if (seat.seeker) seats.add(0, seat) else seats.add(seat)
     welcome(conn, seat)
+  }
+
+  // Only while gathering: once play starts every phone is showing these names.
+  private fun profile(seat: Seat, profile: ToHost.Profile) {
+    if (stage != Stage.Lobby) return
+    seat.name = profile.name.trim().take(MAX_NAME).ifEmpty { seat.name }
+    seat.light = profile.light.mod(LIGHTS)
+    publish()
   }
 
   // Frozen once the seal is built: it commits to each helper's wallet.

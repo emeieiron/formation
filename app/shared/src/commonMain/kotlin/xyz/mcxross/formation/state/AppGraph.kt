@@ -86,6 +86,11 @@ class AppGraph(
     result
   }
 
+  fun updateProfile(profile: Profile) {
+    identity.save(profile)
+    _session.value?.client?.setProfile(profile.name, profile.light)
+  }
+
   fun chooseLedger(mode: LedgerMode) = platform.store.put(KEY_LEDGER, mode.name)
 
   suspend fun connectWallet(): String? =

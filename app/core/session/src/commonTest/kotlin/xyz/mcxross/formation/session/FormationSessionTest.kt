@@ -193,6 +193,27 @@ class FormationSessionTest {
   }
 
   @Test
+  fun namesAndLightsCanChangeOnlyInTheLobby() = runTest {
+    val f = Formation(this)
+    val aaron = f.join("Aaron", seeker = true)
+    runCurrent()
+    val maya = f.join("Maya")
+    f.join("Kofi")
+    runCurrent()
+    maya.setProfile("  Maya B  ", 11)
+    runCurrent()
+    val renamed = f.host.snapshot.value.players[1]
+    assertEquals("Maya B" to 3, renamed.name to renamed.light)
+
+    f.host.begin()
+    runCurrent()
+    maya.setProfile("Late", 0)
+    runCurrent()
+    assertEquals("Maya B", f.host.snapshot.value.players[1].name)
+    assertIs<Stage.Briefing>(aaron.snapshot.value!!.stage)
+  }
+
+  @Test
   fun aBrokenAttemptCanBeRunBack() = runTest {
     val f = Formation(this)
     val phones = listOf(f.join("Aaron", seeker = true), f.join("Maya"), f.join("Kofi"))

@@ -138,6 +138,8 @@ sealed interface ToHost {
 
   @Serializable @SerialName("wallet") data class Wallet(val address: String?) : ToHost
 
+  @Serializable @SerialName("profile") data class Profile(val name: String, val light: Int) : ToHost
+
   @Serializable @SerialName("ping") data class Ping(val sent: Long, val rtt: Int? = null) : ToHost
 
   @Serializable @SerialName("ready") data class Ready(val ready: Boolean) : ToHost

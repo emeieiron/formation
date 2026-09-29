@@ -65,6 +65,8 @@ class FormationClient(
   private val outbox = Channel<ToHost>(Channel.UNLIMITED)
   @Volatile private var sealedMessage: String? = null
   @Volatile private var wallet: String? = identity.wallet
+  @Volatile private var name: String = identity.name
+  @Volatile private var light: Int = identity.light
   @Volatile private var finished = false
   private var job: Job? = null
 
@@ -73,6 +75,12 @@ class FormationClient(
   }
 
   fun ready(ready: Boolean) = send(ToHost.Ready(ready))
+
+  fun setProfile(name: String, light: Int) {
+    this.name = name
+    this.light = light
+    send(ToHost.Profile(name, light))
+  }
 
   fun setWallet(address: String?) {
     wallet = address
@@ -143,8 +151,8 @@ class FormationClient(
         ToHost.Hello(
           PROTOCOL_VERSION,
           identity.device,
-          identity.name,
-          identity.light,
+          name,
+          light,
           identity.claimKey,
           wallet,
         )

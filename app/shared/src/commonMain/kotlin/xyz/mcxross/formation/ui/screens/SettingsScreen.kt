@@ -58,7 +58,7 @@ fun SettingsScreen() {
   var light by remember { mutableStateOf(profile?.light ?: 0) }
 
   fun save() {
-    if (name.isNotBlank()) graph.identity.save(Profile(name.trim(), light))
+    if (name.isNotBlank()) graph.updateProfile(Profile(name.trim(), light))
   }
 
   Page(

@@ -176,6 +176,12 @@ private fun Introduce(onBack: () -> Unit, onDone: (Profile) -> Unit) {
       Overline("Your light")
       Spacer(Modifier.height(Space.m))
       LightPicker(light, onPick = { light = it })
+      Spacer(Modifier.height(Space.l))
+      Text(
+        "You can change your name and light anytime from your profile.",
+        style = Theme.type.footnote,
+        color = c.contentTertiary,
+      )
     }
     BottomActions {
       Button(

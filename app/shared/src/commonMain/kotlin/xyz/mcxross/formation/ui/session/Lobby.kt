@@ -39,10 +39,13 @@ import xyz.mcxross.formation.design.components.IconButtonStyle
 import xyz.mcxross.formation.design.components.LocalToaster
 import xyz.mcxross.formation.design.components.ModalSheet
 import xyz.mcxross.formation.design.components.Overline
+import xyz.mcxross.formation.design.components.PlayerLight
 import xyz.mcxross.formation.design.components.QrCode
+import xyz.mcxross.formation.design.components.SheetActions
 import xyz.mcxross.formation.design.components.SheetHeader
 import xyz.mcxross.formation.design.components.SkrAmount
 import xyz.mcxross.formation.design.components.Spinner
+import xyz.mcxross.formation.design.components.TextField
 import xyz.mcxross.formation.design.components.TopBar
 import xyz.mcxross.formation.design.effects.FormationRing
 import xyz.mcxross.formation.design.effects.RingMember
@@ -60,6 +63,7 @@ import xyz.mcxross.formation.session.Player
 import xyz.mcxross.formation.session.SessionSnapshot
 import xyz.mcxross.formation.state.ActiveSession
 import xyz.mcxross.formation.state.ChallengeCatalog
+import xyz.mcxross.formation.state.Profile
 import xyz.mcxross.formation.ui.LocalGraph
 import xyz.mcxross.formation.ui.components.ChallengeGlyph
 import xyz.mcxross.formation.ui.components.MwaWallets
@@ -68,6 +72,7 @@ import xyz.mcxross.formation.ui.components.possessive
 import xyz.mcxross.formation.ui.components.rememberWalletInstalled
 import xyz.mcxross.formation.ui.components.shortAddress
 import xyz.mcxross.formation.ui.screens.HowToPlay
+import xyz.mcxross.formation.ui.screens.LightPicker
 
 @Composable
 internal fun Lobby(
@@ -81,6 +86,8 @@ internal fun Lobby(
   val o = snapshot.formation.opportunity
   val info = challengeInfo(o.challenge)
   val missing = o.players - snapshot.players.size
+  var editing by remember { mutableStateOf(false) }
+  if (editing) ProfileSheet(onDismiss = { editing = false })
   Column(Modifier.fillMaxSize()) {
     TopBar(
       title =
@@ -137,6 +144,7 @@ internal fun Lobby(
           )
         }
       }
+      snapshot.player(me)?.let { mine -> YouRow(mine, onEdit = { editing = true }) }
       Spacer(Modifier.height(Space.l))
       if (session.isHost) JoinPanel(session, snapshot) else GuestPanel(snapshot, me)
       ChallengeCatalog[o.challenge]?.let { challenge ->
@@ -337,6 +345,55 @@ private fun SeekerNetworkSheet(session: ActiveSession, onDismiss: () -> Unit) {
           color = c.contentSecondary,
         )
       }
+    }
+  }
+}
+
+@Composable
+private fun YouRow(mine: Player, onEdit: () -> Unit) {
+  val c = Theme.colors
+  Row(
+    Modifier.fillMaxWidth().padding(horizontal = Space.gutter),
+    horizontalArrangement = Arrangement.Center,
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    Row(
+      Modifier.clip(Shapes.control)
+        .pressable(onEdit, shape = Shapes.control)
+        .padding(horizontal = Space.m, vertical = Space.s),
+      verticalAlignment = Alignment.CenterVertically,
+    ) {
+      PlayerLight(mine.name, c.light(mine.light), size = 24.dp)
+      Spacer(Modifier.width(Space.s))
+      Text("You're ${mine.name}", style = Theme.type.subheadStrong, color = c.content)
+      Spacer(Modifier.width(Space.s))
+      Text("Edit", style = Theme.type.subheadStrong, color = c.accent)
+    }
+  }
+}
+
+@Composable
+private fun ProfileSheet(onDismiss: () -> Unit) {
+  val graph = LocalGraph.current
+  val current = graph.identity.profile.value ?: return
+  var name by remember { mutableStateOf(current.name) }
+  var light by remember { mutableStateOf(current.light) }
+  ModalSheet(onDismiss) {
+    SheetHeader("How the group sees you", subtitle = "Changes show on every phone in the lobby.")
+    Column(Modifier.padding(horizontal = Space.xxl)) {
+      TextField(name, { name = it }, placeholder = "Your name", maxLength = 20)
+      Spacer(Modifier.height(Space.l))
+      LightPicker(light, onPick = { light = it })
+    }
+    SheetActions {
+      Button(
+        "Save",
+        {
+          graph.updateProfile(Profile(name.trim(), light))
+          onDismiss()
+        },
+        enabled = name.isNotBlank(),
+      )
     }
   }
 }
