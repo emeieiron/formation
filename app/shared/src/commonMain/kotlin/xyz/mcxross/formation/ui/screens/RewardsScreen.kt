@@ -47,9 +47,9 @@ import xyz.mcxross.formation.design.icons.Icons
 import xyz.mcxross.formation.design.tokens.Space
 import xyz.mcxross.formation.design.tokens.Tone
 import xyz.mcxross.formation.model.Skr
-import xyz.mcxross.formation.platform.WalletResult
 import xyz.mcxross.formation.state.ClaimTicket
 import xyz.mcxross.formation.state.LedgerMode
+import xyz.mcxross.formation.state.NO_WALLET
 import xyz.mcxross.formation.ui.LocalGraph
 import xyz.mcxross.formation.ui.components.ChallengeGlyph
 import xyz.mcxross.formation.ui.components.MwaWallets
@@ -172,6 +172,15 @@ private fun ClaimSheet(ticket: ClaimTicket, onDismiss: () -> Unit) {
   val walletReady = rememberWalletInstalled(graph.platform)
   val needsWallet = noWallet || !walletReady
   LaunchedEffect(walletReady) { if (walletReady) noWallet = false }
+  val saved by graph.identity.wallet.collectAsState()
+  // A share bound to a wallet at the seal can only go there; otherwise the phone's own wallet.
+  val target = ticket.wallet ?: saved
+
+  suspend fun connect(): String? {
+    val problem = graph.connectWallet() ?: return graph.identity.wallet.value
+    if (problem == NO_WALLET) noWallet = true else error = problem
+    return null
+  }
 
   fun claimTo(address: suspend () -> String?) {
     busy = true
@@ -216,6 +225,9 @@ private fun ClaimSheet(ticket: ClaimTicket, onDismiss: () -> Unit) {
           done != null -> "It's in ${shortAddress(done!!)}. Welcome to Solana."
           needsWallet ->
             "This phone has no Solana wallet yet. Get ${MwaWallets.joinToString(" or ") { it.name }}, then come back: your reward waits for you."
+          target != null && ticket.wallet != null ->
+            "It goes to ${shortAddress(target)}, the wallet you chose in the lobby."
+          target != null -> "It goes to your wallet, ${shortAddress(target)}."
           else ->
             "Connect a Solana wallet to receive it. Your phone proves the share is yours with a key only it holds."
         },
@@ -252,21 +264,30 @@ private fun ClaimSheet(ticket: ClaimTicket, onDismiss: () -> Unit) {
           Button("Later", onDismiss, style = ButtonStyle.Ghost)
         }
         else -> {
-          Button(
-            "Connect wallet",
-            {
-              claimTo {
-                when (val connected = graph.platform.wallet.connect()) {
-                  WalletResult.NoWallet -> null.also { noWallet = true }
-                  is WalletResult.Failed -> null.also { error = connected.message }
-                  is WalletResult.Ok -> connected.value.address
-                }
-              }
-            },
-            style = ButtonStyle.Reward,
-            loading = busy,
-            leadingIcon = Icons.Wallet,
-          )
+          if (target != null) {
+            Button(
+              "Claim to ${shortAddress(target)}",
+              { claimTo { target } },
+              style = ButtonStyle.Reward,
+              loading = busy,
+              leadingIcon = Icons.Wallet,
+            )
+            if (ticket.wallet == null)
+              Button(
+                "Use another wallet",
+                { claimTo { connect() } },
+                style = ButtonStyle.Ghost,
+                enabled = !busy,
+              )
+          } else {
+            Button(
+              "Connect wallet",
+              { claimTo { connect() } },
+              style = ButtonStyle.Reward,
+              loading = busy,
+              leadingIcon = Icons.Wallet,
+            )
+          }
           if (canKeepOnPhone)
             Button(
               "Keep it on this phone",

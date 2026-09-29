@@ -95,7 +95,7 @@ class AppGraph(
 
   suspend fun connectWallet(): String? =
     when (val connected = platform.wallet.connect()) {
-      WalletResult.NoWallet -> "No Solana wallet on this phone"
+      WalletResult.NoWallet -> NO_WALLET
       is WalletResult.Failed -> connected.message
       is WalletResult.Ok -> {
         identity.saveWallet(connected.value.address)
@@ -239,3 +239,5 @@ class AppGraph(
 private fun sgtCheck(rpc: SolanaRpc) = SeekerCheck { wallet ->
   runCatching { SgtFinder(rpc).find(SolanaPublicKey.from(wallet))?.mint?.base58() }
 }
+
+const val NO_WALLET = "No Solana wallet on this phone"
