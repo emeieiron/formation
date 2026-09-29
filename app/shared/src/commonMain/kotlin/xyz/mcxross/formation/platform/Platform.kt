@@ -88,11 +88,15 @@ interface ExternalPort {
   suspend fun scanQr(): String?
 
   fun keepScreenOn(on: Boolean)
+
+  fun prepareScanner() {}
 }
 
 data class HotspotInfo(val ssid: String, val passphrase: String?)
 
 interface HotspotPort {
+  fun permitted(): Boolean
+
   suspend fun start(): Result<HotspotInfo>
 
   fun stop()

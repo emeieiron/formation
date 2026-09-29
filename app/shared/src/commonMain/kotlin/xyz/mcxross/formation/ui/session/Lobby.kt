@@ -296,7 +296,8 @@ private fun SeekerNetworkSheet(session: ActiveSession, onDismiss: () -> Unit) {
     if (current == null) {
       Column(Modifier.padding(horizontal = Space.xxl)) {
         Button(
-          "Open the network",
+          if (graph.platform.hotspot?.permitted() == true) "Open the network"
+          else "Allow and open network",
           {
             starting = true
             scope.launch {

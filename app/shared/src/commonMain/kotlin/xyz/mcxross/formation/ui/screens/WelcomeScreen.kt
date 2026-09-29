@@ -69,6 +69,7 @@ fun WelcomeScreen(onDone: (Profile) -> Unit) {
   var step by remember { mutableIntStateOf(0) }
   var profile by remember { mutableStateOf<Profile?>(null) }
   BackHandler(enabled = step > 0) { step -= 1 }
+  LaunchedEffect(Unit) { graph.platform.external.prepareScanner() }
   Page(
     background = {
       Starfield()

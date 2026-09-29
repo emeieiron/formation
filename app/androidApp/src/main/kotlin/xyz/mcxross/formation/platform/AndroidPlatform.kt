@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import com.google.android.gms.common.moduleinstall.ModuleInstall
+import com.google.android.gms.common.moduleinstall.ModuleInstallRequest
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
@@ -124,6 +126,13 @@ class AndroidPlatform(private val context: Context) : PlatformServices {
             .addOnCanceledListener { if (cont.isActive) cont.resume(null) }
             .addOnFailureListener { if (cont.isActive) cont.resume(null) }
         }
+      }
+
+      // Some phones fetch the scanner on first use; asking early keeps the first scan instant.
+      override fun prepareScanner() {
+        val request =
+          ModuleInstallRequest.newBuilder().addApi(GmsBarcodeScanning.getClient(context)).build()
+        ModuleInstall.getClient(context).installModules(request)
       }
 
       override fun keepScreenOn(on: Boolean) {

@@ -2,23 +2,30 @@ package xyz.mcxross.formation.platform
 
 import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import androidx.core.content.ContextCompat
 import kotlin.coroutines.resume
 import kotlinx.coroutines.suspendCancellableCoroutine
 
 internal class AndroidHotspot(context: Context, private val bridge: () -> ActivityBridge?) :
   HotspotPort {
-  private val wifi = context.applicationContext.getSystemService(WifiManager::class.java)
+  private val appContext = context.applicationContext
+  private val wifi = appContext.getSystemService(WifiManager::class.java)
   private var reservation: WifiManager.LocalOnlyHotspotReservation? = null
 
+  private val permission =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+      Manifest.permission.NEARBY_WIFI_DEVICES
+    else Manifest.permission.ACCESS_FINE_LOCATION
+
+  override fun permitted(): Boolean =
+    ContextCompat.checkSelfPermission(appContext, permission) == PackageManager.PERMISSION_GRANTED
+
   override suspend fun start(): Result<HotspotInfo> {
-    val permission =
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
-        Manifest.permission.NEARBY_WIFI_DEVICES
-      else Manifest.permission.ACCESS_FINE_LOCATION
     val granted = bridge()?.requestPermissions(arrayOf(permission))?.get(permission) == true
     if (!granted)
       return Result.failure(
