@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A Formation runs over the local network: the Seeker serves plain ws:// on whatever address
+     the Wi-Fi or its own hotspot gives it, so cleartext is allowed. Everything on the internet,
+     such as Solana RPC, is HTTPS. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

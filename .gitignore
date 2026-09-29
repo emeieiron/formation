@@ -1,0 +1,39 @@
+*.iml
+.kotlin
+.gradle
+**/build/
+xcuserdata
+!src/**/build/
+local.properties
+.idea
+.DS_Store
+captures
+.externalNativeBuild
+.cxx
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+!*.xcodeproj/project.xcworkspace/
+!*.xcworkspace/contents.xcworkspacedata
+**/xcshareddata/WorkspaceSettings.xcsettings
+node_modules/
+
+program/target/
+program/.anchor/
+test-ledger/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Keys and signing material never belong in the repo
+*-keypair.json
+id.json
+*.jks
+*.keystore
+.env
+
+# Tooling output
+*.hprof
+*.log

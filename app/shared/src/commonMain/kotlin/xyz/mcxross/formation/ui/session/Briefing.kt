@@ -1,0 +1,124 @@
+package xyz.mcxross.formation.ui.session
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import xyz.mcxross.formation.challenge.rememberHostNow
+import xyz.mcxross.formation.design.Theme
+import xyz.mcxross.formation.design.components.BottomActions
+import xyz.mcxross.formation.design.components.Button
+import xyz.mcxross.formation.design.components.ButtonStyle
+import xyz.mcxross.formation.design.components.IconTile
+import xyz.mcxross.formation.design.components.Overline
+import xyz.mcxross.formation.design.components.ReadyDots
+import xyz.mcxross.formation.design.components.TextButton
+import xyz.mcxross.formation.design.components.TopBar
+import xyz.mcxross.formation.design.foundation.Panel
+import xyz.mcxross.formation.design.foundation.Text
+import xyz.mcxross.formation.design.icons.Icons
+import xyz.mcxross.formation.design.tokens.Space
+import xyz.mcxross.formation.model.PlayerId
+import xyz.mcxross.formation.session.SessionSnapshot
+import xyz.mcxross.formation.session.Stage
+import xyz.mcxross.formation.state.ActiveSession
+import xyz.mcxross.formation.state.ChallengeCatalog
+import xyz.mcxross.formation.ui.components.ChallengeGlyph
+import xyz.mcxross.formation.ui.screens.HowToPlay
+
+@Composable
+internal fun Briefing(
+  session: ActiveSession,
+  snapshot: SessionSnapshot,
+  stage: Stage.Briefing,
+  me: PlayerId,
+  onLeave: () -> Unit,
+) {
+  val c = Theme.colors
+  val o = snapshot.formation.opportunity
+  val challenge = ChallengeCatalog[o.challenge]
+  val info = challenge?.info
+  val now by rememberHostNow(session.client.sync)
+  val ready = snapshot.player(me)?.ready == true
+  val readyCount = snapshot.players.count { it.ready }
+  val seeker = snapshot.seeker?.id
+  val role =
+    if (challenge != null && seeker != null)
+      challenge.role(snapshot.players.map { it.id }, seeker, me)
+    else null
+  Column(Modifier.fillMaxSize()) {
+    TopBar(onBack = onLeave, backIcon = Icons.Close)
+    Column(
+      Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = Space.gutter)
+    ) {
+      ChallengeGlyph(info, size = 64.dp)
+      Spacer(Modifier.height(Space.l))
+      Text(info?.title ?: o.challenge.value, style = Theme.type.display)
+      Text(info?.tagline ?: "", style = Theme.type.title3, color = c.contentSecondary)
+      Spacer(Modifier.height(Space.xl))
+      Panel(Modifier.fillMaxWidth(), glow = info?.let { c.light(it.light).color }) {
+        Column(Modifier.padding(Space.l)) {
+          Overline("The goal")
+          Spacer(Modifier.height(Space.xs))
+          Text(challenge?.goal(o.players, o.difficulty) ?: "", style = Theme.type.title3)
+        }
+      }
+      role?.let {
+        Spacer(Modifier.height(Space.m))
+        Panel(Modifier.fillMaxWidth()) {
+          Row(Modifier.padding(Space.l), verticalAlignment = Alignment.CenterVertically) {
+            IconTile(it.icon, tint = c.content, background = c.surfaceHigher)
+            Spacer(Modifier.width(Space.m))
+            Column(Modifier.weight(1f)) {
+              Overline("Your role")
+              Text(it.title, style = Theme.type.headline)
+              Text(it.text, style = Theme.type.subhead, color = c.contentSecondary)
+            }
+          }
+        }
+      }
+      Spacer(Modifier.height(Space.xl))
+      info?.let { HowToPlay(it) }
+      Spacer(Modifier.height(Space.xl))
+    }
+    BottomActions {
+      Row(
+        Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+      ) {
+        ReadyDots(snapshot.players.map { p -> if (p.ready) c.light(p.light).color else null })
+        val left = ((stage.until - now) / 1000).coerceAtLeast(0)
+        Text(
+          "$readyCount of ${snapshot.players.size} ready · starts in ${left}s",
+          style = Theme.type.footnote,
+          color = c.contentSecondary,
+        )
+      }
+      Button(
+        if (ready) "Ready" else "I'm ready",
+        { session.ready(!ready) },
+        style = if (ready) ButtonStyle.Secondary else ButtonStyle.Primary,
+        leadingIcon = if (ready) Icons.Check else null,
+      )
+      if (session.isHost)
+        TextButton(
+          "Start now",
+          { session.startNow() },
+          Modifier.align(Alignment.CenterHorizontally),
+        )
+    }
+  }
+}

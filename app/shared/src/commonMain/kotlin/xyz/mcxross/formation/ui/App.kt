@@ -1,0 +1,72 @@
+package xyz.mcxross.formation.ui
+
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Modifier
+import xyz.mcxross.formation.design.FormationTheme
+import xyz.mcxross.formation.design.Theme
+import xyz.mcxross.formation.design.components.BackHandler
+import xyz.mcxross.formation.design.components.OverlayHost
+import xyz.mcxross.formation.design.tokens.Motion
+import xyz.mcxross.formation.state.AppGraph
+import xyz.mcxross.formation.ui.nav.Screen
+import xyz.mcxross.formation.ui.screens.HomeScreen
+import xyz.mcxross.formation.ui.screens.RewardsScreen
+import xyz.mcxross.formation.ui.screens.SettingsScreen
+import xyz.mcxross.formation.ui.screens.WelcomeScreen
+import xyz.mcxross.formation.ui.session.SessionScreen
+
+val LocalGraph = staticCompositionLocalOf<AppGraph> { error("AppGraph not provided") }
+
+@Composable
+fun FormationApp(graph: AppGraph) {
+  FormationTheme {
+    CompositionLocalProvider(LocalGraph provides graph) {
+      val profile by graph.identity.profile.collectAsState()
+      OverlayHost(Modifier.background(Theme.colors.background)) {
+        if (profile == null)
+          WelcomeScreen(
+            onDone = {
+              graph.identity.save(it)
+              graph.resumePendingJoin()
+            }
+          )
+        else Main(graph)
+      }
+    }
+  }
+}
+
+@Composable
+private fun Main(graph: AppGraph) {
+  val nav = graph.navigator
+  BackHandler(enabled = nav.canGoBack) { nav.pop() }
+  AnimatedContent(
+    targetState = nav.current,
+    transitionSpec = {
+      val direction = if (nav.forward) 1 else -1
+      (fadeIn(Motion.standard()) +
+        slideInHorizontally(Motion.emphasized()) { direction * it / 10 }) togetherWith
+        (fadeOut(Motion.exit()) + slideOutHorizontally(Motion.exit()) { -direction * it / 16 })
+    },
+    contentKey = { it.key },
+    label = "screen",
+  ) { entry ->
+    when (entry.screen) {
+      Screen.Home -> HomeScreen()
+      Screen.Session -> SessionScreen()
+      Screen.Rewards -> RewardsScreen()
+      Screen.Settings -> SettingsScreen()
+    }
+  }
+}
