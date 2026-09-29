@@ -263,6 +263,7 @@ def main():
     guest = Phone(args.guest or running[1], "guest")
     title, code = FORMATS[args.format]
     validator = None
+    saved = None
     try:
         if not args.no_build:
             build(args.chain)
@@ -270,6 +271,8 @@ def main():
         for i, phone in enumerate((seeker, guest)):
             phone.adb("install", "-r", apk)
             phone.adb("forward", f"tcp:{47000 + i}", "tcp:47000")
+        # The test changes these; put back whatever the person had, such as a connected wallet.
+        saved = {phone: {k: phone.pref(k) for k in ("ledger", "wallet")} for phone in (seeker, guest)}
         ledger = "SIMULATED" if args.chain == "simulated" else "SOLANA"
         wallet = None if args.wallet in ("none", "connect") else args.wallet
         seeker.set_prefs(ledger=ledger)
@@ -345,6 +348,8 @@ def main():
         log(f"FAIL: {e} (screens in {os.path.relpath(OUT, ROOT)})")
         sys.exit(1)
     finally:
+        for phone, prefs in (saved or {}).items():
+            phone.set_prefs(**prefs)
         if validator and not args.keep_chain:
             validator.terminate()
         if args.offline:
