@@ -21,6 +21,8 @@ fun interface SeekerCheck {
 sealed interface SeekerStatus {
   data object NotASeeker : SeekerStatus
 
+  data object NotLinked : SeekerStatus
+
   data object Checking : SeekerStatus
 
   data class Verified(val identity: SeekerIdentity) : SeekerStatus
@@ -45,20 +47,16 @@ class SeekerState(
   val status: StateFlow<SeekerStatus> = _status.asStateFlow()
 
   private val lock = Mutex()
-  private var asked = false
 
-  // On a Seeker the wallet is asked once, on its own; after that only the stored address is
-  // re-checked.
+  // Never opens the wallet: a linked Seeker is re-checked by its stored address, an unlinked one
+  // waits for the owner to choose to link from a screen that says why.
   suspend fun autoVerify() = lock.withLock {
     val stored = _identity.value
     when {
       stored?.simulated == true -> Unit
       stored != null -> recheck(stored)
-      !isSeeker -> _status.value = SeekerStatus.NotASeeker
-      !asked -> {
-        asked = true
-        connectAndCheck()
-      }
+      _status.value is SeekerStatus.NeedsApproval || _status.value is SeekerStatus.NoToken -> Unit
+      else -> _status.value = if (isSeeker) SeekerStatus.NotLinked else SeekerStatus.NotASeeker
     }
   }
 

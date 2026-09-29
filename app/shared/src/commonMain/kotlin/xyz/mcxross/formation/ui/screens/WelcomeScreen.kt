@@ -23,23 +23,29 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.components.BackHandler
 import xyz.mcxross.formation.design.components.BottomActions
 import xyz.mcxross.formation.design.components.Button
+import xyz.mcxross.formation.design.components.ButtonStyle
 import xyz.mcxross.formation.design.components.IconTile
+import xyz.mcxross.formation.design.components.Notice
 import xyz.mcxross.formation.design.components.Overline
 import xyz.mcxross.formation.design.components.Page
 import xyz.mcxross.formation.design.components.PlayerLight
+import xyz.mcxross.formation.design.components.SkrCoin
 import xyz.mcxross.formation.design.components.TextField
 import xyz.mcxross.formation.design.components.TopBar
 import xyz.mcxross.formation.design.effects.AuroraBackdrop
@@ -52,12 +58,17 @@ import xyz.mcxross.formation.design.tokens.Motion
 import xyz.mcxross.formation.design.tokens.Shapes
 import xyz.mcxross.formation.design.tokens.Sizes
 import xyz.mcxross.formation.design.tokens.Space
+import xyz.mcxross.formation.design.tokens.Tone
 import xyz.mcxross.formation.state.Profile
+import xyz.mcxross.formation.state.SeekerStatus
+import xyz.mcxross.formation.ui.LocalGraph
 
 @Composable
 fun WelcomeScreen(onDone: (Profile) -> Unit) {
+  val graph = LocalGraph.current
   var step by remember { mutableIntStateOf(0) }
-  BackHandler(enabled = step > 0) { step = 0 }
+  var profile by remember { mutableStateOf<Profile?>(null) }
+  BackHandler(enabled = step > 0) { step -= 1 }
   Page(
     background = {
       Starfield()
@@ -72,8 +83,18 @@ fun WelcomeScreen(onDone: (Profile) -> Unit) {
       },
       label = "welcome",
     ) { s ->
-      if (s == 0) Intro(onNext = { step = 1 })
-      else Introduce(onBack = { step = 0 }, onDone = onDone)
+      when (s) {
+        0 -> Intro(onNext = { step = 1 })
+        1 ->
+          Introduce(
+            onBack = { step = 0 },
+            onDone = {
+              profile = it
+              if (graph.platform.device.seeker) step = 2 else onDone(it)
+            },
+          )
+        else -> LinkSeeker(onBack = { step = 1 }, onDone = { profile?.let(onDone) })
+      }
     }
   }
 }
@@ -161,6 +182,66 @@ private fun Introduce(onBack: () -> Unit, onDone: (Profile) -> Unit) {
         { onDone(Profile(name.trim(), light)) },
         enabled = name.isNotBlank(),
         trailingIcon = Icons.ArrowRight,
+      )
+    }
+  }
+}
+
+@Composable
+private fun LinkSeeker(onBack: () -> Unit, onDone: () -> Unit) {
+  val c = Theme.colors
+  val graph = LocalGraph.current
+  val scope = rememberCoroutineScope()
+  val status by graph.seeker.status.collectAsState()
+  LaunchedEffect(status) { if (status is SeekerStatus.Verified) onDone() }
+  Column(Modifier.fillMaxSize()) {
+    TopBar(onBack = onBack)
+    Column(
+      Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = Space.gutter)
+    ) {
+      Text("Link your Seeker", style = Theme.type.title1)
+      Spacer(Modifier.height(Space.s))
+      Text(
+        "Locked SKR for this Seeker reaches it once you link. Seed Vault will ask you to approve; nothing is spent or moved.",
+        style = Theme.type.body,
+        color = c.contentSecondary,
+      )
+      Spacer(Modifier.height(Space.x3l))
+      Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        SkrCoin(96.dp, spin = true)
+      }
+      Spacer(Modifier.height(Space.x3l))
+      Column(verticalArrangement = Arrangement.spacedBy(Space.l)) {
+        Point(Icons.Seeker, "Formation checks this Seeker's Genesis Token.")
+        Point(Icons.Users, "Then you can host Formations for the people around you.")
+      }
+      Spacer(Modifier.height(Space.xl))
+      when (val s = status) {
+        is SeekerStatus.NeedsApproval ->
+          Notice(s.message, tone = Tone.Warning, title = "Not linked yet")
+        is SeekerStatus.NoToken ->
+          Notice(
+            "That wallet doesn't hold a Seeker Genesis Token. Choose the one that came with this Seeker.",
+            tone = Tone.Warning,
+            title = "No Seeker Genesis Token",
+          )
+        else -> Unit
+      }
+    }
+    BottomActions {
+      Button(
+        if (status is SeekerStatus.NeedsApproval || status is SeekerStatus.NoToken) "Try again"
+        else "Link my Seeker",
+        { scope.launch { graph.seeker.link() } },
+        style = ButtonStyle.Reward,
+        loading = status == SeekerStatus.Checking,
+        leadingIcon = Icons.Seeker,
+      )
+      Button(
+        "Not now",
+        onDone,
+        style = ButtonStyle.Ghost,
+        enabled = status != SeekerStatus.Checking,
       )
     }
   }

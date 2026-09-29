@@ -37,11 +37,15 @@ class SeekerStateTest {
   private val check = SeekerCheck { Result.success(sgts[it]) }
 
   @Test
-  fun aSeekerVerifiesItselfOnceWithoutAButton() = runTest {
+  fun aSeekerIsLinkedOnceThenRecheckedQuietly() = runTest {
     val store = Store()
     val wallet = Wallet(seedVault)
     val state = SeekerState(store, wallet, isSeeker = true, debug = false, check)
     state.autoVerify()
+    assertEquals(0, wallet.connects, "the wallet only opens when the owner chooses to link")
+    assertEquals(SeekerStatus.NotLinked, state.status.value)
+
+    state.link()
     assertEquals(
       SeekerIdentity("SeekerWallet111", "Sgt111", simulated = false),
       state.identity.value,
@@ -64,10 +68,10 @@ class SeekerStateTest {
   }
 
   @Test
-  fun aDeclinedApprovalAsksOnceThenWaitsForRetry() = runTest {
+  fun aDeclinedApprovalWaitsForTheOwner() = runTest {
     val wallet = Wallet(WalletResult.Failed("declined"))
     val state = SeekerState(Store(), wallet, isSeeker = true, debug = false, check)
-    state.autoVerify()
+    state.link()
     state.autoVerify()
     assertEquals(1, wallet.connects)
     assertIs<SeekerStatus.NeedsApproval>(state.status.value)
@@ -87,7 +91,7 @@ class SeekerStateTest {
         debug = false,
         check,
       )
-    state.autoVerify()
+    state.link()
     assertNull(state.identity.value)
     assertEquals(SeekerStatus.NoToken("Other111"), state.status.value)
   }
@@ -95,7 +99,7 @@ class SeekerStateTest {
   @Test
   fun aTokenThatIsGoneUnlinksTheSeeker() = runTest {
     val store = Store()
-    SeekerState(store, Wallet(seedVault), isSeeker = true, debug = false, check).autoVerify()
+    SeekerState(store, Wallet(seedVault), isSeeker = true, debug = false, check).link()
     sgts.clear()
     val relaunched = SeekerState(store, Wallet(seedVault), isSeeker = true, debug = false, check)
     relaunched.autoVerify()

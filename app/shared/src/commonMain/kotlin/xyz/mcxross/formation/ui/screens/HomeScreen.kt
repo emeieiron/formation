@@ -456,6 +456,14 @@ private fun SeekerStatusRow(status: SeekerStatus, onRetry: () -> Unit) {
         Spacer(Modifier.width(Space.s))
         Text("Checking your Seeker…", style = Theme.type.subheadStrong, color = c.contentSecondary)
       }
+    SeekerStatus.NotLinked ->
+      Notice(
+        "Locked SKR for this Seeker reaches it once you link. Seed Vault asks you to approve; nothing is spent.",
+        modifier,
+        title = "Link your Seeker",
+        action = "Link",
+        onAction = onRetry,
+      )
     is SeekerStatus.NeedsApproval ->
       Notice(
         "Approve Formation in your Seed Vault so this Seeker can host Formations. ${status.message}",
