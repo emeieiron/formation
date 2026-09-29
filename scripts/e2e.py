@@ -113,7 +113,7 @@ class Phone:
 
     def launch(self):
         self.shell(f"am force-stop {APP}")
-        self.shell(f"am start -n {APP}/.MainActivity")
+        self.shell(f"am start -S --activity-clear-task -n {APP}/.MainActivity")
         time.sleep(3)
 
     def foreground(self):
