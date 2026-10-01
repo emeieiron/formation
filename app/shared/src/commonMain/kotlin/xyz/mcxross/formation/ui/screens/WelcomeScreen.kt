@@ -50,7 +50,6 @@ import xyz.mcxross.formation.design.components.ButtonStyle
 import xyz.mcxross.formation.design.components.Notice
 import xyz.mcxross.formation.design.components.Page
 import xyz.mcxross.formation.design.components.PlayerLight
-import xyz.mcxross.formation.design.components.SkrCoin
 import xyz.mcxross.formation.design.components.TextField
 import xyz.mcxross.formation.design.components.TopBar
 import xyz.mcxross.formation.design.effects.FormationMark

@@ -19,7 +19,9 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.PathMeasure
@@ -59,27 +61,40 @@ internal fun AssemblyRoster(
         connection.animateTo(if (linked) 1f else 0f, Motion.emphasized(400, delay = 150))
       }
       Box(Modifier.fillMaxWidth()) {
-        if (pair.size == 2) Canvas(Modifier.fillMaxWidth().height(plateSize + stagger)) {
-          val columnWidth = (size.width - Space.m.toPx()) / 2
-          val from = Offset(columnWidth / 2 + plateSize.toPx() * 0.42f, plateSize.toPx() * 0.5f)
-          val to = Offset(size.width - columnWidth / 2 - plateSize.toPx() * 0.42f, plateSize.toPx() * 0.5f + stagger.toPx())
-          val path = Path().apply {
-            moveTo(from.x, from.y)
-            cubicTo(from.x + 24.dp.toPx(), from.y, to.x - 24.dp.toPx(), to.y, to.x, to.y)
+        if (pair.size == 2) {
+          Canvas(Modifier.fillMaxWidth().height(plateSize + stagger)) {
+            val columnWidth = (size.width - Space.m.toPx()) / 2
+            val leftEdge = if (pair[0] == null) 0.5f else 0.42f
+            val rightEdge = if (pair[1] == null) 0.5f else 0.42f
+            val from = Offset(
+              columnWidth / 2 + plateSize.toPx() * leftEdge,
+              plateSize.toPx() * 0.5f,
+            )
+            val to = Offset(
+              size.width - columnWidth / 2 - plateSize.toPx() * rightEdge,
+              plateSize.toPx() * 0.5f + stagger.toPx(),
+            )
+            val path = Path().apply {
+              moveTo(from.x, from.y)
+              cubicTo(from.x + 24.dp.toPx(), from.y, to.x - 24.dp.toPx(), to.y, to.x, to.y)
+            }
+            drawPath(path, c.lineStrong, style = Stroke(1.dp.toPx()))
+            val measure = PathMeasure().apply { setPath(path, false) }
+            val reveal = Path()
+            measure.getSegment(0f, measure.length * connection.value, reveal, true)
+            drawPath(reveal, c.accent, style = Stroke(3.dp.toPx()))
           }
-          drawPath(path, c.lineStrong, style = Stroke(1.dp.toPx()))
-          val measure = PathMeasure().apply { setPath(path, false) }
-          val reveal = Path()
-          measure.getSegment(0f, measure.length * connection.value, reveal, true)
-          drawPath(reveal, c.accent, style = Stroke(3.dp.toPx()))
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Space.m)) {
           pair.forEachIndexed { index, player ->
             key(player?.id ?: "open-$index") {
               val arrival = remember { Animatable(if (player == null) 1f else 0f) }
               LaunchedEffect(player?.id) { arrival.animateTo(1f, Motion.emphasized()) }
-              val opacity by animateFloatAsState(if (player?.connected == false) 0.45f else 1f,
-                Motion.standard(), label = "connection-state")
+              val opacity by animateFloatAsState(
+                if (player?.connected == false) 0.45f else 1f,
+                Motion.standard(),
+                label = "connection-state",
+              )
               Column(
                 Modifier.weight(1f)
                   .offset(y = if (index == 1) stagger else 0.dp)
@@ -89,35 +104,59 @@ internal fun AssemblyRoster(
                   }
                   .clearAndSetSemantics {
                     contentDescription = player?.let {
-                      listOfNotNull(it.name, if (it.id == me) "You" else null,
+                      listOfNotNull(
+                        it.name,
+                        if (it.id == me) "You" else null,
                         if (it.seeker) "Seeker" else null,
-                        if (!it.connected) "Disconnected" else null).joinToString(", ")
+                        if (!it.connected) "Disconnected" else null,
+                      ).joinToString(", ")
                     } ?: "Open place"
                   },
                 horizontalAlignment = Alignment.CenterHorizontally,
               ) {
-                if (player != null) PlayerLight(
-                  player.name,
-                  if (player.seeker) Light("Seeker", c.content, c.onInverse) else c.light(player.light),
-                  size = plateSize,
-                ) else Canvas(Modifier.size(plateSize)) {
-                  drawRoundRect(c.lineStrong,
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(6.dp.toPx()),
-                    style = Stroke(1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(
-                      floatArrayOf(4.dp.toPx(), 4.dp.toPx()))))
+                if (player != null) {
+                  PlayerLight(
+                    player.name,
+                    if (player.seeker) Light("Seeker", c.content, c.onInverse) else c.light(player.light),
+                    size = plateSize,
+                  )
+                } else {
+                  Canvas(Modifier.size(plateSize)) {
+                    val stroke = 1.dp.toPx()
+                    drawRoundRect(
+                      c.lineStrong,
+                      topLeft = Offset(stroke / 2, stroke / 2),
+                      size = Size(size.width - stroke, size.height - stroke),
+                      cornerRadius = CornerRadius(6.dp.toPx()),
+                      style = Stroke(
+                        stroke,
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 4.dp.toPx())),
+                      ),
+                    )
+                  }
                 }
                 Spacer(Modifier.height(Space.s))
-                Text(player?.name ?: "Open place", Modifier.fillMaxWidth(),
-                  style = Theme.type.subheadStrong, maxLines = 1, textAlign = TextAlign.Center)
-                Text(when {
-                  player == null -> "Waiting to join"
-                  !player.connected -> "Disconnected"
-                  player.seeker && player.id == me -> "Seeker · You"
-                  player.seeker -> "Seeker"
-                  player.id == me -> "You"
-                  else -> "Joined"
-                }, style = Theme.type.caption, color = c.contentSecondary,
-                  maxLines = 1, textAlign = TextAlign.Center)
+                Text(
+                  player?.name ?: "Open place",
+                  Modifier.fillMaxWidth(),
+                  style = Theme.type.subheadStrong,
+                  maxLines = 1,
+                  textAlign = TextAlign.Center,
+                )
+                Text(
+                  when {
+                    player == null -> "Waiting to join"
+                    !player.connected -> "Disconnected"
+                    player.seeker && player.id == me -> "Seeker · You"
+                    player.seeker -> "Seeker"
+                    player.id == me -> "You"
+                    else -> "Joined"
+                  },
+                  style = Theme.type.caption,
+                  color = c.contentSecondary,
+                  maxLines = 1,
+                  textAlign = TextAlign.Center,
+                )
               }
             }
           }

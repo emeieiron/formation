@@ -8,7 +8,7 @@ Apply the approved black, red, and white direction to Formation's app shell. Kee
 
 - Pitch-black background, opaque graphite surfaces, red actions, white reward figures, and independent warning/success colors.
 - Bundled Barlow Condensed headings and figures; retain Inter for readable body text and Space Grotesk for the wordmark.
-- Six-pixel control/card corners, twelve-pixel sheet corners, consistent borders and twelve-pixel action gaps.
+- Six-dp control/card corners, twelve-dp sheet corners, consistent borders and twelve-dp action gaps.
 - Custom controls with restrained press travel, finite transitions, visible selection, and existing accessibility semantics.
 - Import the approved Blender assets with their editable source and attribution.
 - Verify compilation, then commit the foundation separately.
@@ -47,3 +47,18 @@ Apply the approved black, red, and white direction to Formation's app shell. Kee
 ## Flow boundaries
 
 No new navigation destinations, readiness steps, account requirements, wallet requirements, challenge rules, network protocol, ledger behavior, or real financial transactions are introduced by this refresh. All displayed rewards, participants, and statuses come from current app state.
+
+## Implementation and verification results — 1 October 2026
+
+All four implementation phases are committed separately on `codex/apex-red`. A final polish commit addresses issues found during emulator inspection: launcher consistency, long unbroken names, redundant card spacing, and empty-slot border/connection alignment.
+
+- Android debug compilation passes. The existing Android host tests pass: 103 tests across 26 suites, with no failures, errors, or skipped tests.
+- The existing two-device simulated-ledger journey passes on `emulator-5556` and `emulator-5554`: guest onboarding, nearby discovery, joining, readiness, autoplay, sealing, unlocking, and the guest's recorded share.
+- Separate UI checks cover Rewards, ticket state, the claim sheet's four actions, simulated claim completion, profile editing, host setup, QR enlargement, and joining by code. No real reward transaction was submitted.
+- At 320-dp width and 130% system text scale, the Light picker stays aligned, the full 20-character unbroken name fits the Home greeting, join controls adapt, and claim-sheet actions remain accessible while the body scrolls.
+- With the platform animation scale set to zero, guest removal and the end-Formation sheet settle into their final state. With animations enabled, the lobby recording shows the guest arrival and connection activation. Motion is finite and driven by actual state changes.
+- Emulator display and animation settings were restored, the guest's pre-check preferences were restored, and the final build was installed on both emulators.
+
+Coverage limits: participant arrival was exercised with two devices. The roster implementation accommodates additional rows, but three-or-more-participant layouts and retained disconnected-player snapshots have not been exercised on devices. iOS, physical Seeker/Seed Vault integration, external wallets, and real-chain claims remain unverified by this UI pass. Challenge rules and stage implementations remain outside the redesign scope.
+
+The editable Blender source and font license are in `assets/apex`; the app bundles only the two PNG renders and the required font files. Captures and test logs remain outside the app bundle.

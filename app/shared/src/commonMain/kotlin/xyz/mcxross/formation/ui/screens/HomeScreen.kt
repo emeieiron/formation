@@ -4,8 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -30,15 +30,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import xyz.mcxross.formation.design.Theme
-import xyz.mcxross.formation.design.components.LiveryRule
-import xyz.mcxross.formation.design.components.liveryCard
 import xyz.mcxross.formation.design.components.Button
 import xyz.mcxross.formation.design.components.ButtonSize
 import xyz.mcxross.formation.design.components.ButtonStyle
+import xyz.mcxross.formation.design.components.LiveryRule
 import xyz.mcxross.formation.design.components.LocalToaster
 import xyz.mcxross.formation.design.components.NavigationBarSpacer
 import xyz.mcxross.formation.design.components.Notice
@@ -49,6 +50,7 @@ import xyz.mcxross.formation.design.components.SkrAmount
 import xyz.mcxross.formation.design.components.SkrCoin
 import xyz.mcxross.formation.design.components.Spinner
 import xyz.mcxross.formation.design.components.Tag
+import xyz.mcxross.formation.design.components.liveryCard
 import xyz.mcxross.formation.design.effects.FormationMark
 import xyz.mcxross.formation.design.foundation.Icon
 import xyz.mcxross.formation.design.foundation.Panel
@@ -140,7 +142,7 @@ fun HomeScreen() {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = Space.x4l)) {
       item {
         Column(Modifier.padding(start = Space.gutter, end = Space.gutter, top = Space.l)) {
-          Text("Hi, ${profile?.name ?: "there"}".uppercase(), style = Theme.type.hero.copy(fontStyle = FontStyle.Italic), maxLines = 2)
+          Greeting(profile?.name ?: "there")
           Spacer(Modifier.height(Space.xs))
           Text(
             when {
@@ -513,5 +515,22 @@ private fun JoinControls(onScan: () -> Unit, onCode: () -> Unit, modifier: Modif
       Button("Enter code", onCode, Modifier.weight(1f), style = ButtonStyle.Secondary,
         size = ButtonSize.Medium, leadingIcon = Icons.Keypad, fillWidth = true)
     }
+  }
+}
+
+@Composable
+private fun Greeting(name: String) {
+  val hero = Theme.type.hero.copy(fontStyle = FontStyle.Italic)
+  val measurer = rememberTextMeasurer()
+  val edgeAllowance = with(LocalDensity.current) { 8.dp.roundToPx() }
+  BoxWithConstraints(Modifier.fillMaxWidth()) {
+    val nameWidth = measurer.measure(name.uppercase(), style = hero, softWrap = false).size.width
+    val fit = ((constraints.maxWidth - edgeAllowance).toFloat() / nameWidth.coerceAtLeast(1))
+      .coerceIn(0.1f, 1f)
+    Text(
+      "Hi, $name".uppercase(),
+      style = hero.copy(fontSize = hero.fontSize * fit, lineHeight = hero.lineHeight * fit),
+      maxLines = 2,
+    )
   }
 }

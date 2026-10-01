@@ -47,10 +47,8 @@ import xyz.mcxross.formation.design.components.Overline
 import xyz.mcxross.formation.design.components.Page
 import xyz.mcxross.formation.design.components.SheetActions
 import xyz.mcxross.formation.design.components.SkrAmount
-import xyz.mcxross.formation.design.components.SkrCoin
 import xyz.mcxross.formation.design.components.Tag
 import xyz.mcxross.formation.design.components.TopBar
-import xyz.mcxross.formation.design.foundation.Icon
 import xyz.mcxross.formation.design.foundation.Panel
 import xyz.mcxross.formation.design.foundation.Text
 import xyz.mcxross.formation.design.icons.Icons
@@ -158,7 +156,6 @@ private fun TicketCard(ticket: ClaimTicket, onClaim: () -> Unit) {
             modifier = Modifier.weight(1f),
           )
         }
-        Spacer(Modifier.height(Space.m))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
           Column(Modifier.weight(1f)) {
             SkrAmount(
