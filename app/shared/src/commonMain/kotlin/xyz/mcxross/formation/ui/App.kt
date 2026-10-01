@@ -13,6 +13,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import xyz.mcxross.formation.design.FormationTheme
 import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.components.BackHandler
@@ -50,14 +52,15 @@ fun FormationApp(graph: AppGraph) {
 @Composable
 private fun Main(graph: AppGraph) {
   val nav = graph.navigator
+  val travel = with(LocalDensity.current) { 12.dp.roundToPx() }
   BackHandler(enabled = nav.canGoBack) { nav.pop() }
   AnimatedContent(
     targetState = nav.current,
     transitionSpec = {
       val direction = if (nav.forward) 1 else -1
       (fadeIn(Motion.standard()) +
-        slideInHorizontally(Motion.emphasized()) { direction * it / 10 }) togetherWith
-        (fadeOut(Motion.exit()) + slideOutHorizontally(Motion.exit()) { -direction * it / 16 })
+        slideInHorizontally(Motion.standard()) { direction * travel }) togetherWith
+        (fadeOut(Motion.exit()) + slideOutHorizontally(Motion.exit()) { -direction * travel })
     },
     contentKey = { it.key },
     label = "screen",

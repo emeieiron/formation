@@ -41,6 +41,7 @@ import xyz.mcxross.formation.design.components.Spinner
 import xyz.mcxross.formation.design.foundation.Icon
 import xyz.mcxross.formation.design.foundation.Text
 import xyz.mcxross.formation.design.icons.Icons
+import xyz.mcxross.formation.design.tokens.Motion
 import xyz.mcxross.formation.design.tokens.Shapes
 import xyz.mcxross.formation.design.tokens.Space
 import xyz.mcxross.formation.model.PlayerId
@@ -150,7 +151,7 @@ private fun Phases(
 ) {
   AnimatedContent(
     targetState = snapshot.stage::class.simpleName + snapshot.round,
-    transitionSpec = { fadeIn() togetherWith fadeOut() },
+    transitionSpec = { (fadeIn(Motion.standard()) + slideInVertically(Motion.standard()) { it / 32 }) togetherWith fadeOut(Motion.exit()) },
     label = "phase",
   ) { _ ->
     when (val stage = snapshot.stage) {

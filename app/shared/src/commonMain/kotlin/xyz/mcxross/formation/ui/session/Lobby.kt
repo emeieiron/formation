@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.components.BottomActions
+import xyz.mcxross.formation.design.components.LiveryRule
 import xyz.mcxross.formation.design.components.Button
 import xyz.mcxross.formation.design.components.ButtonSize
 import xyz.mcxross.formation.design.components.ButtonStyle
@@ -47,14 +48,11 @@ import xyz.mcxross.formation.design.components.SheetHeader
 import xyz.mcxross.formation.design.components.SkrAmount
 import xyz.mcxross.formation.design.components.TextField
 import xyz.mcxross.formation.design.components.TopBar
-import xyz.mcxross.formation.design.effects.FormationRing
-import xyz.mcxross.formation.design.effects.RingMember
 import xyz.mcxross.formation.design.foundation.Icon
 import xyz.mcxross.formation.design.foundation.Panel
 import xyz.mcxross.formation.design.foundation.Text
 import xyz.mcxross.formation.design.foundation.pressable
 import xyz.mcxross.formation.design.icons.Icons
-import xyz.mcxross.formation.design.tokens.Colors
 import xyz.mcxross.formation.design.tokens.Shapes
 import xyz.mcxross.formation.design.tokens.Space
 import xyz.mcxross.formation.design.tokens.Tone
@@ -65,6 +63,7 @@ import xyz.mcxross.formation.state.ActiveSession
 import xyz.mcxross.formation.state.ChallengeCatalog
 import xyz.mcxross.formation.state.Profile
 import xyz.mcxross.formation.ui.LocalGraph
+import xyz.mcxross.formation.ui.components.AssemblyRoster
 import xyz.mcxross.formation.ui.components.ChallengeGlyph
 import xyz.mcxross.formation.ui.components.MwaWallets
 import xyz.mcxross.formation.ui.components.challengeInfo
@@ -128,24 +127,14 @@ internal fun Lobby(
           }
         }
       }
-      Spacer(Modifier.height(Space.l))
-      FormationRing(
-        members = members(snapshot, me, c),
-        modifier = Modifier.fillMaxWidth().aspectRatio(1f).padding(horizontal = Space.l),
-        lightSize = if (o.players > 8) 40.dp else 52.dp,
-      ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-          Text(
-            "${snapshot.players.size}/${o.players}",
-            style = Theme.type.numeralLarge,
-            color = c.content,
-          )
-          Text(
-            if (missing > 0) "joined" else "ready to go",
-            style = Theme.type.footnote,
-            color = c.contentSecondary,
-          )
-        }
+      Spacer(Modifier.height(Space.xl))
+      LiveryRule(Modifier.padding(horizontal = Space.gutter))
+      Column(Modifier.padding(horizontal = Space.gutter, vertical = Space.xl)) {
+        Text(if (missing > 0) "ASSEMBLING THE GROUP" else "GROUP ASSEMBLED", style = Theme.type.title1)
+        Spacer(Modifier.height(Space.xs))
+        Text("${snapshot.players.size} of ${o.players} joined", style = Theme.type.footnote, color = c.contentSecondary)
+        Spacer(Modifier.height(Space.xl))
+        AssemblyRoster(snapshot.players, o.players, me, Modifier.fillMaxWidth())
       }
       snapshot.player(me)?.let { mine -> YouRow(mine, onEdit = { editing = true }) }
       Spacer(Modifier.height(Space.l))
@@ -187,22 +176,6 @@ internal fun Lobby(
     }
   }
 }
-
-internal fun members(snapshot: SessionSnapshot, me: PlayerId?, colors: Colors): List<RingMember?> {
-  val filled = snapshot.players.map { it.toRing(me, colors) }
-  return filled +
-    List((snapshot.formation.opportunity.players - filled.size).coerceAtLeast(0)) { null }
-}
-
-internal fun Player.toRing(me: PlayerId?, colors: Colors) =
-  RingMember(
-    name,
-    colors.light(light),
-    seeker = seeker,
-    connected = connected,
-    ready = ready,
-    me = id == me,
-  )
 
 @Composable
 private fun JoinPanel(session: ActiveSession, snapshot: SessionSnapshot) {
@@ -362,14 +335,14 @@ private fun YouRow(mine: Player, onEdit: () -> Unit) {
     verticalAlignment = Alignment.CenterVertically,
   ) {
     Row(
-      Modifier.clip(Shapes.control)
+      Modifier.fillMaxWidth().heightIn(min = 44.dp).clip(Shapes.control)
         .pressable(onEdit, shape = Shapes.control)
         .padding(horizontal = Space.m, vertical = Space.s),
       verticalAlignment = Alignment.CenterVertically,
     ) {
       PlayerLight(mine.name, c.light(mine.light), size = 24.dp)
       Spacer(Modifier.width(Space.s))
-      Text("You're ${mine.name}", style = Theme.type.subheadStrong, color = c.content)
+      Text("You're ${mine.name}", Modifier.weight(1f), style = Theme.type.subheadStrong, color = c.content, maxLines = 1)
       Spacer(Modifier.width(Space.s))
       Text("Edit", style = Theme.type.subheadStrong, color = c.accent)
     }
@@ -384,7 +357,7 @@ private fun ProfileSheet(onDismiss: () -> Unit) {
   var light by remember { mutableStateOf(current.light) }
   ModalSheet(onDismiss) {
     SheetHeader("How the group sees you", subtitle = "Changes show on every phone in the lobby.")
-    Column(Modifier.padding(horizontal = Space.xxl)) {
+    Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(horizontal = Space.xxl)) {
       TextField(name, { name = it }, label = "Your name", maxLength = 20)
       Spacer(Modifier.height(Space.l))
       LightPicker(light, onPick = { light = it })
@@ -443,7 +416,9 @@ private fun GuestPanel(snapshot: SessionSnapshot, me: PlayerId) {
           color = c.contentSecondary,
           modifier = Modifier.weight(1f),
         )
-        Spacer(Modifier.width(Space.s))
+      }
+      Spacer(Modifier.height(Space.m))
+      Row {
         when {
           installed ->
             Button(

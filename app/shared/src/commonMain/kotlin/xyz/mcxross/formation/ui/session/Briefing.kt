@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import xyz.mcxross.formation.challenge.rememberHostNow
 import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.components.BottomActions
+import xyz.mcxross.formation.design.components.LiveryRule
 import xyz.mcxross.formation.design.components.Button
 import xyz.mcxross.formation.design.components.ButtonStyle
 import xyz.mcxross.formation.design.components.Overline
@@ -62,9 +63,11 @@ internal fun Briefing(
     Column(
       Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = Space.gutter)
     ) {
+      LiveryRule()
+      Spacer(Modifier.height(Space.xl))
       ChallengeGlyph(info, size = 48.dp)
       Spacer(Modifier.height(Space.l))
-      Text(info?.title ?: o.challenge.value, style = Theme.type.title1)
+      Text((info?.title ?: o.challenge.value).uppercase(), style = Theme.type.title1)
       Text(info?.tagline ?: "", style = Theme.type.body, color = c.contentSecondary)
       Spacer(Modifier.height(Space.xl))
       Overline("The goal")

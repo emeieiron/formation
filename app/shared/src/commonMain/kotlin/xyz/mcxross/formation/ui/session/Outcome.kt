@@ -6,7 +6,9 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.animation.core.Animatable
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,13 +29,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.components.BottomActions
+import xyz.mcxross.formation.design.components.RewardPass
+import xyz.mcxross.formation.design.components.LiveryRule
 import xyz.mcxross.formation.design.components.Button
 import xyz.mcxross.formation.design.components.ButtonStyle
 import xyz.mcxross.formation.design.components.Notice
@@ -42,9 +44,6 @@ import xyz.mcxross.formation.design.components.RollingNumber
 import xyz.mcxross.formation.design.components.SkrCoin
 import xyz.mcxross.formation.design.components.Spinner
 import xyz.mcxross.formation.design.components.Stat
-import xyz.mcxross.formation.design.effects.FormationRing
-import xyz.mcxross.formation.design.effects.ParticleLayer
-import xyz.mcxross.formation.design.effects.rememberParticles
 import xyz.mcxross.formation.design.foundation.Icon
 import xyz.mcxross.formation.design.foundation.Text
 import xyz.mcxross.formation.design.icons.Icons
@@ -58,6 +57,7 @@ import xyz.mcxross.formation.session.Stage
 import xyz.mcxross.formation.session.Unlock
 import xyz.mcxross.formation.state.ActiveSession
 import xyz.mcxross.formation.ui.LocalGraph
+import xyz.mcxross.formation.ui.components.AssemblyRoster
 import xyz.mcxross.formation.ui.components.MwaWallets
 import xyz.mcxross.formation.ui.components.RewardSplitView
 import xyz.mcxross.formation.ui.components.rememberWalletInstalled
@@ -75,31 +75,20 @@ internal fun Won(
   val c = Theme.colors
   val graph = LocalGraph.current
   val scope = rememberCoroutineScope()
-  val particles = rememberParticles()
+  val receipt = remember { Animatable(0f) }
   val seal = stage.seal
   val share = seal.roster.firstOrNull { it.player == me }
   val mine = if (share != null) share.amount else seal.ownerAmount
   val walletReady = rememberWalletInstalled(graph.platform)
   val suggested = MwaWallets.first()
   var unlocking by remember { mutableStateOf(false) }
-  BoxWithConstraints(Modifier.fillMaxSize()) {
-    val density = LocalDensity.current
-    val width = with(density) { maxWidth.toPx() }
-    val height = with(density) { maxHeight.toPx() }
+  Box(Modifier.fillMaxSize()) {
     LaunchedEffect(Unit) {
       graph.platform.haptics.heavy()
-      particles.confetti(width, c.lights.map { it.color } + c.reward)
+      receipt.animateTo(1f, xyz.mcxross.formation.design.tokens.Motion.emphasized())
     }
     LaunchedEffect(stage.unlock is Unlock.Unlocked) {
-      if (stage.unlock is Unlock.Unlocked) {
-        graph.platform.haptics.heavy()
-        particles.burst(
-          Offset(width / 2, height * 0.3f),
-          listOf(c.reward, c.rewardDeep, androidx.compose.ui.graphics.Color.White),
-          count = 60,
-          speed = 1_300f,
-        )
-      }
+      if (stage.unlock is Unlock.Unlocked) graph.platform.haptics.heavy()
     }
     Column(Modifier.fillMaxSize()) {
       Column(
@@ -109,17 +98,16 @@ internal fun Won(
         horizontalAlignment = Alignment.CenterHorizontally,
       ) {
         Spacer(Modifier.height(Space.xl))
-        FormationRing(
-          members = snapshot.players.map { it.toRing(me, c) },
-          modifier = Modifier.size(250.dp),
-          complete = true,
-          lightSize = 40.dp,
-          showNames = false,
-        ) {
-          SkrCoin(64.dp, spin = true)
-        }
+        LiveryRule()
+        Spacer(Modifier.height(Space.xl))
+        RewardPass(Modifier.size(width = 168.dp, height = 105.dp).graphicsLayer {
+          alpha = receipt.value
+          translationY = (1 - receipt.value) * 16.dp.toPx()
+        })
+        Spacer(Modifier.height(Space.xl))
+        AssemblyRoster(snapshot.players, snapshot.players.size, me, Modifier.fillMaxWidth(), compact = true)
         Spacer(Modifier.height(Space.l))
-        Text("Formation complete", style = Theme.type.hero, textAlign = TextAlign.Center)
+        Text("FORMATION COMPLETE", style = Theme.type.hero, textAlign = TextAlign.Center)
         Spacer(Modifier.height(Space.xs))
         Text(
           stage.result.headline,
@@ -285,7 +273,6 @@ internal fun Won(
         }
       }
     }
-    ParticleLayer(particles, Modifier.fillMaxSize())
   }
 }
 
@@ -316,21 +303,16 @@ internal fun Lost(
   val culprit = stage.result.culprit?.let { snapshot.player(it) }
   Column(Modifier.fillMaxSize()) {
     Column(
-      Modifier.weight(1f).padding(horizontal = Space.gutter),
+      Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = Space.gutter),
       horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-      Spacer(Modifier.weight(1f))
-      FormationRing(
-        members = snapshot.players.map { it.toRing(me, c) },
-        modifier = Modifier.size(220.dp),
-        lightSize = 36.dp,
-        showNames = false,
-      ) {
-        Icon(Icons.Alert, null, tint = c.negative, size = 40.dp)
-      }
+      Spacer(Modifier.height(Space.x4l))
+      Icon(Icons.Alert, null, tint = c.negative, size = 40.dp)
+      Spacer(Modifier.height(Space.xl))
+      AssemblyRoster(snapshot.players, snapshot.players.size, me, Modifier.fillMaxWidth(), compact = true)
       Spacer(Modifier.height(Space.xl))
       Text(
-        "The Formation broke",
+        "THE FORMATION BROKE",
         style = Theme.type.display,
         color = c.content,
         textAlign = TextAlign.Center,
@@ -351,7 +333,7 @@ internal fun Lost(
         style = Theme.type.footnote,
         color = c.contentTertiary,
       )
-      Spacer(Modifier.weight(1.2f))
+      Spacer(Modifier.height(Space.xxl))
     }
     BottomActions {
       if (session.isHost) {
