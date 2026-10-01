@@ -39,7 +39,6 @@ import xyz.mcxross.formation.design.components.SkrAmount
 import xyz.mcxross.formation.design.components.SkrCoin
 import xyz.mcxross.formation.design.components.Tag
 import xyz.mcxross.formation.design.components.TopBar
-import xyz.mcxross.formation.design.effects.AuroraBackdrop
 import xyz.mcxross.formation.design.foundation.Icon
 import xyz.mcxross.formation.design.foundation.Panel
 import xyz.mcxross.formation.design.foundation.Text
@@ -66,7 +65,6 @@ fun RewardsScreen() {
   val waiting = tickets.filter { !it.claimed && it.unlocked && !it.lapsed }
   LaunchedEffect(Unit) { graph.ledger.sync() }
   Page(
-    background = { AuroraBackdrop(intensity = 0.4f, colors = listOf(c.reward, c.rewardDeep, c.reward)) },
     topBar = {
       TopBar(title = "Rewards", onBack = { graph.navigator.pop() })
     },
@@ -76,15 +74,14 @@ fun RewardsScreen() {
       contentPadding = PaddingValues(horizontal = Space.gutter, vertical = Space.m),
     ) {
       item {
-        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-          SkrCoin(72.dp, spin = true)
-          Spacer(Modifier.height(Space.l))
+        Column(Modifier.fillMaxWidth()) {
+          Text("Ready to claim", style = Theme.type.subheadStrong, color = c.contentSecondary)
+          Spacer(Modifier.height(Space.s))
           SkrAmount(
             Skr(waiting.sumOf { it.amount.units }).format(2),
             style = Theme.type.numeralLarge,
             coin = false,
           )
-          Text("ready to claim", style = Theme.type.subhead, color = c.contentSecondary)
           Spacer(Modifier.height(Space.l))
           if (graph.ledger.mode == LedgerMode.SIMULATED) {
             Notice(
@@ -118,42 +115,50 @@ fun RewardsScreen() {
 private fun TicketCard(ticket: ClaimTicket, onClaim: () -> Unit) {
   val c = Theme.colors
   val info = challengeInfo(ticket.challenge)
-  Panel(Modifier.fillMaxWidth(), glow = if (ticket.claimed || ticket.lapsed) null else c.reward) {
-    Row(Modifier.padding(Space.l), verticalAlignment = Alignment.CenterVertically) {
-      ChallengeGlyph(info)
-      Spacer(Modifier.width(Space.m))
-      Column(Modifier.weight(1f)) {
+  Panel(Modifier.fillMaxWidth()) {
+    Column(Modifier.padding(Space.l)) {
+      Row(verticalAlignment = Alignment.CenterVertically) {
+        ChallengeGlyph(info, size = 32.dp)
+        Spacer(Modifier.width(Space.m))
         Text(
           if (ticket.index < 0) "${info?.title ?: "Formation"} you hosted"
           else "${info?.title ?: "Formation"} with ${ticket.host}",
           style = Theme.type.headline,
-          maxLines = 1,
+          modifier = Modifier.weight(1f),
         )
-        SkrAmount(
-          ticket.amount.format(2),
-          color = if (ticket.claimed) c.contentSecondary else c.reward,
-          unitColor = c.contentSecondary,
-        )
-        if (ticket.claimed) {
-          Spacer(Modifier.height(Space.xxs))
-          Text(
-            "In ${shortAddress(ticket.claimedTo!!)}",
-            style = Theme.type.caption,
-            color = c.contentTertiary,
+      }
+      Spacer(Modifier.height(Space.m))
+      Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+          SkrAmount(
+            ticket.amount.format(2),
+            color = if (ticket.claimed) c.contentSecondary else c.reward,
+            unitColor = c.contentSecondary,
           )
+          if (ticket.claimed) {
+            Spacer(Modifier.height(Space.xxs))
+            Text(
+              "In ${shortAddress(ticket.claimedTo!!)}",
+              style = Theme.type.caption,
+              color = c.contentSecondary,
+            )
+          }
+        }
+        Spacer(Modifier.width(Space.m))
+        when {
+          ticket.claimed -> Tag("Claimed", tone = Tone.Positive, icon = Icons.Check)
+          ticket.lapsed -> Tag("Expired")
+          !ticket.unlocked -> Tag("Awaiting unlock", icon = Icons.Clock)
+          else ->
+            Button(
+              "Claim",
+              onClaim,
+              style = ButtonStyle.Reward,
+              size = ButtonSize.Small,
+              fillWidth = false,
+            )
         }
       }
-      if (ticket.claimed) Tag("Claimed", tone = Tone.Positive, icon = Icons.Check)
-      else if (ticket.lapsed) Tag("Expired")
-      else if (!ticket.unlocked) Tag("Awaiting unlock", icon = Icons.Clock)
-      else
-        Button(
-          "Claim",
-          onClaim,
-          style = ButtonStyle.Reward,
-          size = ButtonSize.Small,
-          fillWidth = false,
-        )
     }
   }
 }
@@ -222,7 +227,7 @@ private fun ClaimSheet(ticket: ClaimTicket, onDismiss: () -> Unit) {
       Text(
         when {
           done == onPhone -> "It's held by this phone's claim key, ${shortAddress(onPhone)}."
-          done != null -> "It's in ${shortAddress(done!!)}. Welcome to Solana."
+          done != null -> "It's in ${shortAddress(done!!)}."
           needsWallet ->
             "This phone has no Solana wallet yet. Get ${MwaWallets.joinToString(" or ") { it.name }}, then come back: your reward waits for you."
           target != null && ticket.wallet != null ->

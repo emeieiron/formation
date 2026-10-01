@@ -29,7 +29,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import xyz.mcxross.formation.design.Theme
@@ -46,11 +45,7 @@ import xyz.mcxross.formation.design.components.SkrAmount
 import xyz.mcxross.formation.design.components.SkrCoin
 import xyz.mcxross.formation.design.components.Spinner
 import xyz.mcxross.formation.design.components.Tag
-import xyz.mcxross.formation.design.effects.AuroraBackdrop
 import xyz.mcxross.formation.design.effects.FormationMark
-import xyz.mcxross.formation.design.effects.Radar
-import xyz.mcxross.formation.design.effects.Starfield
-import xyz.mcxross.formation.design.effects.shimmer
 import xyz.mcxross.formation.design.foundation.Icon
 import xyz.mcxross.formation.design.foundation.Panel
 import xyz.mcxross.formation.design.foundation.Text
@@ -61,7 +56,6 @@ import xyz.mcxross.formation.design.tokens.Space
 import xyz.mcxross.formation.design.tokens.Tone
 import xyz.mcxross.formation.model.Opportunity
 import xyz.mcxross.formation.model.Skr
-import xyz.mcxross.formation.model.Tier
 import xyz.mcxross.formation.session.NearbyFormation
 import xyz.mcxross.formation.state.Links
 import xyz.mcxross.formation.state.SeekerStatus
@@ -114,12 +108,7 @@ fun HomeScreen() {
     graph.navigator.push(Screen.Session)
   }
 
-  Page(
-    background = {
-      Starfield(brightness = 0.8f)
-      AuroraBackdrop(intensity = 0.5f)
-    }
-  ) {
+  Page {
     Row(
       Modifier.fillMaxWidth().padding(start = Space.gutter, end = Space.s, top = Space.s),
       verticalAlignment = Alignment.CenterVertically,
@@ -129,7 +118,11 @@ fun HomeScreen() {
       Text("Formation", style = Theme.type.title3, modifier = Modifier.weight(1f))
       profile?.let { p ->
         Box(
-          Modifier.pressable({ graph.navigator.push(Screen.Settings) }, shape = Shapes.circle)
+          Modifier.pressable(
+              { graph.navigator.push(Screen.Settings) },
+              shape = Shapes.circle,
+              onClickLabel = "Your profile",
+            )
             .padding(6.dp)
         ) {
           PlayerLight(p.name, c.light(p.light), size = 36.dp, seeker = seeker != null)
@@ -146,7 +139,7 @@ fun HomeScreen() {
             when {
               seeker != null && opportunities.isNotEmpty() ->
                 "${opportunities.size} locked ${if (opportunities.size == 1) "reward is" else "rewards are"} waiting on your Seeker."
-              seeker != null -> "No locked rewards right now. New ones arrive often."
+              seeker != null -> "No locked rewards right now."
               else -> "Join a Formation nearby and help unlock its reward."
             },
             style = Theme.type.body,
@@ -284,38 +277,41 @@ fun HomeScreen() {
 private fun OpportunityCard(o: Opportunity, onOpen: () -> Unit) {
   val c = Theme.colors
   val info = challengeInfo(o.challenge)
-  val legendary = o.tier == Tier.LEGENDARY
   val split = o.split()
   val now = xyz.mcxross.formation.state.now()
   Panel(
-    Modifier.width(284.dp)
-      .pressable(onOpen, shape = Shapes.card, squeeze = true)
-      .then(if (legendary) Modifier.shimmer(c.reward) else Modifier),
-    glow = c.reward,
-    border = if (legendary) c.reward.copy(alpha = 0.6f) else c.line,
+    Modifier.width(284.dp).pressable(onOpen, shape = Shapes.card, squeeze = true),
   ) {
     Column(Modifier.padding(Space.l)) {
       Row(verticalAlignment = Alignment.CenterVertically) {
         ChallengeGlyph(info, size = 36.dp)
         Spacer(Modifier.width(Space.m))
-        Column(Modifier.weight(1f)) {
-          Text(info?.title ?: o.challenge.value, style = Theme.type.headline, maxLines = 1)
-          Text(
-            o.title ?: o.sponsor,
-            style = Theme.type.footnote,
-            color = c.contentSecondary,
-            maxLines = 1,
-          )
-        }
-        TierTag(o.tier)
+        Text(
+          info?.title ?: o.challenge.value,
+          style = Theme.type.headline,
+          modifier = Modifier.weight(1f),
+          maxLines = 2,
+        )
       }
-      Spacer(Modifier.height(Space.xl))
+      Spacer(Modifier.height(Space.m))
+      Row(verticalAlignment = Alignment.CenterVertically) {
+        TierTag(o.tier)
+        Spacer(Modifier.width(Space.s))
+        Text(
+          o.title ?: o.sponsor,
+          style = Theme.type.footnote,
+          color = c.contentSecondary,
+          modifier = Modifier.weight(1f),
+          maxLines = 1,
+        )
+      }
+      Spacer(Modifier.height(Space.l))
       Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(Icons.Lock, "Locked", tint = c.reward, size = 22.dp)
         Spacer(Modifier.width(Space.s))
         SkrAmount(
           o.reward.format(0),
-          style = Theme.type.numeralLarge,
+          style = Theme.type.numeral,
           color = c.content,
           coin = false,
         )
@@ -335,11 +331,20 @@ private fun OpportunityCard(o: Opportunity, onOpen: () -> Unit) {
       Spacer(Modifier.height(Space.l))
       Box(Modifier.fillMaxWidth().height(1.dp).background(c.line))
       Spacer(Modifier.height(Space.m))
-      Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("You ", style = Theme.type.footnote, color = c.contentSecondary)
-        Text(split.owner.format(0), style = Theme.type.subheadStrong, color = c.reward)
-        Text("  ·  each helper ", style = Theme.type.footnote, color = c.contentSecondary)
-        Text(split.helper.format(0), style = Theme.type.subheadStrong, color = c.content)
+      Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Space.m)) {
+        Column(Modifier.weight(1f)) {
+          Text("Your share", style = Theme.type.caption, color = c.contentSecondary)
+          SkrAmount(
+            split.owner.format(0),
+            style = Theme.type.subheadStrong,
+            color = c.reward,
+            coin = false,
+          )
+        }
+        Column(Modifier.weight(1f)) {
+          Text("Each helper", style = Theme.type.caption, color = c.contentSecondary)
+          SkrAmount(split.helper.format(0), style = Theme.type.subheadStrong, coin = false)
+        }
       }
     }
   }
@@ -351,26 +356,14 @@ private fun NearbyCard(formation: NearbyFormation, onJoin: () -> Unit) {
   val b = formation.beacon
   val info = challengeInfo(b.challenge)
   val color = info?.let { c.light(it.light).color } ?: c.accent
-  Panel(Modifier.fillMaxWidth().padding(horizontal = Space.gutter, vertical = 6.dp), glow = color) {
+  Panel(Modifier.fillMaxWidth().padding(horizontal = Space.gutter, vertical = 6.dp)) {
     Column(Modifier.padding(Space.l)) {
       Row(verticalAlignment = Alignment.CenterVertically) {
         ChallengeGlyph(info, size = 44.dp)
         Spacer(Modifier.width(Space.m))
         Column(Modifier.weight(1f)) {
-          Text("${possessive(b.host)} Formation", style = Theme.type.headline, maxLines = 1)
-          Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-              "${info?.title ?: b.challenge.value} · ",
-              style = Theme.type.footnote,
-              color = c.contentSecondary,
-            )
-            SkrAmount(
-              b.reward.format(0),
-              style = Theme.type.footnote,
-              color = c.reward,
-              unitColor = c.reward,
-            )
-          }
+          Text("${possessive(b.host)} Formation", style = Theme.type.headline, maxLines = 2)
+          Text(info?.title ?: b.challenge.value, style = Theme.type.footnote, color = c.contentSecondary)
         }
         if (b.open)
           Button(
@@ -390,15 +383,23 @@ private fun NearbyCard(formation: NearbyFormation, onJoin: () -> Unit) {
           "${b.joined} of ${b.players} joined",
           style = Theme.type.footnote,
           color = c.contentSecondary,
-          modifier = Modifier.weight(1f),
         )
-        Text("You'd earn ", style = Theme.type.footnote, color = c.contentSecondary)
-        SkrAmount(
-          b.helperShare.format(0),
-          style = Theme.type.footnote,
-          color = c.content,
-          coin = false,
-        )
+      }
+      Spacer(Modifier.height(Space.m))
+      Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Space.m)) {
+        Column(Modifier.weight(1f)) {
+          Text("Locked reward", style = Theme.type.caption, color = c.contentSecondary)
+          SkrAmount(
+            b.reward.format(0),
+            style = Theme.type.subheadStrong,
+            color = c.reward,
+            coin = false,
+          )
+        }
+        Column(Modifier.weight(1f)) {
+          Text("Your share if unlocked", style = Theme.type.caption, color = c.contentSecondary)
+          SkrAmount(b.helperShare.format(0), style = Theme.type.subheadStrong, coin = false)
+        }
       }
     }
   }
@@ -409,17 +410,21 @@ private fun Scanning(onScan: () -> Unit, onCode: () -> Unit) {
   val c = Theme.colors
   Column(
     Modifier.fillMaxWidth().padding(horizontal = Space.gutter),
-    horizontalAlignment = Alignment.CenterHorizontally,
   ) {
-    Radar(Modifier.size(170.dp), color = c.accent)
-    Spacer(Modifier.height(Space.l))
-    Text("Looking for Formations nearby", style = Theme.type.title3, textAlign = TextAlign.Center)
-    Spacer(Modifier.height(Space.xs))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+      Spinner(16.dp, color = c.contentSecondary)
+      Spacer(Modifier.width(Space.s))
+      Text(
+        "Looking for Formations nearby",
+        style = Theme.type.subheadStrong,
+        modifier = Modifier.weight(1f),
+      )
+    }
+    Spacer(Modifier.height(Space.s))
     Text(
       "Formations are started on a Seeker. When one is on your Wi-Fi, it appears here. You can also scan its code.",
       style = Theme.type.subhead,
       color = c.contentSecondary,
-      textAlign = TextAlign.Center,
     )
     Spacer(Modifier.height(Space.xl))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Space.m)) {
@@ -494,12 +499,12 @@ private fun RewardsBanner(total: Skr, count: Int, onOpen: () -> Unit) {
       .padding(horizontal = Space.gutter, vertical = Space.l)
       .clip(Shapes.control)
       .pressable(onOpen, shape = Shapes.control)
-      .background(c.reward.copy(alpha = 0.12f))
-      .border(1.dp, c.reward.copy(alpha = 0.35f), Shapes.control)
+      .background(c.surface)
+      .border(1.dp, c.line, Shapes.control)
       .padding(Space.l),
     verticalAlignment = Alignment.CenterVertically,
   ) {
-    SkrCoin(30.dp, spin = true)
+    SkrCoin(24.dp)
     Spacer(Modifier.width(Space.m))
     Column(Modifier.weight(1f)) {
       SkrAmount(total.format(2), color = c.reward, coin = false)

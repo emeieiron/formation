@@ -81,7 +81,6 @@ fun SettingsScreen() {
           name.ifBlank { "?" },
           c.light(light),
           size = Sizes.lightXl,
-          pulse = true,
           seeker = seeker != null,
         )
       }
