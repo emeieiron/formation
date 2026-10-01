@@ -56,8 +56,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -210,7 +208,7 @@ private fun SheetPanel(entry: SheetEntry, modifier: Modifier) {
         .padding(bottom = Space.l)
     ) {
       Grabber()
-      CompositionLocalProvider(LocalRaised provides true) { Column(Modifier.verticalScroll(rememberScrollState())) { entry.content(this) } }
+      CompositionLocalProvider(LocalRaised provides true) { entry.content(this) }
     }
   }
 }

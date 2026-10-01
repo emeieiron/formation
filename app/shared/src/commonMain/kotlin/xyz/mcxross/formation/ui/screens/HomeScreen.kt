@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -30,8 +31,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontStyle
 import kotlinx.coroutines.launch
 import xyz.mcxross.formation.design.Theme
+import xyz.mcxross.formation.design.components.LiveryRule
+import xyz.mcxross.formation.design.components.liveryCard
 import xyz.mcxross.formation.design.components.Button
 import xyz.mcxross.formation.design.components.ButtonSize
 import xyz.mcxross.formation.design.components.ButtonStyle
@@ -51,6 +55,7 @@ import xyz.mcxross.formation.design.foundation.Panel
 import xyz.mcxross.formation.design.foundation.Text
 import xyz.mcxross.formation.design.foundation.pressable
 import xyz.mcxross.formation.design.icons.Icons
+import xyz.mcxross.formation.design.tokens.Light
 import xyz.mcxross.formation.design.tokens.Shapes
 import xyz.mcxross.formation.design.tokens.Space
 import xyz.mcxross.formation.design.tokens.Tone
@@ -120,7 +125,7 @@ fun HomeScreen() {
         Box(
           Modifier.pressable(
               { graph.navigator.push(Screen.Settings) },
-              shape = Shapes.circle,
+              shape = Shapes.control,
               onClickLabel = "Your profile",
             )
             .padding(6.dp)
@@ -130,10 +135,12 @@ fun HomeScreen() {
       }
     }
 
+    Spacer(Modifier.height(Space.l))
+    LiveryRule(Modifier.padding(horizontal = Space.gutter))
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = Space.x4l)) {
       item {
         Column(Modifier.padding(start = Space.gutter, end = Space.gutter, top = Space.l)) {
-          Text("Hi, ${profile?.name ?: "there"}", style = Theme.type.display)
+          Text("Hi, ${profile?.name ?: "there"}".uppercase(), style = Theme.type.hero.copy(fontStyle = FontStyle.Italic), maxLines = 2)
           Spacer(Modifier.height(Space.xs))
           Text(
             when {
@@ -211,29 +218,23 @@ fun HomeScreen() {
           NearbyCard(formation, onJoin = { join(formation) })
         }
         item {
-          Row(
-            Modifier.fillMaxWidth().padding(horizontal = Space.gutter, vertical = Space.m),
-            horizontalArrangement = Arrangement.spacedBy(Space.m),
-          ) {
-            Button(
-              "Scan QR",
-              { scan() },
-              Modifier.weight(1f),
-              style = ButtonStyle.Secondary,
-              size = ButtonSize.Medium,
-              leadingIcon = Icons.Scan,
-              fillWidth = true,
-            )
-            Button(
-              "Enter code",
-              { enteringCode = true },
-              Modifier.weight(1f),
-              style = ButtonStyle.Secondary,
-              size = ButtonSize.Medium,
-              leadingIcon = Icons.Keypad,
-              fillWidth = true,
-            )
-          }
+          JoinControls(
+            onScan = { scan() },
+            onCode = { enteringCode = true },
+            modifier = Modifier.padding(horizontal = Space.gutter, vertical = Space.m),
+          )
+        }
+      }
+      item {
+        Spacer(Modifier.height(Space.xl))
+        Row(
+          Modifier.fillMaxWidth().padding(horizontal = Space.gutter)
+            .pressable({ graph.navigator.push(Screen.Rewards) }, shape = Shapes.control)
+            .padding(vertical = Space.l),
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          Text("Your rewards", Modifier.weight(1f), style = Theme.type.bodyStrong)
+          Icon(Icons.ArrowUpRight, null)
         }
       }
       item { NavigationBarSpacer() }
@@ -280,7 +281,7 @@ private fun OpportunityCard(o: Opportunity, onOpen: () -> Unit) {
   val split = o.split()
   val now = xyz.mcxross.formation.state.now()
   Panel(
-    Modifier.width(284.dp).pressable(onOpen, shape = Shapes.card, squeeze = true),
+    Modifier.width(284.dp).pressable(onOpen, shape = Shapes.card, travel = true).liveryCard(),
   ) {
     Column(Modifier.padding(Space.l)) {
       Row(verticalAlignment = Alignment.CenterVertically) {
@@ -336,7 +337,7 @@ private fun OpportunityCard(o: Opportunity, onOpen: () -> Unit) {
           Text("Your share", style = Theme.type.caption, color = c.contentSecondary)
           SkrAmount(
             split.owner.format(0),
-            style = Theme.type.subheadStrong,
+            style = Theme.type.numeral,
             color = c.reward,
             coin = false,
           )
@@ -355,14 +356,14 @@ private fun NearbyCard(formation: NearbyFormation, onJoin: () -> Unit) {
   val c = Theme.colors
   val b = formation.beacon
   val info = challengeInfo(b.challenge)
-  val color = info?.let { c.light(it.light).color } ?: c.accent
-  Panel(Modifier.fillMaxWidth().padding(horizontal = Space.gutter, vertical = 6.dp)) {
+  val color = c.accent
+  Panel(Modifier.fillMaxWidth().padding(horizontal = Space.gutter, vertical = 6.dp).liveryCard()) {
     Column(Modifier.padding(Space.l)) {
       Row(verticalAlignment = Alignment.CenterVertically) {
-        ChallengeGlyph(info, size = 44.dp)
+        PlayerLight(b.host, Light("Host", c.content, c.onInverse), size = 44.dp)
         Spacer(Modifier.width(Space.m))
         Column(Modifier.weight(1f)) {
-          Text("${possessive(b.host)} Formation", style = Theme.type.headline, maxLines = 2)
+          Text("${possessive(b.host)} Formation", style = Theme.type.title2, maxLines = 2)
           Text(info?.title ?: b.challenge.value, style = Theme.type.footnote, color = c.contentSecondary)
         }
         if (b.open)
@@ -391,7 +392,7 @@ private fun NearbyCard(formation: NearbyFormation, onJoin: () -> Unit) {
           Text("Locked reward", style = Theme.type.caption, color = c.contentSecondary)
           SkrAmount(
             b.reward.format(0),
-            style = Theme.type.subheadStrong,
+            style = Theme.type.numeral,
             color = c.reward,
             coin = false,
           )
@@ -427,26 +428,7 @@ private fun Scanning(onScan: () -> Unit, onCode: () -> Unit) {
       color = c.contentSecondary,
     )
     Spacer(Modifier.height(Space.xl))
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Space.m)) {
-      Button(
-        "Scan QR",
-        onScan,
-        Modifier.weight(1f),
-        style = ButtonStyle.Secondary,
-        size = ButtonSize.Medium,
-        leadingIcon = Icons.Scan,
-        fillWidth = true,
-      )
-      Button(
-        "Enter code",
-        onCode,
-        Modifier.weight(1f),
-        style = ButtonStyle.Secondary,
-        size = ButtonSize.Medium,
-        leadingIcon = Icons.Keypad,
-        fillWidth = true,
-      )
-    }
+    JoinControls(onScan, onCode)
   }
 }
 
@@ -515,5 +497,21 @@ private fun RewardsBanner(total: Skr, count: Int, onOpen: () -> Unit) {
       )
     }
     Icon(Icons.ChevronRight, null, tint = c.reward)
+  }
+}
+
+@Composable
+private fun JoinControls(onScan: () -> Unit, onCode: () -> Unit, modifier: Modifier = Modifier) {
+  BoxWithConstraints(modifier.fillMaxWidth()) {
+    val stacked = maxWidth < 300.dp && androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.15f
+    if (stacked) Column(verticalArrangement = Arrangement.spacedBy(Space.m)) {
+      Button("Scan QR", onScan, style = ButtonStyle.Secondary, leadingIcon = Icons.Scan)
+      Button("Enter code", onCode, style = ButtonStyle.Secondary, leadingIcon = Icons.Keypad)
+    } else Row(horizontalArrangement = Arrangement.spacedBy(Space.m)) {
+      Button("Scan QR", onScan, Modifier.weight(1f), style = ButtonStyle.Secondary,
+        size = ButtonSize.Medium, leadingIcon = Icons.Scan, fillWidth = true)
+      Button("Enter code", onCode, Modifier.weight(1f), style = ButtonStyle.Secondary,
+        size = ButtonSize.Medium, leadingIcon = Icons.Keypad, fillWidth = true)
+    }
   }
 }
