@@ -97,7 +97,11 @@ internal fun Briefing(
       ) {
         val left = ((stage.until - now) / 1000).coerceAtLeast(0)
         Text(
-          "$readyCount of ${snapshot.players.size} ready · starts in ${left}s",
+          when {
+            snapshot.players.any { !it.connected } -> "Waiting for the group to reconnect"
+            snapshot.players.any { !it.clockReady } -> "Synchronizing phones…"
+            else -> "$readyCount of ${snapshot.players.size} ready · starts in ${left}s"
+          },
           style = Theme.type.footnote,
           color = c.contentSecondary,
         )

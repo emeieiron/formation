@@ -16,6 +16,8 @@ import xyz.mcxross.formation.session.ChallengeGame
 import xyz.mcxross.formation.session.ChallengeSetup
 
 object Rush : Challenge<RushState, RushInput>() {
+  override fun requiredCapabilities(players: Int): Set<String> = if (players >= 4) setOf("ACCELEROMETER") else emptySet()
+
   override val info =
     ChallengeInfo(
       id = ChallengeId("rush"),

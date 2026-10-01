@@ -10,7 +10,7 @@ import xyz.mcxross.formation.model.PlayerId
 import xyz.mcxross.formation.model.Skr
 
 // Bump whenever phones and Seekers on different versions could misunderstand each other.
-const val PROTOCOL_VERSION = 2
+const val PROTOCOL_VERSION = 3
 
 val FormationJson = Json {
   ignoreUnknownKeys = true
@@ -39,6 +39,7 @@ data class Player(
   val ready: Boolean = false,
   val latencyMs: Int? = null,
   val device: String? = null,
+  val clockReady: Boolean = false,
 )
 
 @Serializable
@@ -136,13 +137,17 @@ sealed interface ToHost {
     val light: Int,
     val claimKey: String,
     val wallet: String? = null,
+    val formats: Map<String, Int> = emptyMap(),
+    val capabilities: Set<String> = emptySet(),
+    val nonce: String = "",
+    val signature: String = "",
   ) : ToHost
 
   @Serializable @SerialName("wallet") data class Wallet(val address: String?) : ToHost
 
   @Serializable @SerialName("profile") data class Profile(val name: String, val light: Int) : ToHost
 
-  @Serializable @SerialName("ping") data class Ping(val sent: Long, val rtt: Int? = null) : ToHost
+  @Serializable @SerialName("ping") data class Ping(val sent: Long, val rtt: Int? = null, val synced: Boolean = false) : ToHost
 
   @Serializable @SerialName("ready") data class Ready(val ready: Boolean) : ToHost
 
@@ -157,6 +162,8 @@ sealed interface ToHost {
 
 @Serializable
 sealed interface ToPlayer {
+  @Serializable @SerialName("authenticate") data class Authenticate(val challenge: AdmissionChallenge) : ToPlayer
+
   @Serializable @SerialName("welcome") data class Welcome(val you: PlayerId) : ToPlayer
 
   @Serializable @SerialName("pong") data class Pong(val sent: Long, val host: Long) : ToPlayer
@@ -172,6 +179,9 @@ sealed interface ToPlayer {
 }
 
 enum class Rejection(val message: String) {
+  IDENTITY("This phone could not prove its player identity. Restore its claim key and retry."),
+  FORMAT("This phone does not support the Formation's challenge format. Update both phones."),
+  CAPABILITY("This phone is missing a sensor required for this Formation."),
   FULL("This Formation is already full."),
   STARTED("This Formation has already started."),
   VERSION("This Formation runs a different version of the app. Update both phones."),

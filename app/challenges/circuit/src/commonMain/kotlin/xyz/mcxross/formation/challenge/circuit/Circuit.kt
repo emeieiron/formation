@@ -15,6 +15,8 @@ import xyz.mcxross.formation.session.ChallengeGame
 import xyz.mcxross.formation.session.ChallengeSetup
 
 object Circuit : Challenge<CircuitState, CircuitInput>() {
+  override fun requiredCapabilities(players: Int): Set<String> = setOf("ACCELEROMETER")
+
   override val info =
     ChallengeInfo(
       id = ChallengeId("circuit"),

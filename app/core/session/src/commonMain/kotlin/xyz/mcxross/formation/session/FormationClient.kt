@@ -25,6 +25,8 @@ class PlayerIdentity(
   val light: Int,
   val key: Ed25519KeyPair,
   val wallet: String? = null,
+  val formats: Map<String, Int> = emptyMap(),
+  val capabilities: Set<String> = emptySet(),
 ) {
   val claimKey: String = Base58.encode(key.publicKey)
 }
@@ -77,7 +79,10 @@ class FormationClient(
     if (job == null) job = scope.launch { run() }
   }
 
-  fun ready(ready: Boolean) = send(ToHost.Ready(ready))
+  fun ready(ready: Boolean) {
+    send(ToHost.Ping(clock.now(), sync.rttMs?.toInt(), sync.synced))
+    send(ToHost.Ready(ready))
+  }
 
   fun setProfile(name: String, light: Int) {
     this.name = name
@@ -149,27 +154,16 @@ class FormationClient(
     // Moves made while the link was down are stale; drop them.
     while (outbox.tryReceive().isSuccess) {}
     sealedMessage = null
-    channel.send(
-      encode(
-        ToHost.Hello(
-          PROTOCOL_VERSION,
-          identity.device,
-          name,
-          light,
-          identity.claimKey,
-          wallet,
-        )
-      )
-    )
+    sync.reset()
     val writer = launch { for (message in outbox) if (!channel.send(encode(message))) break }
     val pinger = launch {
       repeat(BURST) {
-        channel.send(encode(ToHost.Ping(clock.now(), sync.rttMs?.toInt())))
+        channel.send(encode(ToHost.Ping(clock.now(), sync.rttMs?.toInt(), sync.synced)))
         delay(BURST_GAP_MS)
       }
       while (true) {
         delay(PING_EVERY_MS)
-        channel.send(encode(ToHost.Ping(clock.now(), sync.rttMs?.toInt())))
+        channel.send(encode(ToHost.Ping(clock.now(), sync.rttMs?.toInt(), sync.synced)))
       }
     }
     try {
@@ -187,9 +181,15 @@ class FormationClient(
 
   private fun handle(message: ToPlayer) {
     when (message) {
+      is ToPlayer.Authenticate -> {
+        val hello = ToHost.Hello(PROTOCOL_VERSION, identity.device, name, light, identity.claimKey, wallet,
+          identity.formats, identity.capabilities, message.challenge.nonce)
+        send(hello.copy(signature = Base58.encode(identity.key.sign(admissionMessage(message.challenge, hello)))))
+      }
       is ToPlayer.Welcome -> {
         _me.value = message.you
         _status.value = Status.Joined
+        send(ToHost.Ping(clock.now()))
       }
       is ToPlayer.Pong -> sync.onPong(message.sent, message.host)
       is ToPlayer.Session -> {

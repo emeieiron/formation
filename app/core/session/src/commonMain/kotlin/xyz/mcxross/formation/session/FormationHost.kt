@@ -41,10 +41,13 @@ class FormationHost(
   private val seats = recovery?.players?.map { p ->
     Seat(p.id, p.device ?: p.claimKey, p.name, p.light, p.seeker, p.claimKey, p.wallet, null)
   }?.toMutableList() ?: mutableListOf()
-  private var stage: Stage = recovery?.let(::validatedCompletion) ?: Stage.Lobby
+  private var stage: Stage = recovery?.let { saved ->
+    require(saved.formation == info) { "The saved session belongs to another Formation" }
+    validatedCompletion(saved).let { if (it.unlock is Unlock.Unlocking) it.copy(unlock = Unlock.Waiting) else it }
+  } ?: Stage.Lobby
   private var round = recovery?.round ?: 0
   private var nextSeat = (seats.maxOfOrNull { it.id.value.removePrefix("p").toIntOrNull() ?: 0 } ?: 0) + 1
-  private var game: Game<*, *>? = null
+  private var game: HostedGame<*, *>? = null
   private var frameSeq = 0L
   private var lastState: String? = null
   private var lastFrame: String? = null
@@ -67,9 +70,14 @@ class FormationHost(
 
   // Only the Seeker's own in-process link ([local]) can take the Seeker's seat.
   suspend fun serve(channel: LinkChannel, local: Boolean = false) {
-    val conn = Conn(channel, local)
+    val conn = Conn(channel, local, admissionChallenge(info, rules))
+    conn.send(encode(ToPlayer.Authenticate(conn.challenge)))
     try {
       coroutineScope {
+        val deadline = launch {
+          delay(10_000)
+          command { if (seatOf(conn) == null) reject(conn, Rejection.IDENTITY) }
+        }
         val writer = launch {
           for (frame in conn.outbox) if (!channel.send(frame)) break
           // The host closed the outbox: hang up once everything queued is out.
@@ -81,6 +89,7 @@ class FormationHost(
           }
         } finally {
           writer.cancel()
+          deadline.cancel()
         }
       }
     } finally {
@@ -167,7 +176,7 @@ class FormationHost(
     data object Tick : Event
   }
 
-  private class Conn(val channel: LinkChannel, val local: Boolean) {
+  private class Conn(val channel: LinkChannel, val local: Boolean, val challenge: AdmissionChallenge) {
     // A slow phone loses old frames rather than holding up everyone; every message is a snapshot.
     val outbox = Channel<String>(512, BufferOverflow.DROP_OLDEST)
 
@@ -188,9 +197,11 @@ class FormationHost(
     var ready: Boolean = false,
     var latencyMs: Int? = null,
     var disconnectedAt: Long? = null,
+    var clockReady: Boolean = false,
+    var syncReportedAt: Long = 0,
   ) {
     fun toPlayer() =
-      Player(id, name, light, seeker, claimKey, wallet, conn != null, ready, latencyMs, device)
+      Player(id, name, light, seeker, claimKey, wallet, conn != null, ready, latencyMs, device, clockReady)
   }
 
   private fun command(run: () -> Unit) {
@@ -213,6 +224,11 @@ class FormationHost(
     if (message is ToHost.Ping) {
       conn.send(encode(ToPlayer.Pong(message.sent, clock.now())))
       val seat = seatOf(conn) ?: return
+      val synced = message.synced && message.rtt != null && message.rtt in 0..ClockSync.MAX_RTT_MS.toInt()
+      if (seat.clockReady != synced) latencyDirty = true
+      seat.clockReady = synced
+      if (synced) seat.syncReportedAt = clock.now()
+      if (stage is Stage.Briefing && seats.all { it.ready } && readyToPlay()) startRound()
       if (message.rtt != null && message.rtt != seat.latencyMs) {
         seat.latencyMs = message.rtt
         latencyDirty = true
@@ -233,10 +249,8 @@ class FormationHost(
 
   private fun hello(conn: Conn, hello: ToHost.Hello) {
     if (stage is Stage.Closed) return reject(conn, Rejection.CLOSED)
-    if (hello.protocol != PROTOCOL_VERSION) return reject(conn, Rejection.VERSION)
-    if (runCatching { Base58.decode(hello.claimKey).size }.getOrNull() != 32) {
-      return reject(conn, Rejection.VERSION)
-    }
+    admissionRejection(conn.challenge, hello)?.let { return reject(conn, it) }
+    if (seatOf(conn) != null) return reject(conn, Rejection.DUPLICATE)
 
     val returning = seats.firstOrNull { it.device == hello.device || it.claimKey == hello.claimKey }
     if (returning != null) {
@@ -245,6 +259,7 @@ class FormationHost(
       returning.conn = conn
       val interruptedPlay = stage is Stage.Playing && returning.disconnectedAt != null
       returning.disconnectedAt = null
+      returning.clockReady = false
       if (interruptedPlay) finish(RoundResult("The connection was interrupted. Try again.", null, emptyList(), clock.now()), won = false)
       if (stage !is Stage.Won) returning.wallet = validWallet(hello.wallet)
       welcome(conn, returning)
@@ -307,6 +322,7 @@ class FormationHost(
     val seat = seatOf(conn) ?: return
     seat.conn = null
     seat.disconnectedAt = clock.now()
+    seat.clockReady = false
     if (stage == Stage.Lobby && !seat.seeker) seats.remove(seat)
     publish()
   }
@@ -315,6 +331,7 @@ class FormationHost(
     val conn = seat.conn
     seat.conn = null
     seat.disconnectedAt = clock.now()
+    seat.clockReady = false
     if (stage == Stage.Lobby && !seat.seeker) seats.remove(seat)
     conn?.outbox?.close()
     publish()
@@ -333,8 +350,12 @@ class FormationHost(
     publish()
   }
 
+  private fun readyToPlay() = seats.size == info.opportunity.players && seats.all {
+    it.conn != null && it.clockReady && clock.now() - it.syncReportedAt <= ClockSync.MAX_AGE_MS
+  }
+
   private fun startRound() {
-    if (seats.any { it.conn == null }) return
+    if (!readyToPlay()) return
     val goAt = clock.now() + timing.countdownMs
     val roster = seats.map { it.id }
     round += 1
@@ -346,7 +367,7 @@ class FormationHost(
         seed = random.nextLong(),
         startAt = goAt,
       )
-    game = Game.start(rules, setup, json)
+    game = HostedGame.start(rules, setup, json)
     frameSeq = 0
     lastState = null
     lastFrame = null
@@ -367,8 +388,12 @@ class FormationHost(
 
   private fun tick() {
     val now = clock.now()
+    seats.filter { it.clockReady && now - it.syncReportedAt > ClockSync.MAX_AGE_MS }.forEach {
+      it.clockReady = false
+      latencyDirty = true
+    }
     when (val s = stage) {
-      is Stage.Briefing -> if (now >= s.until && seats.all { it.conn != null }) startRound()
+      is Stage.Briefing -> if (now >= s.until && readyToPlay()) startRound()
       is Stage.Playing -> {
         val missing = seats.firstOrNull { it.conn == null && now - (it.disconnectedAt ?: now) >= timing.disconnectGraceMs }
         if (missing != null) {
@@ -391,7 +416,7 @@ class FormationHost(
     }
   }
 
-  private fun settle(running: Game<*, *>) {
+  private fun settle(running: HostedGame<*, *>) {
     pushFrame()
     when (val status = running.status) {
       GameStatus.Running -> {}
@@ -460,30 +485,6 @@ class FormationHost(
   }
     .getOrNull()
 
-  private class Game<S : Any, I : Any>(
-    private val rules: ChallengeRules<S, I>,
-    private val game: ChallengeGame<S, I>,
-    private val json: Json,
-  ) {
-    val status: GameStatus
-      get() = game.status
-
-    fun input(from: PlayerId, input: JsonElement, now: Long) {
-      val decoded =
-        runCatching { json.decodeFromJsonElement(rules.inputSerializer, input) }.getOrNull()
-          ?: return
-      game.input(from, decoded, now)
-    }
-
-    fun tick(now: Long) = game.tick(now)
-
-    fun state(): JsonElement = json.encodeToJsonElement(rules.stateSerializer, game.state)
-
-    companion object {
-      fun <S : Any, I : Any> start(rules: ChallengeRules<S, I>, setup: ChallengeSetup, json: Json) =
-        Game(rules, rules.newGame(setup), json)
-    }
-  }
 
   companion object {
     // Size of the design system's palette of player lights.

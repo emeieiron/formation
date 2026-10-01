@@ -43,7 +43,9 @@ class Identity(private val platform: PlatformServices) {
 
   fun player(): PlayerIdentity {
     val p = profile.value ?: Profile("Player", 0)
-    return PlayerIdentity(device, p.name, p.light, claimKey, wallet.value)
+    return PlayerIdentity(device, p.name, p.light, claimKey, wallet.value,
+      ChallengeCatalog.all.associate { it.id.value to it.formatVersion },
+      platform.motion.available.map { it.name }.toSet())
   }
 
   private fun load(): Profile? =

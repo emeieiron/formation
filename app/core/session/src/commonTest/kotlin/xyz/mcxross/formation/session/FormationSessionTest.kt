@@ -64,7 +64,7 @@ class FormationSessionTest {
     ): FormationClient {
       val client =
         FormationClient(
-          PlayerIdentity(device, name, 0, key, wallet),
+          PlayerIdentity(device, name, 0, key, wallet, formats = mapOf("tap" to 1)),
           connect = {
             val (phone, seekerSide) = memoryLink()
             links[device] = seekerSide

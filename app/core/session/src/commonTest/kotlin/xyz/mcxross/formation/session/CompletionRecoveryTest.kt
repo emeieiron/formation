@@ -42,7 +42,7 @@ class CompletionRecoveryTest {
     val host = FormationHost(info, TapChallenge, backgroundScope, Clock { testScheduler.currentTime },
       recovery = saved, checkpoint = { checkpoint = it })
     players.forEachIndexed { i, player ->
-      val client = FormationClient(PlayerIdentity(player.device!!, player.name, i, keys[i]), connect = {
+      val client = FormationClient(PlayerIdentity(player.device!!, player.name, i, keys[i], formats = mapOf("tap" to 1)), connect = {
         val (phone, server) = memoryLink()
         backgroundScope.launch { host.serve(server, local = i == 0) }
         phone

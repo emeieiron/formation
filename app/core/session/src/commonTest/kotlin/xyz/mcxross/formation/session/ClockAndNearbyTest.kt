@@ -23,12 +23,29 @@ class ClockAndNearbyTest {
     // Host clock runs 5 000 ms ahead. A slow sample first, then a fast one.
     sync.onPong(sent = 900, host = 5_990, received = 1_100) // rtt 200, guess 5 990 + 100 - 1 100
     sync.onPong(sent = 1_090, host = 6_095, received = 1_100) // rtt 10
+    local = 1_100
     assertTrue(sync.synced)
     assertEquals(10L, sync.rttMs)
-    assertEquals(6_000L, sync.hostNow())
+    assertEquals(6_100L, sync.hostNow())
     assertEquals(1_000L, sync.toLocal(6_000))
     local = 2_000
     assertEquals(7_000L, sync.hostNow())
+  }
+
+  @Test
+  fun synchronizationExpiresAndRejectsHighLatencySamples() {
+    var local = 1_000L
+    val sync = ClockSync { local }
+    sync.onPong(990, 995)
+    assertTrue(sync.synced)
+    local += ClockSync.MAX_AGE_MS + 1
+    assertFalse(sync.synced)
+    sync.onPong(local - 600, local - 300)
+    assertFalse(sync.synced)
+    sync.onPong(local - 10, local - 5)
+    assertTrue(sync.synced)
+    sync.reset()
+    assertFalse(sync.synced)
   }
 
   private fun beacon(session: String, open: Boolean = true) =
