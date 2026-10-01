@@ -117,6 +117,7 @@ internal fun Won(
         )
         Spacer(Modifier.height(Space.xl))
         Stats(stage.result)
+        stage.storageProblem?.let { Notice(it, tone = Tone.Warning, title = "Not saved yet") }
         Spacer(Modifier.height(Space.xl))
         AnimatedContent(
           targetState =

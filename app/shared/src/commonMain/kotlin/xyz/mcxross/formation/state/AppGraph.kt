@@ -68,6 +68,7 @@ class AppGraph(
       }
 
   val pending = PendingUnlocks(platform.store)
+  val completed = CompletedSessions(platform.store)
   private val unlocking = Mutex()
 
   suspend fun unlockWin(win: PendingUnlock): Result<UnlockReceipt> = unlocking.withLock {
@@ -110,15 +111,15 @@ class AppGraph(
 
   val autoplay = MutableStateFlow(false)
 
-  suspend fun host(opportunity: Opportunity): Result<ActiveSession> = runCatching {
+  suspend fun host(opportunity: Opportunity, recovery: xyz.mcxross.formation.session.SessionSnapshot? = null): Result<ActiveSession> = runCatching {
     endSession()
     val challenge =
       ChallengeCatalog[opportunity.challenge] ?: error("This app doesn't know that challenge yet")
     val server = platform.network.server ?: error("This phone can't host Formations")
     val sessionScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val info =
-      FormationInfo(newUuid(), FormationHost.newCode(), identity.player().name, opportunity)
-    val host = FormationHost(info, challenge, sessionScope)
+      recovery?.formation ?: FormationInfo(newUuid(), FormationHost.newCode(), identity.player().name, opportunity)
+    val host = FormationHost(info, challenge, sessionScope, recovery = recovery, checkpoint = { completed.remember(it) })
     val port = server.start(LinkDefaults.PORTS, host::beacon) { channel -> host.serve(channel) }
     platform.network.advertiser?.advertise("Formation ${info.code}", port)
     val client =
@@ -146,6 +147,7 @@ class AppGraph(
         pending::add,
         sounds::play,
         sessionScope,
+        { completed.remember(it) },
       )
       .also { _session.value = it }
   }
@@ -170,8 +172,20 @@ class AppGraph(
         {},
         sounds::play,
         sessionScope,
+        { completed.remember(it, address.toString()) },
       )
       .also { _session.value = it }
+  }
+
+  suspend fun resumeCompletion(record: CompletedSession): Result<Unit> = runCatching {
+    val snapshot = record.snapshot
+    if (snapshot.seeker?.claimKey == identity.claimAddress) {
+      host(snapshot.formation.opportunity, snapshot).getOrThrow()
+    } else {
+      join(HostAddress.parse(record.address ?: error("Scan the Seeker's QR code to reconnect"))
+        ?: error("Scan the Seeker's QR code to reconnect"))
+    }
+    navigator.push(Screen.Session)
   }
 
   private var pendingJoin: HostAddress? = null

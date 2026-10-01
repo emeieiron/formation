@@ -22,6 +22,7 @@ class HostTiming(
   val countdownMs: Long = 3_600,
   val tickMs: Long = 33,
   val latencyPublishMs: Long = 3_000,
+  val disconnectGraceMs: Long = 10_000,
 )
 
 // All state lives on one coroutine that handles events in order, so nothing here needs locks.
@@ -33,12 +34,16 @@ class FormationHost(
   private val random: Random = Random.Default,
   private val timing: HostTiming = HostTiming(),
   private val json: Json = FormationJson,
+  recovery: SessionSnapshot? = null,
+  private val checkpoint: (SessionSnapshot) -> Unit = {},
 ) {
   private val info = formation
-  private val seats = mutableListOf<Seat>()
-  private var stage: Stage = Stage.Lobby
-  private var round = 0
-  private var nextSeat = 1
+  private val seats = recovery?.players?.map { p ->
+    Seat(p.id, p.device ?: p.claimKey, p.name, p.light, p.seeker, p.claimKey, p.wallet, null)
+  }?.toMutableList() ?: mutableListOf()
+  private var stage: Stage = recovery?.let(::validatedCompletion) ?: Stage.Lobby
+  private var round = recovery?.round ?: 0
+  private var nextSeat = (seats.maxOfOrNull { it.id.value.removePrefix("p").toIntOrNull() ?: 0 } ?: 0) + 1
   private var game: Game<*, *>? = null
   private var frameSeq = 0L
   private var lastState: String? = null
@@ -46,7 +51,7 @@ class FormationHost(
   private var latencyDirty = false
   private var latencyPublishedAt = 0L
 
-  private val _snapshot = MutableStateFlow(SessionSnapshot(info, emptyList(), Stage.Lobby, 0))
+  private val _snapshot = MutableStateFlow(SessionSnapshot(info, seats.map { it.toPlayer() }, stage, round))
   val snapshot: StateFlow<SessionSnapshot> = _snapshot.asStateFlow()
 
   private val events = Channel<Event>(Channel.UNLIMITED)
@@ -108,7 +113,7 @@ class FormationHost(
   }
 
   fun begin() = command {
-    if (stage == Stage.Lobby && seats.size >= info.opportunity.players) toBriefing()
+    if (stage == Stage.Lobby && seats.size >= info.opportunity.players && seats.all { it.conn != null }) toBriefing()
   }
 
   fun startNow() = command { if (stage is Stage.Briefing) startRound() }
@@ -182,9 +187,10 @@ class FormationHost(
     var conn: Conn?,
     var ready: Boolean = false,
     var latencyMs: Int? = null,
+    var disconnectedAt: Long? = null,
   ) {
     fun toPlayer() =
-      Player(id, name, light, seeker, claimKey, wallet, conn != null, ready, latencyMs)
+      Player(id, name, light, seeker, claimKey, wallet, conn != null, ready, latencyMs, device)
   }
 
   private fun command(run: () -> Unit) {
@@ -232,11 +238,14 @@ class FormationHost(
       return reject(conn, Rejection.VERSION)
     }
 
-    val returning = seats.firstOrNull { it.device == hello.device }
+    val returning = seats.firstOrNull { it.device == hello.device || it.claimKey == hello.claimKey }
     if (returning != null) {
-      if (returning.seeker != conn.local) return reject(conn, Rejection.DUPLICATE)
-      returning.conn?.takeIf { it !== conn }?.outbox?.close()
+      if (returning.seeker != conn.local || returning.claimKey != hello.claimKey) return reject(conn, Rejection.DUPLICATE)
+      if (returning.conn != null && returning.conn !== conn) return reject(conn, Rejection.DUPLICATE)
       returning.conn = conn
+      val interruptedPlay = stage is Stage.Playing && returning.disconnectedAt != null
+      returning.disconnectedAt = null
+      if (interruptedPlay) finish(RoundResult("The connection was interrupted. Try again.", null, emptyList(), clock.now()), won = false)
       if (stage !is Stage.Won) returning.wallet = validWallet(hello.wallet)
       welcome(conn, returning)
       return
@@ -297,6 +306,7 @@ class FormationHost(
   private fun disconnected(conn: Conn) {
     val seat = seatOf(conn) ?: return
     seat.conn = null
+    seat.disconnectedAt = clock.now()
     if (stage == Stage.Lobby && !seat.seeker) seats.remove(seat)
     publish()
   }
@@ -304,6 +314,7 @@ class FormationHost(
   private fun left(seat: Seat) {
     val conn = seat.conn
     seat.conn = null
+    seat.disconnectedAt = clock.now()
     if (stage == Stage.Lobby && !seat.seeker) seats.remove(seat)
     conn?.outbox?.close()
     publish()
@@ -313,7 +324,7 @@ class FormationHost(
     if (stage !is Stage.Briefing) return
     seat.ready = ready
     publish()
-    if (seats.all { it.ready }) startRound()
+    if (seats.all { it.ready && it.conn != null }) startRound()
   }
 
   private fun toBriefing() {
@@ -323,6 +334,7 @@ class FormationHost(
   }
 
   private fun startRound() {
+    if (seats.any { it.conn == null }) return
     val goAt = clock.now() + timing.countdownMs
     val roster = seats.map { it.id }
     round += 1
@@ -346,7 +358,7 @@ class FormationHost(
   private fun play(seat: Seat, message: ToHost.Play) {
     val playing = stage as? Stage.Playing ?: return
     val running = game ?: return
-    if (message.round != round) return
+    if (message.round != round || seats.any { it.conn == null }) return
     val now = clock.now()
     if (now < playing.goAt - EARLY_GRACE_MS) return
     running.input(seat.id, message.input, now)
@@ -356,10 +368,16 @@ class FormationHost(
   private fun tick() {
     val now = clock.now()
     when (val s = stage) {
-      is Stage.Briefing -> if (now >= s.until) startRound()
+      is Stage.Briefing -> if (now >= s.until && seats.all { it.conn != null }) startRound()
       is Stage.Playing -> {
+        val missing = seats.firstOrNull { it.conn == null && now - (it.disconnectedAt ?: now) >= timing.disconnectGraceMs }
+        if (missing != null) {
+          finish(RoundResult("The connection was interrupted. Reconnect and try again.", null, emptyList(), now), won = false)
+          return
+        }
+        // Freeze inputs and ticking while a participant is reconnecting. Restart if grace expires.
         val running = game
-        if (running != null && now >= s.goAt) {
+        if (running != null && now >= s.goAt && seats.all { it.conn != null }) {
           running.tick(now)
           settle(running)
         }
@@ -399,7 +417,7 @@ class FormationHost(
     val won = stage as? Stage.Won ?: return
     if (message.round != round || seat.id in won.seal.signed) return
     if (!Sealing.verify(won.seal, seat.toPlayer(), message.signature)) return
-    stage = won.copy(seal = won.seal.copy(signed = won.seal.signed + seat.id))
+    stage = won.copy(seal = won.seal.copy(signed = won.seal.signed + seat.id, signatures = won.seal.signatures + (seat.id to message.signature)))
     publish()
   }
 
@@ -421,7 +439,14 @@ class FormationHost(
   }
 
   private fun publish() {
-    val snapshot = SessionSnapshot(info, seats.map { it.toPlayer() }, stage, round)
+    var snapshot = SessionSnapshot(info, seats.map { it.toPlayer() }, stage, round)
+    if (snapshot.stage is Stage.Won) {
+      val won = snapshot.stage as Stage.Won
+      val problem = runCatching { checkpoint(snapshot.copy(stage = won.copy(storageProblem = null))) }
+        .exceptionOrNull()?.let { "This win could not be saved. Keep this session open and free some storage." }
+      stage = won.copy(storageProblem = problem)
+      snapshot = snapshot.copy(stage = stage)
+    }
     _snapshot.value = snapshot
     broadcast(encode(ToPlayer.Session(snapshot)))
   }

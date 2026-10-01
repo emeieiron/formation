@@ -36,6 +36,7 @@ internal constructor(
   private val onSealed: (PendingUnlock) -> Unit,
   private val onSound: (SoundCue) -> Unit,
   private val scope: CoroutineScope,
+  private val onCompletion: (SessionSnapshot) -> Unit = {},
 ) {
   val isHost: Boolean
     get() = host != null
@@ -71,11 +72,15 @@ internal constructor(
   }
 
   init {
+    client.checkpointCompletions { snapshot ->
+      onCompletion(snapshot)
+      keepShare(snapshot)
+    }
     val soundEvents = SessionSoundEvents()
     scope.launch {
       client.snapshot.collect { s ->
         if (s == null) return@collect
-        keepShare(s)
+        if (s.stage !is Stage.Won) keepShare(s)
         soundEvents.next(s)?.let(onSound)
         val won = s.stage as? Stage.Won
         if (host != null && won != null && won.seal.complete && won.unlock !is Unlock.Unlocked) {
@@ -119,7 +124,6 @@ internal constructor(
 
   private fun keepShare(snapshot: SessionSnapshot) {
     val won = snapshot.stage as? Stage.Won ?: return
-    if (!won.seal.complete) return
     val unlocked = won.unlock as? Unlock.Unlocked
     val me = client.me.value ?: return
     val opportunity = snapshot.formation.opportunity

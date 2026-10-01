@@ -120,6 +120,7 @@ fun HomeScreen() {
   var enteringCode by remember { mutableStateOf(false) }
   val status by graph.seeker.status.collectAsState()
   val pendingWins by graph.pending.pending.collectAsState()
+  val completed by graph.completed.entries.collectAsState()
 
   LaunchedEffect(seeker) { seeker?.let { graph.ledger.refresh(it) } }
   LaunchedEffect(Unit) { graph.seeker.autoVerify() }
@@ -183,6 +184,17 @@ fun HomeScreen() {
         }
       }
 
+      val unfinished = completed.filter { record ->
+        val won = record.snapshot.stage as? xyz.mcxross.formation.session.Stage.Won
+        won != null && !won.seal.complete
+      }
+      items(unfinished, key = { "completion-" + it.snapshot.formation.session }) { record ->
+        Notice("Reconnect the group to finish saving this win.",
+          Modifier.padding(horizontal = Space.gutter, vertical = Space.s), title = "Finish saving your win",
+          action = "Resume", onAction = { scope.launch { graph.resumeCompletion(record).onFailure {
+            toaster.show(it.message ?: "Couldn't resume", Tone.Warning)
+          } } })
+      }
       val me = seeker
       if (me != null && pendingWins.isNotEmpty()) {
         items(pendingWins, key = { "pending-" + it.opportunity.id.value }) { win ->

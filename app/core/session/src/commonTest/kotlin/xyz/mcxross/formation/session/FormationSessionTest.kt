@@ -308,6 +308,7 @@ class FormationSessionTest {
     assertEquals(seat, maya.me.value)
     assertEquals(true, f.host.snapshot.value.player(seat)!!.connected)
     assertEquals(3, f.host.snapshot.value.players.size)
+    assertIs<Stage.Lost>(f.stage, "A timed attempt restarts after a connection interruption")
   }
 
   @Test

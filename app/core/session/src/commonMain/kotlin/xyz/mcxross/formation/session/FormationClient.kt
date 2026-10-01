@@ -69,6 +69,9 @@ class FormationClient(
   @Volatile private var light: Int = identity.light
   @Volatile private var finished = false
   private var job: Job? = null
+  private var completionCheckpoint: (SessionSnapshot) -> Unit = {}
+
+  fun checkpointCompletions(save: (SessionSnapshot) -> Unit) { completionCheckpoint = save }
 
   fun start() {
     if (job == null) job = scope.launch { run() }
@@ -190,7 +193,13 @@ class FormationClient(
       }
       is ToPlayer.Pong -> sync.onPong(message.sent, message.host)
       is ToPlayer.Session -> {
-        val snapshot = message.snapshot
+        var snapshot = message.snapshot
+        val completed = snapshot.stage as? Stage.Won
+        if (completed != null) {
+          val problem = runCatching { completionCheckpoint(snapshot) }.exceptionOrNull()
+          if (problem != null) snapshot = snapshot.copy(stage = completed.copy(
+            storageProblem = "This win could not be saved on this phone. Keep the session open and free some storage."))
+        }
         if (snapshot.round != _snapshot.value?.round) _frame.value = null
         _snapshot.value = snapshot
         when (val stage = snapshot.stage) {
@@ -226,7 +235,8 @@ class FormationClient(
         won.result,
       )
     val mine = snapshot.player(me) ?: return
-    if (expected.message != won.seal.message || mine.claimKey != identity.claimKey) return
+    if (expected.message != won.seal.message || expected.root != won.seal.root || expected.roster != won.seal.roster ||
+      expected.ownerAmount != won.seal.ownerAmount || expected.required != won.seal.required || mine.claimKey != identity.claimKey) return
     if (!mine.seeker && mine.wallet != wallet) return
     sealedMessage = won.seal.message
     val signature = identity.key.sign(Base64.decode(won.seal.message))

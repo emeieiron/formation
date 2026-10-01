@@ -38,6 +38,7 @@ data class Player(
   val connected: Boolean = true,
   val ready: Boolean = false,
   val latencyMs: Int? = null,
+  val device: String? = null,
 )
 
 @Serializable
@@ -52,7 +53,7 @@ sealed interface Stage {
 
   @Serializable
   @SerialName("won")
-  data class Won(val result: RoundResult, val seal: Seal, val unlock: Unlock) : Stage
+  data class Won(val result: RoundResult, val seal: Seal, val unlock: Unlock, val storageProblem: String? = null) : Stage
 
   @Serializable @SerialName("lost") data class Lost(val result: RoundResult) : Stage
 
@@ -84,6 +85,7 @@ data class Seal(
   val message: String,
   val required: List<PlayerId>,
   val signed: List<PlayerId> = emptyList(),
+  val signatures: Map<PlayerId, String> = emptyMap(),
 ) {
   val complete: Boolean
     get() = signed.containsAll(required)
