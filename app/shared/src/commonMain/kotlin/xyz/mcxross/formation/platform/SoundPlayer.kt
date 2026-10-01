@@ -7,7 +7,7 @@ enum class SoundCue(val file: String) {
   REWARD("reward.wav"),
 }
 
-/** Short, optional feedback. Implementations drop unavailable cues rather than queueing them. */
+/** Called on the main dispatcher. Drop unavailable cues rather than queueing them. */
 interface SoundPlayer {
   suspend fun load(cue: SoundCue, bytes: ByteArray)
 

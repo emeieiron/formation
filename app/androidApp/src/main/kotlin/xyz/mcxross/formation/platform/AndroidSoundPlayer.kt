@@ -4,9 +4,11 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.SoundPool
+import android.util.Log
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import xyz.mcxross.formation.BuildConfig
 
 /** Owned by the application; retains no Activity and decodes each cue once. */
 internal class AndroidSoundPlayer(context: Context) : SoundPlayer {
@@ -28,6 +30,10 @@ internal class AndroidSoundPlayer(context: Context) : SoundPlayer {
     .apply {
       setOnLoadCompleteListener { _, sample, status ->
         if (status == 0) loaded.add(sample)
+        if (BuildConfig.DEBUG) {
+          val cue = samples.entries.firstOrNull { it.value == sample }?.key
+          Log.d("FormationSound", "Load $cue: $status")
+        }
       }
     }
 
@@ -45,6 +51,7 @@ internal class AndroidSoundPlayer(context: Context) : SoundPlayer {
     val sample = samples[cue]?.takeIf { it in loaded } ?: return
     stop()
     stream = pool.play(sample, 0.65f, 0.65f, 1, 0, 1f)
+    if (BuildConfig.DEBUG) Log.d("FormationSound", "Play $cue: ${stream != 0}")
   }
 
   override fun stop() {
