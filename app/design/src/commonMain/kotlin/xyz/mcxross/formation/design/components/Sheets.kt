@@ -15,6 +15,7 @@ import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -242,6 +243,7 @@ fun SheetHeader(title: String, modifier: Modifier = Modifier, subtitle: String? 
 fun ColumnScope.SheetActions(content: @Composable ColumnScope.() -> Unit) {
   Column(
     Modifier.fillMaxWidth().padding(start = Space.xxl, end = Space.xxl, top = Space.xl),
+    verticalArrangement = Arrangement.spacedBy(Space.m),
     content = content,
   )
 }
@@ -261,7 +263,6 @@ fun ConfirmSheet(
     SheetHeader(title, subtitle = body)
     SheetActions {
       Button(confirm, onConfirm, style = style, loading = loading)
-      Spacer(Modifier.height(Space.s))
       Button(cancel, onDismiss, style = ButtonStyle.Ghost, enabled = !loading)
     }
   }
