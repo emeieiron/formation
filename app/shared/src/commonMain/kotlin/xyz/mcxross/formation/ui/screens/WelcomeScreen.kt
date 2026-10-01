@@ -43,6 +43,8 @@ import kotlinx.coroutines.launch
 import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.components.BackHandler
 import xyz.mcxross.formation.design.components.BottomActions
+import xyz.mcxross.formation.design.components.LiveryRule
+import xyz.mcxross.formation.design.components.RewardPass
 import xyz.mcxross.formation.design.components.Button
 import xyz.mcxross.formation.design.components.ButtonStyle
 import xyz.mcxross.formation.design.components.Notice
@@ -69,7 +71,7 @@ fun WelcomeScreen(onDone: (Profile) -> Unit) {
   val graph = LocalGraph.current
   var step by rememberSaveable { mutableIntStateOf(0) }
   var name by rememberSaveable { mutableStateOf("") }
-  var light by rememberSaveable { mutableIntStateOf(6) }
+  var light by rememberSaveable { mutableIntStateOf(0) }
   BackHandler(enabled = step > 0) { step -= 1 }
   LaunchedEffect(Unit) { graph.platform.external.prepareScanner() }
   Page {
@@ -105,31 +107,33 @@ private fun Intro(onNext: () -> Unit) {
   val c = Theme.colors
   val draw = remember { Animatable(0f) }
   LaunchedEffect(Unit) {
-    draw.animateTo(1f, tween(1_000, easing = Motion.standard))
+    draw.animateTo(1f, tween(520, easing = Motion.emphasized))
   }
   Column(Modifier.fillMaxSize()) {
     Column(
-      Modifier.weight(1f).padding(horizontal = Space.gutter),
+      Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = Space.gutter),
       horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-      Spacer(Modifier.weight(0.8f))
-      FormationMark(Modifier.size(width = 160.dp, height = 96.dp), progress = draw.value)
+      Spacer(Modifier.height(Space.x6l))
+      FormationMark(Modifier.size(width = 96.dp, height = 64.dp), progress = draw.value)
       Spacer(Modifier.height(Space.xl))
       Text("Formation", style = Theme.type.title3, color = c.contentSecondary)
       Spacer(Modifier.height(Space.l))
       Text(
-        "Rewards that only unlock together.",
+        "REWARDS THAT ONLY UNLOCK TOGETHER.",
         style = Theme.type.title1,
         color = c.content,
         textAlign = TextAlign.Center,
       )
-      Spacer(Modifier.weight(0.6f))
+      Spacer(Modifier.height(Space.x4l))
+      LiveryRule()
+      Spacer(Modifier.height(Space.x4l))
       Column(verticalArrangement = Arrangement.spacedBy(Space.l)) {
         Point(Icons.Seeker, "A Seeker receives locked SKR.")
         Point(Icons.Users, "It takes a group, together in one place.")
         Point(Icons.Unlock, "Move as one to unlock it. Everyone gets a share.")
       }
-      Spacer(Modifier.weight(0.4f))
+      Spacer(Modifier.height(Space.xxl))
     }
     BottomActions { Button("Get started", onNext, trailingIcon = Icons.ArrowRight) }
   }
@@ -159,7 +163,9 @@ private fun Introduce(
     Column(
       Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = Space.gutter)
     ) {
-      Text("What should the group call you?", style = Theme.type.title1)
+      LiveryRule()
+      Spacer(Modifier.height(Space.xl))
+      Text("WHAT SHOULD THE GROUP CALL YOU?", style = Theme.type.title1)
       Spacer(Modifier.height(Space.s))
       Text(
         "Choose a name and a light so the group can recognise you. No account needed.",
@@ -177,7 +183,7 @@ private fun Introduce(
       Spacer(Modifier.height(Space.xl))
       TextField(name, onName, label = "Your name", maxLength = 20, autoFocus = true)
       Spacer(Modifier.height(Space.xl))
-      Text("Your light", style = Theme.type.subheadStrong)
+      Text("YOUR LIGHT", style = Theme.type.overline, color = c.contentSecondary)
       Spacer(Modifier.height(Space.m))
       LightPicker(light, onPick = onLight)
       Spacer(Modifier.height(Space.l))
@@ -210,7 +216,7 @@ private fun LinkSeeker(onBack: () -> Unit, onDone: () -> Unit) {
     Column(
       Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = Space.gutter)
     ) {
-      Text("Link your Seeker", style = Theme.type.title1)
+      Text("LINK YOUR SEEKER", style = Theme.type.title1)
       Spacer(Modifier.height(Space.s))
       Text(
         "Locked SKR for this Seeker reaches it once you link. Seed Vault will ask you to approve; nothing is spent or moved.",
@@ -219,7 +225,7 @@ private fun LinkSeeker(onBack: () -> Unit, onDone: () -> Unit) {
       )
       Spacer(Modifier.height(Space.x3l))
       Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        SkrCoin(64.dp)
+        RewardPass(Modifier.size(width = 128.dp, height = 80.dp))
       }
       Spacer(Modifier.height(Space.x3l))
       Column(verticalArrangement = Arrangement.spacedBy(Space.l)) {
@@ -274,21 +280,22 @@ internal fun LightPicker(selected: Int, onPick: (Int) -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
           ) {
             Box(
-              Modifier.size(44.dp)
+              Modifier.size(56.dp)
                 .then(
-                  if (i == selected) Modifier.border(1.5.dp, light.color, Shapes.circle) else Modifier
+                  if (i == selected) Modifier.border(2.dp, c.content, Shapes.control) else Modifier
                 ),
               contentAlignment = Alignment.Center,
             ) {
-              PlayerLight("", light, size = 40.dp)
+              PlayerLight("", light, size = 44.dp)
               if (i == selected) {
                 Icon(Icons.Check, null, tint = light.content, size = 16.dp)
               }
             }
-            Spacer(Modifier.height(Space.xs))
+            Spacer(Modifier.height(Space.s))
             Text(
               light.name,
               style = Theme.type.caption,
+              maxLines = 1,
               color = if (i == selected) c.content else c.contentSecondary,
             )
           }

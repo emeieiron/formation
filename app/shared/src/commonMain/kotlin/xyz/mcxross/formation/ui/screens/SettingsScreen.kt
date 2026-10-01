@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import kotlinx.coroutines.launch
 import xyz.mcxross.formation.design.Theme
+import xyz.mcxross.formation.design.components.LiveryRule
 import xyz.mcxross.formation.design.components.Button
 import xyz.mcxross.formation.design.components.ButtonSize
 import xyz.mcxross.formation.design.components.ButtonStyle
@@ -72,7 +73,9 @@ fun SettingsScreen() {
       )
     }
   ) {
+    LiveryRule(Modifier.padding(horizontal = Space.gutter))
     Column(Modifier.verticalScroll(rememberScrollState())) {
+      Text("YOUR PROFILE", Modifier.padding(horizontal = Space.gutter, vertical = Space.l), style = Theme.type.title1)
       Box(
         Modifier.fillMaxWidth().padding(vertical = Space.l),
         contentAlignment = Alignment.Center,
