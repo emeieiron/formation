@@ -176,7 +176,7 @@ internal fun Won(
                       "It's in your wallet, ${shortAddress(share.wallet.orEmpty())}."
                     walletReady -> "It's yours to claim, now or whenever you're ready."
                     else ->
-                      "To claim it you need a Solana wallet. ${suggested.name} takes a minute to set up, and your share waits here until you're back."
+                      "You need a Solana wallet to claim your share. Get ${suggested.name} now, or claim it later."
                   },
                   style = Theme.type.subhead,
                   color = c.contentSecondary,

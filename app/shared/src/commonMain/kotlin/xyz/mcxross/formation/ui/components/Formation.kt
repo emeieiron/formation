@@ -92,7 +92,7 @@ fun RewardSplitView(
       }
       Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
         Text(
-          "Each of ${split.helpers} ${if (split.helpers == 1) "helper" else "helpers"}",
+          if (split.helpers == 1) "1 helper" else "Each of ${split.helpers} helpers",
           style = Theme.type.footnote,
           color = c.contentSecondary,
         )
