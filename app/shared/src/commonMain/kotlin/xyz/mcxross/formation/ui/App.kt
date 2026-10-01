@@ -24,6 +24,8 @@ import xyz.mcxross.formation.state.AppGraph
 import xyz.mcxross.formation.ui.nav.Screen
 import xyz.mcxross.formation.ui.screens.HomeScreen
 import xyz.mcxross.formation.ui.screens.RewardsScreen
+import xyz.mcxross.formation.ui.screens.RecoveryScreen
+import xyz.mcxross.formation.state.recovery.ClaimKeyState
 import xyz.mcxross.formation.ui.screens.SettingsScreen
 import xyz.mcxross.formation.ui.screens.WelcomeScreen
 import xyz.mcxross.formation.ui.session.SessionScreen
@@ -35,8 +37,11 @@ fun FormationApp(graph: AppGraph) {
   FormationTheme {
     CompositionLocalProvider(LocalGraph provides graph) {
       val profile by graph.identity.profile.collectAsState()
+      val claims by graph.identity.claims.status.collectAsState()
+      val recoveryProblem by graph.recoveryProblem.collectAsState()
       OverlayHost(Modifier.background(Theme.colors.background)) {
-        if (profile == null)
+        if (claims is ClaimKeyState.Missing || recoveryProblem != null) RecoveryScreen()
+        else if (profile == null)
           WelcomeScreen(
             onDone = {
               graph.identity.save(it)
@@ -70,6 +75,7 @@ private fun Main(graph: AppGraph) {
       Screen.Session -> SessionScreen()
       Screen.Rewards -> RewardsScreen()
       Screen.Settings -> SettingsScreen()
+      Screen.Recovery -> RecoveryScreen(onBack = { graph.navigator.pop() })
     }
   }
 }

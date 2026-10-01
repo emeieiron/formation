@@ -13,21 +13,23 @@ import javax.crypto.spec.GCMParameterSpec
 internal class KeystoreSecrets(context: Context) : SecretStore {
   private val prefs = context.getSharedPreferences("formation.secrets", Context.MODE_PRIVATE)
 
-  override fun get(name: String): ByteArray? {
-    val blob = prefs.getString(name, null)?.let { Base64.decode(it, Base64.NO_WRAP) } ?: return null
-    return runCatching {
+  override fun contains(name: String) = prefs.contains(name)
+
+  override fun remove(name: String) { check(prefs.edit().remove(name).commit()) { "Could not save secret removal" } }
+
+  override fun get(name: String): ByteArray? = runCatching {
+    val blob = prefs.getString(name, null)?.let { Base64.decode(it, Base64.NO_WRAP) } ?: return@runCatching null
+
       val cipher = Cipher.getInstance(TRANSFORMATION)
       cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, blob, 0, IV_BYTES))
       cipher.doFinal(blob, IV_BYTES, blob.size - IV_BYTES)
-    }
-      .getOrNull()
-  }
+  }.getOrNull()
 
   override fun put(name: String, value: ByteArray) {
     val cipher = Cipher.getInstance(TRANSFORMATION)
     cipher.init(Cipher.ENCRYPT_MODE, key())
     val sealed = cipher.iv + cipher.doFinal(value)
-    prefs.edit().putString(name, Base64.encodeToString(sealed, Base64.NO_WRAP)).apply()
+    check(prefs.edit().putString(name, Base64.encodeToString(sealed, Base64.NO_WRAP)).commit()) { "Could not save this phone's claim key" }
   }
 
   private fun key(): SecretKey {

@@ -67,6 +67,12 @@ class SolanaRpc(
   suspend fun blockHeight(): Long =
     call("getBlockHeight", buildJsonArray { add(options()) }).jsonPrimitive.long
 
+  suspend fun chainTimeMillis(): Long? {
+    val slot = call("getSlot", buildJsonArray { add(options()) }).jsonPrimitive.long
+    val time = call("getBlockTime", buildJsonArray { add(slot) })
+    return if (time == JsonNull) null else time.jsonPrimitive.long * 1_000
+  }
+
   suspend fun account(key: SolanaPublicKey): Account? = multipleAccounts(listOf(key)).single()
 
   suspend fun multipleAccounts(keys: List<SolanaPublicKey>): List<Account?> =

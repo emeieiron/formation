@@ -136,15 +136,22 @@ class SolanaLedger(
   } }
 
   override fun keep(ticket: ClaimTicket) = book.keep(ticket)
+  override fun restore(tickets: List<ClaimTicket>) = book.merge(tickets)
 
   override suspend fun claim(ticket: ClaimTicket, recipient: String): Result<String> = attempt { settlementLock.withLock {
     val operation = "claim:${ticket.opportunity.value}:${ticket.index}"
     submissions.resumePending()
     journal.latest(operation)?.takeIf { it.state == SubmissionState.PENDING || it.state == SubmissionState.CONFIRMED }?.let {
       val signature = submissions.execute(it)
-      book.claimed(ticket, ticket.wallet ?: recipient, signature)
+      book.claimed(ticket, ticket.wallet ?: it.recipient ?: recipient, signature)
       return@attempt signature
     }
+    val current = rpc.account(vault.opportunity(ticket.opportunity.bytes()))?.let {
+      ClaimChainState.from(VaultOpportunity.decode(vault.opportunity(ticket.opportunity.bytes()), it.data), ticket.index)
+    }
+    val reconciled = reconcileClaim(ticket, current, rpc.chainTimeMillis())
+    book.update(reconciled)
+    check(!reconciled.claimed && !reconciled.lapsed && reconciled.unlocked) { "This reward is no longer claimable" }
     val key = claimKey()
     val claimer = SolanaPublicKey(key.publicKey)
     val payer = SolanaPublicKey.from(recipient)
@@ -154,7 +161,7 @@ class SolanaLedger(
       ticket.proof.map { it.hexToBytes() }, claimerSigns = ticket.wallet == null)
     val tx = transaction(payer, blockhash.value, ix).let { if (ticket.wallet == null) it.signedBy(key) else it }
     val signed = if (payer == claimer) tx.serialize() else walletSign(listOf(tx)).single()
-    val signature = submissions.execute(journal.prepare(operation, signed, blockhash.lastValidBlockHeight))
+    val signature = submissions.execute(journal.prepare(operation, signed, blockhash.lastValidBlockHeight, to.base58()))
     book.claimed(ticket, to.base58(), signature)
     signature
   } }
@@ -169,30 +176,21 @@ class SolanaLedger(
   // Shares sealed while the Seeker was offline become claimable, or paid, once it unlocks.
   override suspend fun sync(): Unit = settlementLock.withLock {
     submissions.resumePending()
-    runCatching {
-      for (ticket in tickets.value.filter { !it.claimed && !it.lapsed && it.index >= 0 }) {
+    try {
+      val observedTime = rpc.chainTimeMillis()
+      for (ticket in tickets.value.filter { !it.claimed && it.index >= 0 }) {
         val address = vault.opportunity(ticket.opportunity.bytes())
-        // A reward that never unlocked and whose account is gone expired and went back to its
-        // sponsor.
-        val account =
-          rpc.account(address)
-            ?: if (!ticket.unlocked) {
-              book.update(ticket.copy(lapsed = true))
-              continue
-            } else continue
-        val onChain = VaultOpportunity.decode(address, account.data)
-        if (onChain.state != VaultState.UNLOCKED) continue
-        book.update(
-          if (onChain.hasClaimed(ticket.index))
-            ticket.copy(
-              unlocked = true,
-              claimedTo = ticket.wallet ?: "another wallet",
-              claimReceipt = ticket.claimReceipt ?: "",
-            )
-          else ticket.copy(unlocked = true)
-        )
+        val chain = rpc.account(address)?.let { ClaimChainState.from(VaultOpportunity.decode(address, it.data), ticket.index) }
+        val submission = journal.latest("claim:${ticket.opportunity.value}:${ticket.index}")
+        val reconciled = if (submission?.state == SubmissionState.CONFIRMED)
+          ticket.copy(unlocked = true, lapsed = false, claimedTo = ticket.wallet ?: submission.recipient ?: "another wallet", claimReceipt = submission.signature)
+        else reconcileClaim(ticket, chain, observedTime, submission?.recipient)
+        book.update(if (reconciled.claimed && submission?.state == SubmissionState.CONFIRMED)
+          reconciled.copy(claimReceipt = submission.signature) else reconciled)
       }
-    }
+      _problem.value = null
+    } catch (e: CancellationException) { throw e }
+      catch (e: Exception) { _problem.value = "Could not update reward status: ${describe(e)}" }
   }
 
   private suspend fun config(): VaultConfig =

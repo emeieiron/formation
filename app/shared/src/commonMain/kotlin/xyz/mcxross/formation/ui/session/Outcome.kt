@@ -163,7 +163,7 @@ internal fun Won(
                     share == null -> "Your share went straight to your Seeker's wallet."
                     share.wallet != null && me in (stage.unlock as Unlock.Unlocked).paid ->
                       "It's in your wallet, ${shortAddress(share.wallet.orEmpty())}."
-                    walletReady -> "It's yours to claim, now or whenever you're ready."
+                    walletReady -> "It's yours to claim. Check Rewards for the deadline."
                     else ->
                       "You need a Solana wallet to claim your share. Get ${suggested.name} now, or claim it later."
                   },

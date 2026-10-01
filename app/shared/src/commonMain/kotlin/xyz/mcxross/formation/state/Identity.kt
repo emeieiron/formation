@@ -10,6 +10,7 @@ import xyz.mcxross.formation.crypto.secureRandomBytes
 import xyz.mcxross.formation.platform.PlatformServices
 import xyz.mcxross.formation.session.FormationJson
 import xyz.mcxross.formation.session.PlayerIdentity
+import xyz.mcxross.formation.state.recovery.ClaimIdentity
 
 @Serializable data class Profile(val name: String, val light: Int)
 
@@ -28,13 +29,12 @@ class Identity(private val platform: PlatformServices) {
   val device: String =
     platform.store.get(KEY_DEVICE) ?: newUuid().also { platform.store.put(KEY_DEVICE, it) }
 
-  val claimKey: Ed25519KeyPair by lazy {
-    platform.secrets.get(SECRET_CLAIM)?.let(Ed25519KeyPair::fromSeed)
-      ?: Ed25519KeyPair.generate().also { platform.secrets.put(SECRET_CLAIM, it.seed) }
+  val claims = ClaimIdentity(platform.store, platform.secrets) {
+    loadList(platform.store, "sessions.completed", CompletedSession.serializer())
+      .flatMap { it.snapshot.players }.firstOrNull { it.device == device }?.claimKey
   }
-
-  val claimAddress: String
-    get() = Base58.encode(claimKey.publicKey)
+  val claimKey: Ed25519KeyPair get() = claims.key
+  val claimAddress: String get() = claims.address ?: "Claim key unavailable"
 
   fun save(profile: Profile) {
     platform.store.put(KEY_PROFILE, FormationJson.encodeToString(Profile.serializer(), profile))

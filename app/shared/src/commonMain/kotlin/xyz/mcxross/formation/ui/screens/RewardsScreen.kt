@@ -87,6 +87,7 @@ fun RewardsScreen() {
   val c = Theme.colors
   val tickets by graph.ledger.tickets.collectAsState()
   var claiming by remember { mutableStateOf<ClaimTicket?>(null) }
+  val reconciliationProblem by graph.ledger.problem.collectAsState()
   val waiting = tickets.filter { !it.claimed && it.unlocked && !it.lapsed }
   LaunchedEffect(Unit) { graph.ledger.sync() }
   Page(
@@ -135,6 +136,9 @@ fun RewardsScreen() {
           )
         }
       }
+      reconciliationProblem?.let { message -> item {
+        Notice(message, Modifier.padding(horizontal = Space.gutter), tone = Tone.Warning)
+      } }
       items(tickets, key = { it.opportunity.value + it.index }) { ticket ->
         TicketCard(ticket, onClaim = { claiming = ticket })
         Spacer(Modifier.height(Space.m))
@@ -178,6 +182,10 @@ private fun TicketCard(ticket: ClaimTicket, onClaim: () -> Unit) {
         )
       }
       Column(Modifier.padding(Space.l), verticalArrangement = Arrangement.spacedBy(Space.m)) {
+        ticket.claimDeadline?.let { deadline ->
+          Text("Claim before " + kotlin.time.Instant.fromEpochMilliseconds(deadline).toString().take(10) + " UTC",
+            style = Theme.type.caption, color = c.contentSecondary)
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
           ChallengeGlyph(info, size = 32.dp)
           Spacer(Modifier.width(Space.m))
@@ -214,7 +222,7 @@ private fun TicketCard(ticket: ClaimTicket, onClaim: () -> Unit) {
               }
             }
           }
-          if (!ticket.claimed && !ticket.lapsed && ticket.unlocked) {
+          if (!ticket.claimed && !ticket.lapsed && ticket.unlocked && (ticket.claimDeadline == null || xyz.mcxross.formation.state.now() <= ticket.claimDeadline)) {
             Spacer(Modifier.width(Space.m))
             Button(
               stringResource(Res.string.action_claim),

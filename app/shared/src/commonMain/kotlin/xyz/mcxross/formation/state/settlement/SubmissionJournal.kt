@@ -18,6 +18,7 @@ data class Submission(
   val validUntil: Long,
   val state: SubmissionState = SubmissionState.PENDING,
   val problem: String? = null,
+  val recipient: String? = null,
 )
 
 class SubmissionJournal(private val store: KeyValueStore, private val key: String) {
@@ -28,10 +29,10 @@ class SubmissionJournal(private val store: KeyValueStore, private val key: Strin
   fun latest(operation: String): Submission? = entries.lastOrNull { it.operation == operation }
   fun pending(): List<Submission> = entries.filter { it.state == SubmissionState.PENDING }
 
-  fun prepare(operation: String, signed: ByteArray, validUntil: Long): Submission {
+  fun prepare(operation: String, signed: ByteArray, validUntil: Long, recipient: String? = null): Submission {
     val previous = latest(operation)
     check(previous?.state != SubmissionState.PENDING) { "A transaction is still awaiting confirmation" }
-    val entry = Submission(operation, signedTransactionId(signed), Base64.encode(signed), validUntil)
+    val entry = Submission(operation, signedTransactionId(signed), Base64.encode(signed), validUntil, recipient = recipient)
     save((entries.filterNot { it.operation == operation && it.state != SubmissionState.PENDING }) + entry)
     return entry
   }

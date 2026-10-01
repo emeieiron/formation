@@ -44,6 +44,7 @@ data class ClaimTicket(
   val claimReceipt: String? = null,
   val unlocked: Boolean = true,
   val lapsed: Boolean = false,
+  val claimDeadline: Long? = null,
 ) {
   val claimed: Boolean
     get() = claimedTo != null
@@ -75,6 +76,8 @@ interface RewardLedger {
 
   fun keep(ticket: ClaimTicket)
 
+  fun restore(tickets: List<ClaimTicket>) { tickets.forEach(::keep) }
+
   suspend fun claim(ticket: ClaimTicket, recipient: String): Result<String>
 
   suspend fun sync() {}
@@ -83,40 +86,6 @@ interface RewardLedger {
   suspend fun stillLocked(opportunity: Opportunity): Boolean?
 }
 
-class TicketBook(private val store: KeyValueStore, private val key: String) {
-  private val _tickets = MutableStateFlow(loadList(store, key, ClaimTicket.serializer()))
-  val tickets: StateFlow<List<ClaimTicket>> = _tickets.asStateFlow()
-
-  // A share kept while waiting for the unlock is replaced by what the unlock says; nothing else
-  // changes it.
-  fun keep(ticket: ClaimTicket) {
-    val existing = _tickets.value.firstOrNull { it.same(ticket) }
-    when {
-      existing == null -> save(listOf(ticket) + _tickets.value)
-      !existing.unlocked && ticket.unlocked -> update(ticket)
-    }
-  }
-
-  fun update(ticket: ClaimTicket) = save(_tickets.value.map { if (it.same(ticket)) ticket else it })
-
-  private fun ClaimTicket.same(other: ClaimTicket) =
-    opportunity == other.opportunity && index == other.index
-
-  fun claimed(ticket: ClaimTicket, to: String, receipt: String) {
-    save(
-      _tickets.value.map {
-        if (it.opportunity == ticket.opportunity && it.index == ticket.index)
-          it.copy(claimedTo = to, claimReceipt = receipt)
-        else it
-      }
-    )
-  }
-
-  private fun save(list: List<ClaimTicket>) {
-    store.putDurable(key, FormationJson.encodeToString(ListSerializer(ClaimTicket.serializer()), list))
-    _tickets.value = list
-  }
-}
 
 class SimulatedLedger(
   private val store: KeyValueStore,
@@ -156,6 +125,7 @@ class SimulatedLedger(
   }
 
   override fun keep(ticket: ClaimTicket) = book.keep(ticket)
+  override fun restore(tickets: List<ClaimTicket>) = book.merge(tickets)
 
   override suspend fun stillLocked(opportunity: Opportunity): Boolean? =
     _opportunities.value.any { it.id == opportunity.id }

@@ -41,6 +41,9 @@ interface KeyValueStore {
 }
 
 interface SecretStore {
+  fun contains(name: String): Boolean = get(name) != null
+  fun remove(name: String) { error("Secret removal is unavailable") }
+
   fun get(name: String): ByteArray?
 
   fun put(name: String, value: ByteArray)

@@ -63,6 +63,8 @@ fun TextField(
   label: String? = null,
   leadingIcon: ImageVector? = null,
   singleLine: Boolean = true,
+  maxLines: Int = Int.MAX_VALUE,
+  visualTransformation: androidx.compose.ui.text.input.VisualTransformation = androidx.compose.ui.text.input.VisualTransformation.None,
   maxLength: Int? = null,
   keyboardOptions: KeyboardOptions =
     KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Done),
@@ -95,6 +97,8 @@ fun TextField(
         (label ?: placeholder)?.let { contentDescription = it }
       },
       singleLine = singleLine,
+      maxLines = maxLines,
+      visualTransformation = visualTransformation,
       textStyle = textStyle.copy(color = c.content),
       cursorBrush = SolidColor(c.accent),
       keyboardOptions = keyboardOptions,

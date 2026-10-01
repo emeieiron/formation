@@ -11,6 +11,8 @@ sealed interface Screen {
 
   data object Rewards : Screen
 
+  data object Recovery : Screen
+
   data object Settings : Screen
 }
 

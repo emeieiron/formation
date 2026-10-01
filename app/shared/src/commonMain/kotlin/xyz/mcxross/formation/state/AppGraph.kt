@@ -69,6 +69,11 @@ class AppGraph(
 
   val pending = PendingUnlocks(platform.store)
   val completed = CompletedSessions(platform.store)
+  val recovery = xyz.mcxross.formation.state.recovery.RecoveryService(identity.claims, this.ledger,
+    platform.store, platform.secrets, platform.config.cluster, replacementAllowed = {
+      _session.value == null && this.ledger.tickets.value.isEmpty() && completed.entries.value.isEmpty() && pending.pending.value.isEmpty()
+    })
+  val recoveryProblem = MutableStateFlow<String?>(null)
   private val unlocking = Mutex()
 
   suspend fun unlockWin(win: PendingUnlock): Result<UnlockReceipt> = unlocking.withLock {
@@ -112,6 +117,7 @@ class AppGraph(
   val autoplay = MutableStateFlow(false)
 
   suspend fun host(opportunity: Opportunity, recovery: xyz.mcxross.formation.session.SessionSnapshot? = null): Result<ActiveSession> = runCatching {
+    check(identity.claims.status.value is xyz.mcxross.formation.state.recovery.ClaimKeyState.Ready) { "Restore this phone's claim key first" }
     endSession()
     val challenge =
       ChallengeCatalog[opportunity.challenge] ?: error("This app doesn't know that challenge yet")
@@ -153,6 +159,7 @@ class AppGraph(
   }
 
   fun join(address: HostAddress): ActiveSession {
+    check(identity.claims.status.value is xyz.mcxross.formation.state.recovery.ClaimKeyState.Ready) { "Restore this phone's claim key first" }
     endSession()
     val sessionScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val connector = WebSocketConnector(platform.network.http)
@@ -192,7 +199,7 @@ class AppGraph(
 
   fun open(link: String): Boolean {
     val address = Links.parse(link)?.address ?: return false
-    if (identity.profile.value == null) {
+    if (identity.profile.value == null || identity.claims.status.value !is xyz.mcxross.formation.state.recovery.ClaimKeyState.Ready) {
       pendingJoin = address
     } else {
       join(address)
@@ -235,6 +242,7 @@ class AppGraph(
   }
 
   init {
+    runCatching { recovery.resumePending() }.onFailure { recoveryProblem.value = it.message ?: "Recovery could not finish" }
     scope.launch { sounds.prepare() }
     platform.hotspot?.let { hotspot -> scope.launch {
       hotspot.active.collect { if (it == null) _session.value?.onSeekerNetworkStopped() }

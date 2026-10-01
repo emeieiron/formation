@@ -178,6 +178,11 @@ fun SettingsScreen() {
           Hairline()
           SettingRow("Claim key", detail = graph.identity.claimAddress, icon = Icons.Lock)
           Hairline()
+          SettingRow("Reward recovery", detail = "Encrypted key and reward proof export", icon = Icons.Lock, trailing = {
+            Button("Open", { graph.navigator.push(Screen.Recovery) }, style = ButtonStyle.Secondary,
+              size = ButtonSize.Small, fillWidth = false)
+          })
+          Hairline()
           SettingRow(
             "Your rewards",
             icon = Icons.Sparkles,
