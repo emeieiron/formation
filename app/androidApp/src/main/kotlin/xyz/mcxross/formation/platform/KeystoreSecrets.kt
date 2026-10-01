@@ -1,60 +1,40 @@
 package xyz.mcxross.formation.platform
 
 import android.content.Context
-import android.security.keystore.KeyGenParameterSpec
-import android.security.keystore.KeyProperties
 import android.util.Base64
-import java.security.KeyStore
-import javax.crypto.Cipher
-import javax.crypto.KeyGenerator
-import javax.crypto.SecretKey
-import javax.crypto.spec.GCMParameterSpec
 
 internal class KeystoreSecrets(context: Context) : SecretStore {
   private val prefs = context.getSharedPreferences("formation.secrets", Context.MODE_PRIVATE)
+  private val cipher = DeviceSecretCipher("formation.secrets")
+  private val backup = ProtectedSecretBackup(context)
 
-  override fun contains(name: String) = prefs.contains(name)
+  override fun contains(name: String) = prefs.contains(name) || backup.contains(name)
 
-  override fun remove(name: String) { check(prefs.edit().remove(name).commit()) { "Could not save secret removal" } }
+  override fun remove(name: String) {
+    check(prefs.edit().remove(name).commit()) { "Could not save secret removal" }
+    backup.remove(name)
+  }
 
   override fun get(name: String): ByteArray? = runCatching {
     val blob = prefs.getString(name, null)?.let { Base64.decode(it, Base64.NO_WRAP) } ?: return@runCatching null
 
-      val cipher = Cipher.getInstance(TRANSFORMATION)
-      cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, blob, 0, IV_BYTES))
-      cipher.doFinal(blob, IV_BYTES, blob.size - IV_BYTES)
+    cipher.open(blob)
   }.getOrNull()
 
   override fun put(name: String, value: ByteArray) {
-    val cipher = Cipher.getInstance(TRANSFORMATION)
-    cipher.init(Cipher.ENCRYPT_MODE, key())
-    val sealed = cipher.iv + cipher.doFinal(value)
+    val sealed = cipher.seal(value)
     check(prefs.edit().putString(name, Base64.encodeToString(sealed, Base64.NO_WRAP)).commit()) { "Could not save this phone's claim key" }
   }
 
-  private fun key(): SecretKey {
-    val keystore = KeyStore.getInstance(PROVIDER).apply { load(null) }
-    (keystore.getKey(ALIAS, null) as? SecretKey)?.let {
-      return it
-    }
-    val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, PROVIDER)
-    generator.init(
-      KeyGenParameterSpec.Builder(
-          ALIAS,
-          KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
-        )
-        .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-        .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-        .setKeySize(256)
-        .build()
-    )
-    return generator.generateKey()
-  }
+  override fun recoveryCopy(name: String) = backup.get(name)
 
-  private companion object {
-    const val PROVIDER = "AndroidKeyStore"
-    const val ALIAS = "formation.secrets"
-    const val TRANSFORMATION = "AES/GCM/NoPadding"
-    const val IV_BYTES = 12
+  @Synchronized
+  override fun protect(name: String, value: ByteArray): Boolean {
+    val existing = backup.get(name)
+    try { if (existing?.contentEquals(value) == true) return true }
+    finally { existing?.fill(0) }
+    backup.put(name, value)
+    val saved = backup.get(name)
+    return try { saved?.contentEquals(value) == true } finally { saved?.fill(0) }
   }
 }

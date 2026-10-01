@@ -64,6 +64,7 @@ fun SettingsScreen() {
   val seeker by graph.seeker.identity.collectAsState()
   val status by graph.seeker.status.collectAsState()
   val soundEnabled by graph.sounds.enabled.collectAsState()
+  val claimState by graph.identity.claims.status.collectAsState()
   var name by remember { mutableStateOf(profile?.name ?: "") }
   var light by remember { mutableStateOf(profile?.light ?: 0) }
 
@@ -176,9 +177,8 @@ fun SettingsScreen() {
             icon = Icons.Coin,
           )
           Hairline()
-          SettingRow("Claim key", detail = graph.identity.claimAddress, icon = Icons.Lock)
-          Hairline()
-          SettingRow("Reward recovery", detail = "Encrypted key and reward proof export", icon = Icons.Lock, trailing = {
+          SettingRow("Reward recovery", detail = if ((claimState as? xyz.mcxross.formation.state.recovery.ClaimKeyState.Ready)?.protectedOnDevice == true)
+            "Automatic protection on this phone" else "Recovery options", icon = Icons.Lock, trailing = {
             Button("Open", { graph.navigator.push(Screen.Recovery) }, style = ButtonStyle.Secondary,
               size = ButtonSize.Small, fillWidth = false)
           })

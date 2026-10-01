@@ -47,6 +47,11 @@ interface SecretStore {
   fun get(name: String): ByteArray?
 
   fun put(name: String, value: ByteArray)
+
+  // An independently encrypted, device-bound copy. Callers must validate identity
+  // before using it to repair the primary record. Unsupported platforms return null.
+  fun recoveryCopy(name: String): ByteArray? = null
+  fun protect(name: String, value: ByteArray): Boolean = false
 }
 
 interface LocalNetwork {

@@ -8,7 +8,7 @@ import xyz.mcxross.formation.platform.KeyValueStore
 import xyz.mcxross.formation.platform.SecretStore
 
 sealed interface ClaimKeyState {
-  data class Ready(val address: String) : ClaimKeyState
+  data class Ready(val address: String, val protectedOnDevice: Boolean = false) : ClaimKeyState
   data class Missing(val address: String?) : ClaimKeyState
 }
 
@@ -20,10 +20,14 @@ class ClaimIdentity(private val store: KeyValueStore, private val secrets: Secre
   init {
     val seed = runCatching { secrets.get(SECRET) }.getOrNull()
     val savedAddress = store.get(PUBLIC) ?: knownAddress()
-    val key = seed?.takeIf { it.size == 32 }?.let(Ed25519KeyPair::fromSeed)
+    val key = keyFrom(seed)
+    val recovered = if (key == null || savedAddress != null && savedAddress != Base58.encode(key.publicKey))
+      keyFrom(runCatching { secrets.recoveryCopy(SECRET) }.getOrNull()) else null
     when {
       key != null && (savedAddress == null || savedAddress == Base58.encode(key.publicKey)) -> runCatching { install(key) }
-      key != null || savedAddress != null || secrets.contains(SECRET) || hasRecords() -> Unit
+      recovered != null && (savedAddress == Base58.encode(recovered.publicKey) || savedAddress == null && !hasRecords()) ->
+        runCatching { install(recovered) }
+      key != null || recovered != null || savedAddress != null || secrets.contains(SECRET) || hasRecords() -> Unit
       else -> runCatching { install(Ed25519KeyPair.generate()) }
     }
   }
@@ -36,6 +40,10 @@ class ClaimIdentity(private val store: KeyValueStore, private val secrets: Secre
 
   fun restore(key: Ed25519KeyPair) = install(key)
 
+  private fun keyFrom(seed: ByteArray?): Ed25519KeyPair? = try {
+    seed?.takeIf { it.size == 32 }?.let(Ed25519KeyPair::fromSeed)
+  } finally { seed?.fill(0) }
+
   private fun hasRecords() = listOf("sol.tickets", "sim.tickets", "sessions.completed").any {
     store.get(it)?.let { raw -> raw.isNotBlank() && raw != "[]" } == true
   }
@@ -44,8 +52,9 @@ class ClaimIdentity(private val store: KeyValueStore, private val secrets: Secre
     secrets.put(SECRET, key.seed)
     val address = Base58.encode(key.publicKey)
     store.putDurable(PUBLIC, address)
+    val protected = runCatching { secrets.protect(SECRET, key.seed) }.getOrDefault(false)
     cached = key
-    state.value = ClaimKeyState.Ready(address)
+    state.value = ClaimKeyState.Ready(address, protectedOnDevice = protected)
   }
 
   private companion object { const val PUBLIC = "claim.public"; const val SECRET = "claim-key" }

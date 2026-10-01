@@ -36,7 +36,8 @@ Keep the existing onboarding, hosting, joining, and claiming flow. Harden the bo
 
 - Reconcile claim deadlines and terminal states from chain data; retain useful receipts.
 - Distinguish a first installation from a lost or unreadable key on an existing installation.
-- Add an explicit encrypted recovery export/import for the claim key and reward proofs, preserving wallet-free play. Validate before replacing identity or merging records.
+- Automatically protect the claim key with a second, independently encrypted Android Keystore copy. Validate its public identity before repairing a missing, corrupted or mismatched primary record. Keep this copy in an atomic, app-private file excluded from system backup.
+- Put encrypted export/import for the claim key and reward proofs behind an advanced action. Ordinary device repair requires no password or manual key handling. Losing both protected copies, uninstalling or losing the device still requires an independent backup. Validate before replacing identity or merging records.
 - Test expiry, rejected recovery data, and successful restoration of an entitlement.
 
 ## 6. Local diagnostics and integrated verification
@@ -47,3 +48,9 @@ Keep the existing onboarding, hosting, joining, and claiming flow. Harden the bo
 - Record actual verification and remaining physical-device checks; do not treat emulator autoplay as proof of human play quality.
 
 Each phase is committed separately after its focused checks pass. New files own one responsibility; AppGraph remains wiring. Tests cover failure/recovery semantics rather than component appearance or implementation details. Sponsor campaign tooling and changes to challenge rules are outside this work.
+
+## Automation policy
+
+Recover previously authorized work automatically when its identity and outcome can be verified: signed transaction reconciliation, claim expiry, interrupted recovery writes and damaged local key storage. Preserve wallet approval for new signatures and user control over hosting, joining, backup sharing and diagnostic export. A timeout or an unreadable key must never trigger a guessed financial outcome or a replacement identity.
+
+Healthy installations acquire the protected key copy on their next launch. If protection storage is temporarily unavailable, the valid primary key remains usable and protection retries at the next launch. Recovery validates an existing public identity before writing; failed repair leaves the protected copy intact for another attempt. This is local redundancy, not cross-device custody or protection against compromise of the app process or the entire Keystore.
