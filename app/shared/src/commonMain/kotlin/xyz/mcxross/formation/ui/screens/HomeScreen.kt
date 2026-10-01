@@ -31,10 +31,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.stringResource
+import xyz.mcxross.formation.resources.*
 import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.components.Button
 import xyz.mcxross.formation.design.components.ButtonSize
@@ -44,6 +49,7 @@ import xyz.mcxross.formation.design.components.LiveryRule
 import xyz.mcxross.formation.design.components.LocalToaster
 import xyz.mcxross.formation.design.components.NavigationBarSpacer
 import xyz.mcxross.formation.design.components.Notice
+import xyz.mcxross.formation.design.components.Overline
 import xyz.mcxross.formation.design.components.Page
 import xyz.mcxross.formation.design.components.PlayerLight
 import xyz.mcxross.formation.design.components.SectionHeader
@@ -72,7 +78,6 @@ import xyz.mcxross.formation.ui.components.ChallengeGlyph
 import xyz.mcxross.formation.ui.components.Slots
 import xyz.mcxross.formation.ui.components.TierTag
 import xyz.mcxross.formation.ui.components.challengeInfo
-import xyz.mcxross.formation.ui.components.possessive
 import xyz.mcxross.formation.ui.components.shortAddress
 import xyz.mcxross.formation.ui.components.timeLeft
 import xyz.mcxross.formation.ui.nav.Screen
@@ -129,7 +134,7 @@ fun HomeScreen() {
           Modifier.pressable(
               { graph.navigator.push(Screen.Settings) },
               shape = Shapes.control,
-              onClickLabel = "Your profile",
+              onClickLabel = stringResource(Res.string.label_profile),
             )
             .padding(6.dp)
         ) {
@@ -143,18 +148,7 @@ fun HomeScreen() {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = Space.x4l)) {
       item {
         Column(Modifier.padding(start = Space.gutter, end = Space.gutter, top = Space.l)) {
-          Greeting(profile?.name ?: "there")
-          Spacer(Modifier.height(Space.xs))
-          Text(
-            when {
-              seeker != null && opportunities.isNotEmpty() ->
-                "${opportunities.size} locked ${if (opportunities.size == 1) "reward is" else "rewards are"} waiting on your Seeker."
-              seeker != null -> "No locked rewards right now."
-              else -> "Join a Formation nearby and help unlock its reward."
-            },
-            style = Theme.type.body,
-            color = c.contentSecondary,
-          )
+          PlayerName(profile?.name ?: "Formation")
         }
       }
 
@@ -173,11 +167,11 @@ fun HomeScreen() {
       if (me != null && pendingWins.isNotEmpty()) {
         items(pendingWins, key = { "pending-" + it.opportunity.id.value }) { win ->
           Notice(
-            "Everyone sealed it. It unlocks on chain once this Seeker is online.",
+            stringResource(Res.string.copy_offline_unlock),
             Modifier.padding(horizontal = Space.gutter, vertical = Space.s),
             tone = Tone.Warning,
-            title = "Sealed win · ${win.opportunity.reward.format(0)} SKR",
-            action = "Unlock now",
+            title = "${win.opportunity.reward.format(0)} SKR",
+            action = stringResource(Res.string.action_unlock),
             onAction = {
               scope.launch {
                 graph.unlockWin(win).onFailure {
@@ -189,7 +183,25 @@ fun HomeScreen() {
         }
       }
       if (me != null) {
-        item { SectionHeader(if (me.simulated) "Your Seeker · simulated" else "Your Seeker") }
+        item {
+          Row(
+            Modifier.fillMaxWidth().padding(horizontal = Space.gutter, vertical = Space.l),
+            verticalAlignment = Alignment.CenterVertically,
+          ) {
+            Overline("Seeker", Modifier.weight(1f))
+            if (me.simulated) Tag(stringResource(Res.string.label_simulated), tone = Tone.Warning)
+          }
+        }
+        if (opportunities.isEmpty()) {
+          item {
+            Text(
+              stringResource(Res.string.state_no_locked_rewards),
+              Modifier.padding(horizontal = Space.gutter),
+              style = Theme.type.subhead,
+              color = c.contentSecondary,
+            )
+          }
+        }
         item {
           LazyRow(
             contentPadding = PaddingValues(horizontal = Space.gutter),
@@ -213,7 +225,7 @@ fun HomeScreen() {
         item { SeekerStatusRow(status, onRetry = { scope.launch { graph.seeker.link() } }) }
       }
 
-      item { SectionHeader("Nearby") }
+      item { SectionHeader(stringResource(Res.string.label_nearby)) }
       if (nearby.isEmpty()) {
         item { Scanning(onScan = { scan() }, onCode = { enteringCode = true }) }
       } else {
@@ -236,7 +248,7 @@ fun HomeScreen() {
             .padding(vertical = Space.l),
           verticalAlignment = Alignment.CenterVertically,
         ) {
-          Text("Your rewards", Modifier.weight(1f), style = Theme.type.bodyStrong)
+          Text(stringResource(Res.string.label_rewards), Modifier.weight(1f), style = Theme.type.bodyStrong)
           Icon(Icons.ArrowUpRight, null)
         }
       }
@@ -283,6 +295,9 @@ private fun OpportunityCard(o: Opportunity, onOpen: () -> Unit) {
   val info = challengeInfo(o.challenge)
   val split = o.split()
   val now = xyz.mcxross.formation.state.now()
+  val playerCount = pluralStringResource(Res.plurals.player_count, o.players, o.players)
+  val remaining = timeLeft(o.expiresAt, now)
+  val expiryLabel = stringResource(Res.string.a11y_time_left, remaining)
   Panel(
     Modifier.width(284.dp).pressable(onOpen, shape = Shapes.card, travel = true).liveryCard(),
   ) {
@@ -311,7 +326,7 @@ private fun OpportunityCard(o: Opportunity, onOpen: () -> Unit) {
       }
       Spacer(Modifier.height(Space.l))
       Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Lock, "Locked", tint = c.reward, size = 22.dp)
+        Icon(Icons.Lock, stringResource(Res.string.a11y_locked_reward), tint = c.reward, size = 22.dp)
         Spacer(Modifier.width(Space.s))
         SkrAmount(
           o.reward.format(0),
@@ -322,22 +337,31 @@ private fun OpportunityCard(o: Opportunity, onOpen: () -> Unit) {
       }
       Spacer(Modifier.height(Space.l))
       Row(verticalAlignment = Alignment.CenterVertically) {
-        Slots(o.players, filled = 0)
+        Icon(Icons.Users, null, tint = c.contentSecondary, size = 18.dp)
         Spacer(Modifier.width(Space.s))
-        Text("${o.players} players", style = Theme.type.subheadStrong, color = c.content)
+        Text(
+          o.players.toString(),
+          Modifier.clearAndSetSemantics { contentDescription = playerCount },
+          style = Theme.type.subheadStrong,
+        )
+        Spacer(Modifier.width(Space.l))
+        Icon(Icons.Clock, null, tint = c.contentSecondary, size = 18.dp)
+        Spacer(Modifier.width(Space.s))
+        Text(
+          remaining,
+          Modifier.clearAndSetSemantics { contentDescription = expiryLabel },
+          style = Theme.type.footnote,
+          color = c.contentSecondary,
+        )
+        Spacer(Modifier.weight(1f))
+        Text(o.difficulty.label, style = Theme.type.caption, color = c.contentSecondary)
       }
-      Spacer(Modifier.height(Space.xs))
-      Text(
-        "${timeLeft(o.expiresAt, now)} · ${o.difficulty.label}",
-        style = Theme.type.footnote,
-        color = c.contentSecondary,
-      )
       Spacer(Modifier.height(Space.l))
       Box(Modifier.fillMaxWidth().height(1.dp).background(c.line))
       Spacer(Modifier.height(Space.m))
       Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Space.m)) {
         Column(Modifier.weight(1f)) {
-          Text("Your share", style = Theme.type.caption, color = c.contentSecondary)
+          Text(stringResource(Res.string.label_your_share), style = Theme.type.caption, color = c.contentSecondary)
           SkrAmount(
             split.owner.format(0),
             style = Theme.type.numeral,
@@ -346,7 +370,7 @@ private fun OpportunityCard(o: Opportunity, onOpen: () -> Unit) {
           )
         }
         Column(Modifier.weight(1f)) {
-          Text("Each helper", style = Theme.type.caption, color = c.contentSecondary)
+          Text(stringResource(Res.string.label_each_helper), style = Theme.type.caption, color = c.contentSecondary)
           SkrAmount(split.helper.format(0), style = Theme.type.subheadStrong, coin = false)
         }
       }
@@ -366,25 +390,27 @@ private fun NearbyCard(formation: NearbyFormation, onJoin: () -> Unit) {
         PlayerLight(b.host, Light("Host", c.content, c.onInverse), size = 44.dp)
         Spacer(Modifier.width(Space.m))
         Column(Modifier.weight(1f)) {
-          Text("${possessive(b.host)} Formation", style = Theme.type.title2, maxLines = 2)
+          Text(b.host, style = Theme.type.title2, maxLines = 2)
           Text(info?.title ?: b.challenge.value, style = Theme.type.footnote, color = c.contentSecondary)
         }
         if (b.open)
           Button(
-            "Join",
+            stringResource(Res.string.action_join),
             onJoin,
             style = ButtonStyle.Primary,
             size = ButtonSize.Small,
             fillWidth = false,
           )
-        else Tag(if (b.joined >= b.players) "Full" else "Playing")
+        else Tag(stringResource(if (b.joined >= b.players) Res.string.state_full else Res.string.state_playing))
       }
       Spacer(Modifier.height(Space.m))
       Row(verticalAlignment = Alignment.CenterVertically) {
         Slots(b.players, b.joined, color = color)
         Spacer(Modifier.width(Space.s))
+        val occupancy = stringResource(Res.string.a11y_occupancy, b.joined, b.players)
         Text(
-          "${b.joined} of ${b.players} joined",
+          "${b.joined}/${b.players}",
+          Modifier.clearAndSetSemantics { contentDescription = occupancy },
           style = Theme.type.footnote,
           color = c.contentSecondary,
         )
@@ -392,7 +418,7 @@ private fun NearbyCard(formation: NearbyFormation, onJoin: () -> Unit) {
       Spacer(Modifier.height(Space.m))
       Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Space.m)) {
         Column(Modifier.weight(1f)) {
-          Text("Locked reward", style = Theme.type.caption, color = c.contentSecondary)
+          Icon(Icons.Lock, stringResource(Res.string.a11y_locked_reward), tint = c.contentSecondary, size = 16.dp)
           SkrAmount(
             b.reward.format(0),
             style = Theme.type.numeral,
@@ -401,7 +427,7 @@ private fun NearbyCard(formation: NearbyFormation, onJoin: () -> Unit) {
           )
         }
         Column(Modifier.weight(1f)) {
-          Text("Your share if unlocked", style = Theme.type.caption, color = c.contentSecondary)
+          Text(stringResource(Res.string.label_your_share), style = Theme.type.caption, color = c.contentSecondary)
           SkrAmount(b.helperShare.format(0), style = Theme.type.subheadStrong, coin = false)
         }
       }
@@ -411,7 +437,6 @@ private fun NearbyCard(formation: NearbyFormation, onJoin: () -> Unit) {
 
 @Composable
 private fun Scanning(onScan: () -> Unit, onCode: () -> Unit) {
-  val c = Theme.colors
   Column(
     Modifier.fillMaxWidth().padding(horizontal = Space.gutter),
   ) {
@@ -419,17 +444,11 @@ private fun Scanning(onScan: () -> Unit, onCode: () -> Unit) {
       DiscoverySignal()
       Spacer(Modifier.width(Space.m))
       Text(
-        "Looking for Formations nearby",
+        stringResource(Res.string.state_searching),
         style = Theme.type.subheadStrong,
         modifier = Modifier.weight(1f),
       )
     }
-    Spacer(Modifier.height(Space.s))
-    Text(
-      "Formations are started on a Seeker. When one is on your Wi-Fi, it appears here. You can also scan its code.",
-      style = Theme.type.subhead,
-      color = c.contentSecondary,
-    )
     Spacer(Modifier.height(Space.xl))
     JoinControls(onScan, onCode)
   }
@@ -493,11 +512,8 @@ private fun RewardsBanner(total: Skr, count: Int, onOpen: () -> Unit) {
     Spacer(Modifier.width(Space.m))
     Column(Modifier.weight(1f)) {
       SkrAmount(total.format(2), color = c.reward, coin = false)
-      Text(
-        "$count ${if (count == 1) "reward" else "rewards"} ready to claim",
-        style = Theme.type.footnote,
-        color = c.contentSecondary,
-      )
+      Text(pluralStringResource(Res.plurals.ready_reward_count, count, count),
+        style = Theme.type.footnote, color = c.contentSecondary)
     }
     Icon(Icons.ChevronRight, null, tint = c.reward)
   }
@@ -508,28 +524,28 @@ private fun JoinControls(onScan: () -> Unit, onCode: () -> Unit, modifier: Modif
   BoxWithConstraints(modifier.fillMaxWidth()) {
     val stacked = maxWidth < 300.dp && androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.15f
     if (stacked) Column(verticalArrangement = Arrangement.spacedBy(Space.m)) {
-      Button("Scan QR", onScan, style = ButtonStyle.Secondary, leadingIcon = Icons.Scan)
-      Button("Enter code", onCode, style = ButtonStyle.Secondary, leadingIcon = Icons.Keypad)
+      Button(stringResource(Res.string.action_scan), onScan, style = ButtonStyle.Secondary, leadingIcon = Icons.Scan)
+      Button(stringResource(Res.string.action_code), onCode, style = ButtonStyle.Secondary, leadingIcon = Icons.Keypad)
     } else Row(horizontalArrangement = Arrangement.spacedBy(Space.m)) {
-      Button("Scan QR", onScan, Modifier.weight(1f), style = ButtonStyle.Secondary,
+      Button(stringResource(Res.string.action_scan), onScan, Modifier.weight(1f), style = ButtonStyle.Secondary,
         size = ButtonSize.Medium, leadingIcon = Icons.Scan, fillWidth = true)
-      Button("Enter code", onCode, Modifier.weight(1f), style = ButtonStyle.Secondary,
+      Button(stringResource(Res.string.action_code), onCode, Modifier.weight(1f), style = ButtonStyle.Secondary,
         size = ButtonSize.Medium, leadingIcon = Icons.Keypad, fillWidth = true)
     }
   }
 }
 
 @Composable
-private fun Greeting(name: String) {
+private fun PlayerName(name: String) {
   val hero = Theme.type.hero.copy(fontStyle = FontStyle.Italic)
   val measurer = rememberTextMeasurer()
   val edgeAllowance = with(LocalDensity.current) { 8.dp.roundToPx() }
   BoxWithConstraints(Modifier.fillMaxWidth()) {
-    val nameWidth = measurer.measure(name.uppercase(), style = hero, softWrap = false).size.width
+    val nameWidth = measurer.measure(name, style = hero, softWrap = false).size.width
     val fit = ((constraints.maxWidth - edgeAllowance).toFloat() / nameWidth.coerceAtLeast(1))
       .coerceIn(0.1f, 1f)
     Text(
-      "Hi, $name".uppercase(),
+      name,
       style = hero.copy(fontSize = hero.fontSize * fit, lineHeight = hero.lineHeight * fit),
       maxLines = 2,
     )

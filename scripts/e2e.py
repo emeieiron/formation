@@ -168,7 +168,8 @@ def onboard(phone, name, light):
 
 
 def host_duo(seeker, title):
-    row = next((n for n in seeker.nodes().iter("node") if (n.get("text") or "").endswith(" players")), None)
+    row = next((n for n in seeker.nodes().iter("node")
+                if (n.get("content-desc") or n.get("text") or "").endswith(" players")), None)
     if row is None:
         raise Failed("seeker: no rewards on the shelf")
     y = (bounds(row)[1] + bounds(row)[3]) // 2
@@ -177,7 +178,8 @@ def host_duo(seeker, title):
         seeker.shell(f"input swipe 250 {y} 1150 {y} 150")
     for _ in range(24):
         for card in seeker.nodes().iter("node"):
-            texts = [n.get("text") for n in card.iter("node")]
+            texts = [value for n in card.iter("node")
+                     for value in (n.get("text"), n.get("content-desc")) if value]
             x1, _, x2, _ = bounds(card)
             if card.get("clickable") == "true" and title in texts and "2 players" in texts and x2 - x1 > 500:
                 seeker.tap(card)
@@ -310,7 +312,7 @@ def main():
 
         guest.launch()
         log("guest: looking for the Formation nearby")
-        guest.wait(f"{host_name}'s Formation", timeout=60)
+        guest.wait(host_name, timeout=60)
         guest.tap_text("Join")
         guest.wait("YOUR SHARE IF YOU UNLOCK IT", timeout=20)
         if args.wallet == "connect":

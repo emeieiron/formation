@@ -3,12 +3,8 @@ package xyz.mcxross.formation.ui.screens
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.size
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -30,9 +26,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.stringResource
+import xyz.mcxross.formation.resources.*
 import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.components.LiveryRule
 import xyz.mcxross.formation.design.components.RewardPass
@@ -47,9 +49,9 @@ import xyz.mcxross.formation.design.components.Overline
 import xyz.mcxross.formation.design.components.Page
 import xyz.mcxross.formation.design.components.SheetActions
 import xyz.mcxross.formation.design.components.SkrAmount
-import xyz.mcxross.formation.design.components.Tag
 import xyz.mcxross.formation.design.components.TopBar
 import xyz.mcxross.formation.design.foundation.Panel
+import xyz.mcxross.formation.design.foundation.Icon
 import xyz.mcxross.formation.design.foundation.Text
 import xyz.mcxross.formation.design.icons.Icons
 import xyz.mcxross.formation.design.tokens.Space
@@ -75,7 +77,7 @@ fun RewardsScreen() {
   LaunchedEffect(Unit) { graph.ledger.sync() }
   Page(
     topBar = {
-      TopBar(title = "Rewards", onBack = { graph.navigator.pop() })
+      TopBar(title = stringResource(Res.string.label_rewards), onBack = { graph.navigator.pop() })
     },
   ) {
     LiveryRule(Modifier.padding(horizontal = Space.gutter))
@@ -85,9 +87,9 @@ fun RewardsScreen() {
     ) {
       item {
         Column(Modifier.fillMaxWidth()) {
-          Row(verticalAlignment = Alignment.CenterVertically) {
+          if (tickets.isNotEmpty()) Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-              Overline("Ready to claim", color = c.contentSecondary)
+              Overline(stringResource(Res.string.state_reward_ready), color = c.contentSecondary)
               Spacer(Modifier.height(Space.s))
               SkrAmount(
                 Skr(waiting.sumOf { it.amount.units }).format(2),
@@ -100,7 +102,7 @@ fun RewardsScreen() {
           Spacer(Modifier.height(Space.l))
           if (graph.ledger.mode == LedgerMode.SIMULATED) {
             Notice(
-              "Simulated rewards: they live on this phone while Formation is being built.",
+              stringResource(Res.string.copy_simulated_rewards),
               tone = Tone.Warning,
             )
             Spacer(Modifier.height(Space.l))
@@ -110,8 +112,8 @@ fun RewardsScreen() {
       if (tickets.isEmpty()) {
         item {
           EmptyState(
-            "No rewards yet",
-            "Join a Formation nearby. When the group unlocks its reward, your share appears here.",
+            stringResource(Res.string.state_no_rewards),
+            stringResource(Res.string.copy_rewards_empty),
             art = { RewardPass(Modifier.size(width = 144.dp, height = 90.dp)) },
           )
         }
@@ -130,18 +132,31 @@ fun RewardsScreen() {
 private fun TicketCard(ticket: ClaimTicket, onClaim: () -> Unit) {
   val c = Theme.colors
   val info = challengeInfo(ticket.challenge)
+  val status = when {
+    ticket.claimed -> Res.string.state_reward_claimed
+    ticket.lapsed -> Res.string.state_reward_expired
+    ticket.unlocked -> Res.string.state_reward_ready
+    else -> Res.string.state_reward_pending
+  }
+  val statusIcon = when {
+    ticket.claimed -> Icons.Check
+    ticket.lapsed -> Icons.Clock
+    ticket.unlocked -> Icons.Unlock
+    else -> Icons.Lock
+  }
   Panel(Modifier.fillMaxWidth()) {
     Column {
-      Row(Modifier.fillMaxWidth().background(c.inverse), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.width(4.dp).height(40.dp).background(c.accent))
+      Row(
+        Modifier.fillMaxWidth().background(c.inverse)
+          .drawBehind { drawRect(c.accent, size = Size(4.dp.toPx(), size.height)) }
+          .padding(horizontal = Space.m, vertical = Space.s),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Space.s),
+      ) {
+        Icon(statusIcon, null, tint = c.onInverse, size = 16.dp)
         Text(
-          when {
-            ticket.claimed -> "REWARD CLAIMED"
-            ticket.lapsed -> "REWARD EXPIRED"
-            ticket.unlocked -> "UNLOCKED TOGETHER"
-            else -> "SHARE RECORDED"
-          },
-          Modifier.padding(horizontal = Space.m, vertical = Space.s),
+          stringResource(status),
+          Modifier.weight(1f),
           style = Theme.type.overline, color = c.onInverse,
         )
       }
@@ -149,12 +164,14 @@ private fun TicketCard(ticket: ClaimTicket, onClaim: () -> Unit) {
         Row(verticalAlignment = Alignment.CenterVertically) {
           ChallengeGlyph(info, size = 32.dp)
           Spacer(Modifier.width(Space.m))
-          Text(
-            if (ticket.index < 0) "${info?.title ?: "Formation"} you hosted"
-            else "${info?.title ?: "Formation"} with ${ticket.host}",
-            style = Theme.type.headline,
-            modifier = Modifier.weight(1f),
-          )
+          Column(Modifier.weight(1f)) {
+            Text(info?.title ?: "Formation", style = Theme.type.headline)
+            Text(
+              if (ticket.index < 0) stringResource(Res.string.label_hosted) else ticket.host,
+              style = Theme.type.caption,
+              color = c.contentSecondary,
+            )
+          }
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
           Column(Modifier.weight(1f)) {
@@ -167,39 +184,30 @@ private fun TicketCard(ticket: ClaimTicket, onClaim: () -> Unit) {
             )
             if (ticket.claimed) {
               Spacer(Modifier.height(Space.xxs))
-              Text(
-                "In ${shortAddress(ticket.claimedTo!!)}",
-                style = Theme.type.caption,
-                color = c.contentSecondary,
-              )
+              val walletLabel = stringResource(Res.string.a11y_wallet_address, ticket.claimedTo.orEmpty())
+              Row(verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Space.xs)) {
+                Icon(Icons.Wallet, null, size = 14.dp, tint = c.contentSecondary)
+                Text(
+                  shortAddress(ticket.claimedTo.orEmpty()),
+                  Modifier.clearAndSetSemantics { contentDescription = walletLabel },
+                  style = Theme.type.caption,
+                  color = c.contentSecondary,
+                )
+              }
             }
           }
-          Spacer(Modifier.width(Space.m))
-          when {
-            ticket.claimed -> Tag("Claimed", tone = Tone.Positive, icon = Icons.Check)
-            ticket.lapsed -> Tag("Expired")
-            !ticket.unlocked -> Tag("Awaiting unlock", icon = Icons.Clock)
-            else ->
-              Button(
-                "Claim",
-                onClaim,
-                style = ButtonStyle.Reward,
-                size = ButtonSize.Small,
-                fillWidth = false,
-              )
+          if (!ticket.claimed && !ticket.lapsed && ticket.unlocked) {
+            Spacer(Modifier.width(Space.m))
+            Button(
+              stringResource(Res.string.action_claim),
+              onClaim,
+              style = ButtonStyle.Reward,
+              size = ButtonSize.Small,
+              fillWidth = false,
+            )
           }
         }
-        Canvas(Modifier.fillMaxWidth().height(1.dp)) {
-          drawLine(c.lineStrong, Offset.Zero, Offset(size.width, 0f), 1.dp.toPx(),
-            pathEffect = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 4.dp.toPx())))
-        }
-        Text(
-          if (ticket.claimed) "Received by ${shortAddress(ticket.claimedTo.orEmpty())}"
-          else if (ticket.lapsed) "This share is no longer claimable"
-          else if (!ticket.unlocked) "Waiting for the Seeker to unlock"
-          else "Your share is ready when you are",
-          style = Theme.type.footnote, color = c.contentSecondary,
-        )
       }
     }
   }
@@ -254,7 +262,7 @@ private fun ClaimSheet(ticket: ClaimTicket, onDismiss: () -> Unit) {
       RewardPass(Modifier.size(width = 112.dp, height = 70.dp))
       Spacer(Modifier.height(Space.l))
       Text(
-        if (done != null) "CLAIMED" else "CLAIM YOUR REWARD",
+        stringResource(if (done != null) Res.string.state_reward_claimed else Res.string.action_claim),
         style = Theme.type.title1,
         textAlign = TextAlign.Center,
       )

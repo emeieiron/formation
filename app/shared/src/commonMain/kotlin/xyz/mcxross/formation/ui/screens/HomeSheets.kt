@@ -21,6 +21,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import org.jetbrains.compose.resources.stringResource
+import xyz.mcxross.formation.resources.*
 import xyz.mcxross.formation.challenge.ChallengeInfo
 import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.components.Button
@@ -154,31 +156,23 @@ internal fun JoinCodeSheet(
       horizontalAlignment = Alignment.CenterHorizontally,
     ) {
       Spacer(Modifier.height(Space.s))
-      Text("Enter the code", style = Theme.type.title2)
-      Spacer(Modifier.height(Space.xs))
-      Text(
-        "It's on the Seeker's screen, under the QR code.",
-        style = Theme.type.subhead,
-        color = c.contentSecondary,
-        textAlign = TextAlign.Center,
-      )
+      Text(stringResource(Res.string.label_code), style = Theme.type.title2)
       Spacer(Modifier.height(Space.xl))
       CodeField(code, { code = it }, onDone = { match?.let(onJoin) })
       Spacer(Modifier.height(Space.l))
       when {
         code.length < 4 -> Spacer(Modifier.height(24.dp))
-        match != null ->
-          Text(
-            "Found ${match.beacon.host}'s Formation",
-            style = Theme.type.subheadStrong,
-            color = c.positive,
-          )
+        match != null -> Row(verticalAlignment = Alignment.CenterVertically) {
+          Icon(Icons.Check, stringResource(Res.string.state_found), tint = c.positive, size = 18.dp)
+          Spacer(Modifier.width(Space.s))
+          Text(match.beacon.host, style = Theme.type.subheadStrong, color = c.positive)
+        }
         else ->
           Row(verticalAlignment = Alignment.CenterVertically) {
             DiscoverySignal()
             Spacer(Modifier.width(Space.m))
             Text(
-              "Looking for $code on this network…",
+              stringResource(Res.string.state_searching),
               style = Theme.type.subhead,
               color = c.contentSecondary,
             )
@@ -187,7 +181,7 @@ internal fun JoinCodeSheet(
     }
     SheetActions {
       Button(
-        "Join",
+        stringResource(Res.string.action_join),
         { match?.let(onJoin) },
         enabled = match != null && match.beacon.open,
         trailingIcon = Icons.ArrowRight,
