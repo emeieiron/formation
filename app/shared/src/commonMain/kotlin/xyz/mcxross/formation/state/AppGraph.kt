@@ -40,6 +40,7 @@ class AppGraph(
   val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
   val navigator = Navigator()
   val identity = Identity(platform)
+  val sounds = SoundEffects(platform.store, platform.sound, scope)
   val seeker =
     SeekerState(
       platform.store,
@@ -221,6 +222,7 @@ class AppGraph(
   }
 
   init {
+    scope.launch { sounds.prepare() }
     // A pretend Seeker signs with its own key, so it can retry quietly; a real one waits for a tap.
     scope.launch {
       while (true) {

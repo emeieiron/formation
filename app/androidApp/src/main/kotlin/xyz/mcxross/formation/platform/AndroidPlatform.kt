@@ -71,6 +71,11 @@ class AndroidPlatform(private val context: Context) : PlatformServices {
 
   override val haptics = AndroidHaptics(context)
 
+  private val soundPlayer = AndroidSoundPlayer(context)
+  override val sound: SoundPlayer = soundPlayer
+
+  fun setAudioActive(active: Boolean) = soundPlayer.setForeground(active)
+
   override val network =
     object : LocalNetwork {
       override val server = KtorLinkServer()

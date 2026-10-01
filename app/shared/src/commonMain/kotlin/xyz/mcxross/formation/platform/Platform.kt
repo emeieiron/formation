@@ -14,6 +14,7 @@ interface PlatformServices {
   val device: DeviceInfo
   val motion: Motion
   val haptics: Haptics
+  val sound: SoundPlayer
   val network: LocalNetwork
   val wallet: WalletPort
   val external: ExternalPort

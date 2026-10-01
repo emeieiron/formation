@@ -55,6 +55,8 @@ class IosPlatform : PlatformServices {
 
   override val motion: Motion = NoMotion
 
+  override val sound: SoundPlayer = IosSoundPlayer()
+
   override val haptics: Haptics =
     object : Haptics {
       override fun tick() =

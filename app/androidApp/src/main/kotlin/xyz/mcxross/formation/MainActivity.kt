@@ -46,6 +46,12 @@ class MainActivity : ComponentActivity(), ActivityBridge {
   override fun onResume() {
     super.onResume()
     app.platform.bridge = this
+    app.platform.setAudioActive(true)
+  }
+
+  override fun onPause() {
+    app.platform.setAudioActive(false)
+    super.onPause()
   }
 
   override fun onDestroy() {
