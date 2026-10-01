@@ -54,6 +54,10 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -163,8 +167,8 @@ private fun SheetLayer(entry: SheetEntry, controller: OverlayController) {
     AnimatedVisibility(
       visibility,
       Modifier.align(Alignment.BottomCenter),
-      enter = slideInVertically(Motion.emphasized()) { it },
-      exit = slideOutVertically(Motion.exit(Motion.BASE)) { it },
+      enter = slideInVertically(Motion.emphasized(260)) { (it / 8).coerceAtMost(84) } + fadeIn(Motion.standard(260)),
+      exit = slideOutVertically(Motion.exit()) { it / 8 } + fadeOut(Motion.exit()),
     ) {
       CompositionLocalProvider(entry.locals) {
         SheetPanel(entry, Modifier.heightIn(max = maxHeight - 48.dp))
@@ -188,6 +192,7 @@ private fun SheetPanel(entry: SheetEntry, modifier: Modifier) {
         .clip(Shapes.sheet)
         .background(c.surface)
         .border(Sizes.hairline, c.line, Shapes.sheet)
+        .drawBehind { drawLine(c.accent, Offset(0f, 0f), Offset(size.width, 0f), 4.dp.toPx()) }
         .draggable(
           rememberDraggableState { delta -> drag = (drag + delta).coerceAtLeast(0f) },
           Orientation.Vertical,
@@ -205,7 +210,7 @@ private fun SheetPanel(entry: SheetEntry, modifier: Modifier) {
         .padding(bottom = Space.l)
     ) {
       Grabber()
-      CompositionLocalProvider(LocalRaised provides true) { entry.content(this) }
+      CompositionLocalProvider(LocalRaised provides true) { Column(Modifier.verticalScroll(rememberScrollState())) { entry.content(this) } }
     }
   }
 }
@@ -231,7 +236,7 @@ fun SheetHeader(title: String, modifier: Modifier = Modifier, subtitle: String? 
       .fillMaxWidth()
       .padding(start = Space.xxl, end = Space.xxl, top = Space.m, bottom = Space.l)
   ) {
-    Text(title, style = Theme.type.title2)
+    Text(title.uppercase(), style = Theme.type.title2)
     subtitle?.let {
       Spacer(Modifier.height(Space.s))
       Text(it, style = Theme.type.body, color = Theme.colors.contentSecondary)

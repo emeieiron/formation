@@ -194,54 +194,19 @@ private fun DrawScope.drawLinks(
 fun FormationMark(
   modifier: Modifier = Modifier,
   progress: Float = 1f,
-  lights: List<Light> = Theme.colors.lights,
 ) {
   val c = Theme.colors
-  val colors = listOf(lights[5], lights[6], lights[3], lights[4], lights[1])
   Canvas(modifier) {
-    val w = size.width
-    val h = size.height
-    val nodes =
-      listOf(
-        Offset(0.1f * w, 0.78f * h),
-        Offset(0.3f * w, 0.52f * h),
-        Offset(0.5f * w, 0.22f * h),
-        Offset(0.7f * w, 0.52f * h),
-        Offset(0.9f * w, 0.78f * h),
-      )
-    val seg = 1f / (nodes.size - 1)
-    for (i in 0 until nodes.size - 1) {
-      val local = ((progress - i * seg) / seg).coerceIn(0f, 1f)
-      if (local <= 0f) continue
-      val from = nodes[i]
-      val to = from + (nodes[i + 1] - from) * local
-      drawLine(
-        Brush.linearGradient(listOf(colors[i].color, colors[i + 1].color), nodes[i], nodes[i + 1]),
-        from,
-        to,
-        w * 0.022f,
-        StrokeCap.Round,
+    val barWidth = size.width * 0.22f
+    repeat(3) { index ->
+      val reveal = (progress * 3 - index).coerceIn(0f, 1f)
+      val top = size.height * (if (index == 1) 0f else 0.12f)
+      drawRoundRect(
+        if (index == 2) c.accent else c.content,
+        topLeft = Offset(index * size.width * 0.34f, top + (size.height - top) * (1 - reveal)),
+        size = Size(barWidth, (size.height - top) * reveal),
+        cornerRadius = androidx.compose.ui.geometry.CornerRadius(1.dp.toPx()),
       )
     }
-    nodes.forEachIndexed { i, p ->
-      val on = (progress * (nodes.size - 1) + 0.6f - i).coerceIn(0f, 1f)
-      val r = w * (if (i == 2) 0.085f else 0.065f)
-      drawCircle(
-        Brush.radialGradient(
-          listOf(colors[i].color.copy(alpha = 0.5f * on), Color.Transparent),
-          p,
-          r * 2.4f,
-        ),
-        r * 2.4f,
-        p,
-      )
-      drawCircle(colors[i].color.copy(alpha = on), r * on.coerceAtLeast(0.001f), p)
-      drawCircle(
-        c.highlight.copy(alpha = 0.55f * on),
-        r * 0.38f * on,
-        p + Offset(-r * 0.22f, -r * 0.22f),
-      )
-    }
-    if (progress <= 0f) drawCircle(c.line, w * 0.02f, nodes[2])
   }
 }

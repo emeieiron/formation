@@ -3,6 +3,7 @@ package xyz.mcxross.formation.design.tokens
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
@@ -10,6 +11,9 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import org.jetbrains.compose.resources.Font
 import xyz.mcxross.formation.design.resources.Res
+import xyz.mcxross.formation.design.resources.barlow_condensed_bold
+import xyz.mcxross.formation.design.resources.barlow_condensed_bold_italic
+import xyz.mcxross.formation.design.resources.barlow_condensed_extra_bold
 import xyz.mcxross.formation.design.resources.inter_text_medium
 import xyz.mcxross.formation.design.resources.inter_text_regular
 import xyz.mcxross.formation.design.resources.inter_text_semibold
@@ -54,6 +58,11 @@ internal fun rememberTypography(): Typography {
       Font(Res.font.space_grotesk_medium, FontWeight.Medium),
       Font(Res.font.space_grotesk_bold, FontWeight.Bold),
     )
+  val condensed = FontFamily(
+    Font(Res.font.barlow_condensed_bold, FontWeight.Bold),
+    Font(Res.font.barlow_condensed_bold_italic, FontWeight.Bold, FontStyle.Italic),
+    Font(Res.font.barlow_condensed_extra_bold, FontWeight.ExtraBold),
+  )
   val inter =
     FontFamily(
       Font(Res.font.inter_text_regular, FontWeight.Normal),
@@ -80,10 +89,10 @@ internal fun rememberTypography(): Typography {
     )
 
   return Typography(
-    hero = style(grotesk, FontWeight.Bold, 44, 48, -0.035),
-    display = style(grotesk, FontWeight.Bold, 34, 38, -0.03),
-    title1 = style(grotesk, FontWeight.Bold, 28, 32, -0.025),
-    title2 = style(grotesk, FontWeight.Medium, 22, 28, -0.015),
+    hero = style(condensed, FontWeight.Bold, 50, 52, -0.012),
+    display = style(condensed, FontWeight.Bold, 44, 46, -0.01),
+    title1 = style(condensed, FontWeight.Bold, 36, 38, 0.0),
+    title2 = style(condensed, FontWeight.Bold, 26, 30, 0.0),
     title3 = style(grotesk, FontWeight.Medium, 18, 24, -0.01),
     headline = style(inter, FontWeight.SemiBold, 17, 22, -0.012),
     body = style(inter, FontWeight.Normal, 16, 24, -0.006),
@@ -96,9 +105,9 @@ internal fun rememberTypography(): Typography {
     overline = style(grotesk, FontWeight.Medium, 12, 16, 0.08),
     button = style(inter, FontWeight.SemiBold, 16, 20, -0.006),
     buttonSmall = style(inter, FontWeight.SemiBold, 14, 18, -0.002),
-    numeralHero = style(grotesk, FontWeight.Light, 96, 96, -0.05, "tnum"),
-    numeralLarge = style(grotesk, FontWeight.Medium, 48, 52, -0.035, "tnum"),
-    numeral = style(grotesk, FontWeight.Medium, 28, 32, -0.02, "tnum"),
+    numeralHero = style(condensed, FontWeight.ExtraBold, 76, 80, -0.02, "tnum"),
+    numeralLarge = style(condensed, FontWeight.ExtraBold, 48, 50, -0.01, "tnum"),
+    numeral = style(condensed, FontWeight.Bold, 32, 34, 0.0, "tnum"),
     numeralSmall = style(grotesk, FontWeight.Medium, 17, 22, -0.01, "tnum"),
     code = style(grotesk, FontWeight.Medium, 14, 18, 0.12, "tnum"),
   )

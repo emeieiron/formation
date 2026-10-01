@@ -34,13 +34,13 @@ object Radius {
 }
 
 object Shapes {
-  val control = RoundedCornerShape(Radius.m)
-  val field = RoundedCornerShape(Radius.m)
-  val card = RoundedCornerShape(Radius.l)
-  val panel = RoundedCornerShape(Radius.xl)
+  val control = RoundedCornerShape(Radius.xs)
+  val field = RoundedCornerShape(Radius.xs)
+  val card = RoundedCornerShape(Radius.xs)
+  val panel = RoundedCornerShape(Radius.xs)
   val tag = RoundedCornerShape(Radius.xs)
-  val tile = RoundedCornerShape(Radius.s)
-  val sheet = RoundedCornerShape(topStart = Radius.xl, topEnd = Radius.xl)
+  val tile = RoundedCornerShape(Radius.xs)
+  val sheet = RoundedCornerShape(topStart = Radius.m, topEnd = Radius.m)
   val pill = RoundedCornerShape(50)
   val circle = CircleShape
 }
@@ -70,9 +70,9 @@ object Motion {
   val emphasized = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
   val exit = CubicBezierEasing(0.3f, 0f, 1f, 1f)
 
-  const val FAST = 140
-  const val BASE = 260
-  const val SLOW = 420
+  const val FAST = 100
+  const val BASE = 220
+  const val SLOW = 520
 
   fun <T> standard(duration: Int = BASE, delay: Int = 0): FiniteAnimationSpec<T> =
     tween(duration, delay, standard)

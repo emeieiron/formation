@@ -197,6 +197,7 @@ fun Modifier.pressable(
   shape: Shape? = null,
   role: Role? = Role.Button,
   squeeze: Boolean = false,
+  travel: Boolean = false,
   onClickLabel: String? = null,
 ): Modifier = composed {
   val source = remember { MutableInteractionSource() }
@@ -209,8 +210,12 @@ fun Modifier.pressable(
       spring(dampingRatio = 0.7f, stiffness = 1_300f),
       label = "press",
     )
-  (if (squeeze)
+  val pressTravel by animateFloatAsState(
+    if (travel && pressed) 2f else 0f, tween(100), label = "press-travel",
+  )
+  (if (squeeze || travel)
       Modifier.graphicsLayer {
+        translationY = pressTravel * density
         scaleX = scale
         scaleY = scale
       }

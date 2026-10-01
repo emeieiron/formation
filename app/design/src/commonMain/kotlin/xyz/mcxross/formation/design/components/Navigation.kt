@@ -90,7 +90,7 @@ fun BottomActions(modifier: Modifier = Modifier, content: @Composable ColumnScop
       .background(Brush.verticalGradient(0f to Color.Transparent, 0.28f to c.background))
       .padding(start = Space.gutter, end = Space.gutter, top = Space.xxl, bottom = Space.m)
       .navigationBarsPadding(),
-    verticalArrangement = Arrangement.spacedBy(Space.s),
+    verticalArrangement = Arrangement.spacedBy(Space.m),
     content = content,
   )
 }

@@ -48,7 +48,7 @@ enum class ButtonStyle {
 
 enum class ButtonSize(val height: Dp, val padding: Dp, val icon: Dp) {
   Large(Sizes.controlLarge, 24.dp, 20.dp),
-  Medium(Sizes.controlMedium, 20.dp, 18.dp),
+  Medium(Sizes.controlMedium, 12.dp, 18.dp),
   Small(Sizes.controlSmall, 14.dp, 16.dp),
 }
 
@@ -71,9 +71,9 @@ fun Button(
     animateColorAsState(
       when {
         !enabled && style != ButtonStyle.Ghost -> c.surfaceHigh
-        style == ButtonStyle.Primary -> c.inverse
-        style == ButtonStyle.Secondary -> c.surfaceHigher
-        style == ButtonStyle.Reward -> c.reward
+        style == ButtonStyle.Primary -> c.accent
+        style == ButtonStyle.Secondary -> c.surface
+        style == ButtonStyle.Reward -> c.accent
         style == ButtonStyle.Destructive -> c.negative
         else -> Color.Transparent
       },
@@ -83,25 +83,25 @@ fun Button(
   val content =
     when {
       !enabled -> c.contentDisabled
-      style == ButtonStyle.Primary -> c.onInverse
-      style == ButtonStyle.Reward -> c.onReward
+      style == ButtonStyle.Primary -> c.onAccent
+      style == ButtonStyle.Reward -> c.onAccent
       style == ButtonStyle.Destructive -> c.highlight
       else -> c.content
     }
-  val shape = if (size == ButtonSize.Small) Shapes.pill else Shapes.control
+  val shape = Shapes.control
   Box(
     modifier
       .then(if (fillWidth) Modifier.fillMaxWidth() else Modifier)
       .defaultMinSize(minWidth = size.height)
-      .height(size.height)
-      .pressable(onClick, enabled = live, shape = shape, squeeze = true)
+      .heightIn(min = size.height)
+      .pressable(onClick, enabled = live, shape = shape, travel = true)
       .semantics { if (loading) stateDescription = "In progress" }
       .background(solid)
       .then(
-        if (style == ButtonStyle.Ghost) Modifier.border(Sizes.hairline, c.lineStrong, shape)
+        if (style == ButtonStyle.Ghost || style == ButtonStyle.Secondary) Modifier.border(Sizes.hairline, c.lineStrong, shape)
         else Modifier
       )
-      .padding(horizontal = size.padding),
+      .padding(horizontal = size.padding, vertical = 12.dp),
     contentAlignment = Alignment.Center,
   ) {
     CompositionLocalProvider(LocalContentColor provides content) {
@@ -113,8 +113,9 @@ fun Button(
         leadingIcon?.let { Icon(it, null, size = size.icon) }
         Text(
           text,
+          modifier = Modifier.weight(1f, fill = false),
           style = if (size == ButtonSize.Small) Theme.type.buttonSmall else Theme.type.button,
-          maxLines = 1,
+          maxLines = 2,
           textAlign = TextAlign.Center,
         )
         trailingIcon?.let { Icon(it, null, size = size.icon) }
@@ -181,14 +182,14 @@ fun IconButton(
       .pressable(
         onClick,
         enabled = enabled,
-        shape = Shapes.circle,
-        squeeze = true,
+        shape = Shapes.control,
+        travel = true,
         onClickLabel = contentDescription,
       )
       .background(background)
       .then(
         if (style == IconButtonStyle.Outline)
-          Modifier.border(Sizes.hairline, c.lineStrong, Shapes.circle)
+          Modifier.border(Sizes.hairline, c.lineStrong, Shapes.control)
         else Modifier
       ),
     contentAlignment = Alignment.Center,

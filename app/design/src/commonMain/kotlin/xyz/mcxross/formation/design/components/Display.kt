@@ -11,6 +11,13 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Image
+import org.jetbrains.compose.resources.painterResource
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.ColorFilter
+import xyz.mcxross.formation.design.resources.Res
+import xyz.mcxross.formation.design.resources.apex_player_plate
+import xyz.mcxross.formation.design.resources.apex_reward_pass
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -77,7 +84,6 @@ fun PlayerLight(
         )
         .value
     else 0.8f
-  val color = if (dimmed) light.color.copy(alpha = 0.35f) else light.color
   Box(
     modifier.size(size).clearAndSetSemantics {
       contentDescription = listOfNotNull(
@@ -88,23 +94,27 @@ fun PlayerLight(
     },
     contentAlignment = Alignment.Center,
   ) {
-    Canvas(Modifier.size(size)) {
-      val r = this.size.minDimension / 2
-      if (pulse) {
-        drawCircle(
-          Brush.radialGradient(listOf(color.copy(alpha = 0.2f * glow), Color.Transparent), center, r),
-          radius = r,
-        )
-      }
-      drawCircle(color, radius = r * 0.8f)
+    Image(
+      painterResource(Res.drawable.apex_player_plate),
+      null,
+      Modifier.size(size),
+      alpha = if (dimmed) 0.35f else 1f,
+      colorFilter = ColorFilter.tint(light.color, BlendMode.Modulate),
+    )
+    if (pulse) Canvas(Modifier.size(size)) {
+      drawRoundRect(
+        light.color.copy(alpha = glow),
+        cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx()),
+        style = Stroke(2.dp.toPx()),
+      )
     }
     if (name.isNotBlank()) {
       Text(
         initial(name),
         style =
           Theme.type.title3.copy(
-            fontSize = (size.value * 0.34f).sp,
-            lineHeight = (size.value * 0.4f).sp,
+            fontSize = (size.value * 0.42f).sp,
+            lineHeight = (size.value * 0.5f).sp,
             fontWeight = FontWeight.Bold,
           ),
         color = light.content,
@@ -279,11 +289,11 @@ fun Tag(
   Row(
     modifier
       .height(24.dp)
-      .clip(Shapes.pill)
+      .clip(Shapes.tag)
       .background(background)
       .then(
         if (style == TagStyle.Outline)
-          Modifier.border(Sizes.hairline, accent.copy(alpha = 0.5f), Shapes.pill)
+          Modifier.border(Sizes.hairline, accent.copy(alpha = 0.5f), Shapes.tag)
         else Modifier
       )
       .padding(horizontal = 9.dp),
@@ -344,4 +354,10 @@ fun VerticalRule(modifier: Modifier = Modifier, height: Dp = 32.dp) {
       drawRect(line)
     }
   )
+}
+
+/** Decorative pass; amounts and claim state remain live UI text. */
+@Composable
+fun RewardPass(modifier: Modifier = Modifier) {
+  Image(painterResource(Res.drawable.apex_reward_pass), null, modifier)
 }
