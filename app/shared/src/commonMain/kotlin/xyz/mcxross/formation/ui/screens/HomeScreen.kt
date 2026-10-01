@@ -39,6 +39,7 @@ import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.components.Button
 import xyz.mcxross.formation.design.components.ButtonSize
 import xyz.mcxross.formation.design.components.ButtonStyle
+import xyz.mcxross.formation.design.components.DiscoverySignal
 import xyz.mcxross.formation.design.components.LiveryRule
 import xyz.mcxross.formation.design.components.LocalToaster
 import xyz.mcxross.formation.design.components.NavigationBarSpacer
@@ -415,8 +416,8 @@ private fun Scanning(onScan: () -> Unit, onCode: () -> Unit) {
     Modifier.fillMaxWidth().padding(horizontal = Space.gutter),
   ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-      Spinner(16.dp, color = c.contentSecondary)
-      Spacer(Modifier.width(Space.s))
+      DiscoverySignal()
+      Spacer(Modifier.width(Space.m))
       Text(
         "Looking for Formations nearby",
         style = Theme.type.subheadStrong,

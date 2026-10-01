@@ -26,11 +26,11 @@ import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.components.Button
 import xyz.mcxross.formation.design.components.ButtonStyle
 import xyz.mcxross.formation.design.components.CodeField
+import xyz.mcxross.formation.design.components.DiscoverySignal
 import xyz.mcxross.formation.design.components.ModalSheet
 import xyz.mcxross.formation.design.components.Overline
 import xyz.mcxross.formation.design.components.SheetActions
 import xyz.mcxross.formation.design.components.SkrAmount
-import xyz.mcxross.formation.design.components.Spinner
 import xyz.mcxross.formation.design.components.Tag
 import xyz.mcxross.formation.design.foundation.Icon
 import xyz.mcxross.formation.design.foundation.Text
@@ -175,8 +175,8 @@ internal fun JoinCodeSheet(
           )
         else ->
           Row(verticalAlignment = Alignment.CenterVertically) {
-            Spinner(16.dp, color = c.contentSecondary)
-            Spacer(Modifier.width(Space.s))
+            DiscoverySignal()
+            Spacer(Modifier.width(Space.m))
             Text(
               "Looking for $code on this network…",
               style = Theme.type.subhead,

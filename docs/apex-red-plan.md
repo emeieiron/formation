@@ -62,3 +62,11 @@ All four implementation phases are committed separately on `codex/apex-red`. A f
 Coverage limits: participant arrival was exercised with two devices. The roster implementation accommodates additional rows, but three-or-more-participant layouts and retained disconnected-player snapshots have not been exercised on devices. iOS, physical Seeker/Seed Vault integration, external wallets, and real-chain claims remain unverified by this UI pass. Challenge rules and stage implementations remain outside the redesign scope.
 
 The editable Blender source and font license are in `assets/apex`; the app bundles only the two PNG renders and the required font files. Captures and test logs remain outside the app bundle.
+
+## Discovery refinement — 1 October 2026
+
+Replaced the nearby and code-search circular indicators with a shared custom `DiscoverySignal`: three staggered tracks carrying red pulses with white angled tips. The pulses fade at the track ends for a continuous reset. This expresses active discovery without displaying completion progress; scanning and joining behavior are unchanged.
+
+The animation uses Compose's frame clock and platform motion scale. Animation values are read during drawing rather than recomposing the status text. The decorative signal adds no duplicate accessibility announcement; the adjacent search message remains readable with motion disabled.
+
+Android debug compilation passes. Home and code search were visually checked at normal size and at 320-dp width with 130% text scale. Two captures with animations disabled confirmed the same static signal. Display and animation settings were restored after verification.
