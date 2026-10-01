@@ -4,6 +4,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -28,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextAlign
@@ -98,17 +100,20 @@ fun RewardsScreen() {
     ) {
       item {
         Column(Modifier.fillMaxWidth()) {
-          if (tickets.isNotEmpty()) Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-              Overline(stringResource(Res.string.state_reward_ready), color = c.contentSecondary)
-              Spacer(Modifier.height(Space.s))
-              SkrAmount(
-                Skr(waiting.sumOf { it.amount.units }).format(2),
-                style = Theme.type.numeralHero,
-                coin = false,
-              )
+          if (tickets.isNotEmpty()) BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val showPass = maxWidth >= 340.dp && LocalDensity.current.fontScale <= 1.15f
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              Column(Modifier.weight(1f)) {
+                Overline(stringResource(Res.string.state_reward_ready), color = c.contentSecondary)
+                Spacer(Modifier.height(Space.s))
+                SkrAmount(
+                  Skr(waiting.sumOf { it.amount.units }).format(2),
+                  style = Theme.type.numeralHero,
+                  coin = false,
+                )
+              }
+              if (showPass) RewardPass(Modifier.size(width = 112.dp, height = 70.dp))
             }
-            RewardPass(Modifier.size(width = 112.dp, height = 70.dp))
           }
           Spacer(Modifier.height(Space.l))
           if (graph.ledger.mode == LedgerMode.SIMULATED) {
