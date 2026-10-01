@@ -7,6 +7,8 @@ import kotlin.coroutines.resume
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -14,6 +16,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 
 class NsdAdvertiser(context: Context) : Advertiser {
   private val nsd = context.getSystemService(NsdManager::class.java)
+  override val status = MutableStateFlow<DiscoveryStatus>(DiscoveryStatus.Searching)
   private var registration: NsdManager.RegistrationListener? = null
 
   override fun advertise(name: String, port: Int) {
@@ -26,16 +29,17 @@ class NsdAdvertiser(context: Context) : Advertiser {
       }
     val listener =
       object : NsdManager.RegistrationListener {
-        override fun onServiceRegistered(info: NsdServiceInfo) {}
+        override fun onServiceRegistered(info: NsdServiceInfo) { status.value = DiscoveryStatus.Searching }
 
-        override fun onRegistrationFailed(info: NsdServiceInfo, error: Int) {}
+        override fun onRegistrationFailed(info: NsdServiceInfo, error: Int) { status.value = DiscoveryStatus.Failed(DiscoveryStatus.Reason.START) }
 
         override fun onServiceUnregistered(info: NsdServiceInfo) {}
 
-        override fun onUnregistrationFailed(info: NsdServiceInfo, error: Int) {}
+        override fun onUnregistrationFailed(info: NsdServiceInfo, error: Int) { status.value = DiscoveryStatus.Failed(DiscoveryStatus.Reason.STOP) }
       }
     registration = listener
     runCatching { nsd.registerService(info, NsdManager.PROTOCOL_DNS_SD, listener) }
+      .onFailure { status.value = DiscoveryStatus.Failed(DiscoveryStatus.Reason.START) }
   }
 
   override fun stop() {
@@ -46,6 +50,7 @@ class NsdAdvertiser(context: Context) : Advertiser {
 }
 
 class NsdHostFinder(context: Context) : HostFinder {
+  override val status = MutableStateFlow<DiscoveryStatus>(DiscoveryStatus.Searching)
   private val nsd = context.getSystemService(NsdManager::class.java)
 
   private sealed interface Event {
@@ -55,16 +60,17 @@ class NsdHostFinder(context: Context) : HostFinder {
   }
 
   override val candidates: Flow<Set<HostAddress>> = callbackFlow {
-    val events = Channel<Event>(Channel.UNLIMITED)
+    status.value = DiscoveryStatus.Searching
+    val events = Channel<Event>(64, kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST)
     val listener =
       object : NsdManager.DiscoveryListener {
-        override fun onDiscoveryStarted(serviceType: String) {}
+        override fun onDiscoveryStarted(serviceType: String) { status.value = DiscoveryStatus.Searching }
 
         override fun onDiscoveryStopped(serviceType: String) {}
 
-        override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) {}
+        override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) { status.value = DiscoveryStatus.Failed(DiscoveryStatus.Reason.START) }
 
-        override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) {}
+        override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) { status.value = DiscoveryStatus.Failed(DiscoveryStatus.Reason.STOP) }
 
         override fun onServiceFound(info: NsdServiceInfo) {
           events.trySend(Event.Found(info))
@@ -88,7 +94,7 @@ class NsdHostFinder(context: Context) : HostFinder {
     }
     runCatching {
       nsd.discoverServices(LinkDefaults.SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, listener)
-    }
+    }.onFailure { status.value = DiscoveryStatus.Failed(DiscoveryStatus.Reason.START) }
     awaitClose {
       events.close()
       runCatching { nsd.stopServiceDiscovery(listener) }
@@ -98,19 +104,25 @@ class NsdHostFinder(context: Context) : HostFinder {
 
   @Suppress("DEPRECATION")
   private suspend fun resolve(info: NsdServiceInfo): HostAddress? =
-    suspendCancellableCoroutine { cont ->
+    withTimeoutOrNull(5_000) { suspendCancellableCoroutine { cont ->
       val listener =
         object : NsdManager.ResolveListener {
           override fun onResolveFailed(info: NsdServiceInfo, errorCode: Int) {
-            if (cont.isActive) cont.resume(null)
+            if (cont.isActive) { status.value = DiscoveryStatus.Failed(DiscoveryStatus.Reason.RESOLVE); cont.resume(null) }
           }
 
           override fun onServiceResolved(info: NsdServiceInfo) {
             val host = info.host?.hostAddress
-            if (cont.isActive) cont.resume(host?.let { HostAddress(it, info.port) })
+            if (cont.isActive) { status.value = DiscoveryStatus.Searching; cont.resume(host?.let { HostAddress(it, info.port) }) }
           }
         }
+      cont.invokeOnCancellation {
+        if (android.os.Build.VERSION.SDK_INT >= 34) runCatching { nsd.stopServiceResolution(listener) }
+      }
       runCatching { nsd.resolveService(info, listener) }
-        .onFailure { if (cont.isActive) cont.resume(null) }
+        .onFailure { if (cont.isActive) { status.value = DiscoveryStatus.Failed(DiscoveryStatus.Reason.RESOLVE); cont.resume(null) } }
+    } } ?: run {
+      if (status.value !is DiscoveryStatus.Failed) status.value = DiscoveryStatus.Failed(DiscoveryStatus.Reason.TIMEOUT)
+      null
     }
 }

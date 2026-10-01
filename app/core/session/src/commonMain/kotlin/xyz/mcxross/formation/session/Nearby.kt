@@ -1,5 +1,7 @@
 package xyz.mcxross.formation.session
 
+import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
@@ -20,6 +22,8 @@ class NearbyScanner(
   private val json: Json = FormationJson,
   private val intervalMs: Long = 2_000,
 ) {
+  val status = finder.status
+
   fun scan(): Flow<List<NearbyFormation>> = channelFlow {
     val candidates = MutableStateFlow<Set<HostAddress>>(emptySet())
     launch { finder.candidates.collect { candidates.value = it } }
@@ -29,7 +33,6 @@ class NearbyScanner(
           .map { address -> async { lookup(address) } }
           .awaitAll()
           .filterNotNull()
-          .filter { it.beacon.protocol == PROTOCOL_VERSION }
           // The same Seeker can answer on several addresses; keep one of each session.
           .groupBy { it.beacon.session }
           .map { (_, same) -> same.minBy { it.address.toString() } }
@@ -43,7 +46,9 @@ class NearbyScanner(
     .distinctUntilChanged()
 
   suspend fun lookup(address: HostAddress): NearbyFormation? =
-    fetch(address)?.let { decode(it) }?.let { NearbyFormation(address, it) }
+    try {
+      withTimeoutOrNull(2_000) { fetch(address) }?.let { decode(it) }?.let { NearbyFormation(address, it) }
+    } catch (e: CancellationException) { throw e } catch (_: Exception) { null }
 
   private fun decode(text: String): Beacon? = runCatching {
     json.decodeFromString(Beacon.serializer(), text)

@@ -43,10 +43,12 @@ internal constructor(
 
   val snapshot: StateFlow<SessionSnapshot?> = client.snapshot
   val status: StateFlow<FormationClient.Status> = client.status
+  val advertising = advertiser?.status ?: kotlinx.coroutines.flow.flowOf(xyz.mcxross.formation.link.DiscoveryStatus.Searching)
 
   val challenge: Challenge<*, *>?
     get() = snapshot.value?.formation?.opportunity?.challenge?.let { ChallengeCatalog[it] }
 
+  private val initialAddress = address
   private val _address = MutableStateFlow(address)
   val address: StateFlow<HostAddress?> = _address.asStateFlow()
 
@@ -69,6 +71,12 @@ internal constructor(
       advertiser?.stop()
       advertiser?.advertise("Formation $code", port)
     }
+  }
+
+  internal fun onSeekerNetworkStopped() {
+    if (_network.value == null) return
+    _network.value = null
+    _address.value = initialAddress
   }
 
   init {

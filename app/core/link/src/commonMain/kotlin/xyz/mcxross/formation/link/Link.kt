@@ -1,6 +1,7 @@
 package xyz.mcxross.formation.link
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 
 interface LinkChannel {
   // Collect once; completes when the link closes.
@@ -41,12 +42,16 @@ interface LinkServer {
 }
 
 interface Advertiser {
+  val status: Flow<DiscoveryStatus> get() = flowOf(DiscoveryStatus.Searching)
+
   fun advertise(name: String, port: Int)
 
   fun stop()
 }
 
 interface HostFinder {
+  val status: Flow<DiscoveryStatus> get() = flowOf(DiscoveryStatus.Searching)
+
   val candidates: Flow<Set<HostAddress>>
 }
 

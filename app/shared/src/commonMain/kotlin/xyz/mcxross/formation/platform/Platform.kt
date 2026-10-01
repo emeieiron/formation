@@ -99,6 +99,8 @@ interface ExternalPort {
 data class HotspotInfo(val ssid: String, val passphrase: String?)
 
 interface HotspotPort {
+  val active: kotlinx.coroutines.flow.Flow<HotspotInfo?> get() = kotlinx.coroutines.flow.flowOf(null)
+
   fun permitted(): Boolean
 
   suspend fun start(): Result<HotspotInfo>

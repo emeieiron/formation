@@ -114,8 +114,10 @@ fun HomeScreen() {
   val tickets by graph.ledger.tickets.collectAsState()
   val problem by graph.ledger.problem.collectAsState()
   // Scans only while Home is on screen.
+  var scanAttempt by remember { mutableStateOf(0) }
+  val discovery by graph.nearby.status.collectAsState(xyz.mcxross.formation.link.DiscoveryStatus.Searching)
   val nearby by
-    produceState(emptyList<NearbyFormation>()) { graph.nearby.scan().collect { value = it } }
+    produceState(emptyList<NearbyFormation>(), scanAttempt) { graph.nearby.scan().collect { value = it } }
   var opened by remember { mutableStateOf<Opportunity?>(null) }
   var enteringCode by remember { mutableStateOf(false) }
   val status by graph.seeker.status.collectAsState()
@@ -258,6 +260,10 @@ fun HomeScreen() {
       }
 
       item { SectionHeader(stringResource(Res.string.label_nearby)) }
+      (discovery as? xyz.mcxross.formation.link.DiscoveryStatus.Failed)?.let { failure ->
+        item { Notice(failure.reason.message, Modifier.padding(horizontal = Space.gutter, vertical = Space.s),
+          title = "Nearby unavailable", tone = Tone.Warning, action = "Retry", onAction = { scanAttempt++ }) }
+      }
       if (nearby.isEmpty()) {
         item { Scanning(onScan = { scan() }, onCode = { enteringCode = true }) }
       } else {
@@ -425,7 +431,9 @@ private fun NearbyCard(formation: NearbyFormation, onJoin: () -> Unit) {
           Text(b.host, style = Theme.type.title2, maxLines = 2)
           Text(info?.title ?: b.challenge.value, style = Theme.type.footnote, color = c.contentSecondary)
         }
-        if (b.open)
+        if (b.protocol != xyz.mcxross.formation.session.PROTOCOL_VERSION)
+          Tag("Update needed", tone = Tone.Warning)
+        else if (b.open)
           Button(
             stringResource(Res.string.action_join),
             onJoin,

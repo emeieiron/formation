@@ -4,6 +4,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.test.assertNull
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -46,6 +48,15 @@ class ClockAndNearbyTest {
         "Squad",
       ),
     )
+
+  @Test
+  fun anUnresponsiveBeaconHasABoundedLookup() = runTest {
+    val scanner = NearbyScanner(object : HostFinder {
+      override val candidates = MutableStateFlow(emptySet<HostAddress>())
+    }, fetch = { awaitCancellation() })
+    assertNull(scanner.lookup(HostAddress("192.168.1.99", 47000)))
+    assertEquals(2_000L, testScheduler.currentTime)
+  }
 
   @Test
   fun nearbyFormationsAreProbedAndDeduplicated() = runTest {

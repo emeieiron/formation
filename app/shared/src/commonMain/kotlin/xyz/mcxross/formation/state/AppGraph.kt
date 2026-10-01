@@ -236,6 +236,9 @@ class AppGraph(
 
   init {
     scope.launch { sounds.prepare() }
+    platform.hotspot?.let { hotspot -> scope.launch {
+      hotspot.active.collect { if (it == null) _session.value?.onSeekerNetworkStopped() }
+    } }
     scope.launch { this@AppGraph.ledger.sync() }
     // A pretend Seeker signs with its own key, so it can retry quietly; a real one waits for a tap.
     scope.launch {

@@ -103,6 +103,7 @@ internal fun Lobby(
   val o = snapshot.formation.opportunity
   val info = challengeInfo(o.challenge)
   val missing = o.players - snapshot.players.size
+  val advertising by session.advertising.collectAsState(xyz.mcxross.formation.link.DiscoveryStatus.Searching)
   var editing by remember { mutableStateOf(false) }
   if (editing) ProfileSheet(onDismiss = { editing = false })
   Column(Modifier.fillMaxSize()) {
@@ -128,6 +129,10 @@ internal fun Lobby(
       },
     )
     Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+      if (session.isHost && advertising is xyz.mcxross.formation.link.DiscoveryStatus.Failed) {
+        xyz.mcxross.formation.design.components.Notice("Nearby advertising is unavailable. Invite others with this session's QR code.",
+          Modifier.padding(horizontal = Space.gutter, vertical = Space.s), tone = Tone.Warning)
+      }
       Row(
         Modifier.padding(horizontal = Space.gutter),
         verticalAlignment = Alignment.CenterVertically,
@@ -309,7 +314,7 @@ private fun SeekerNetworkSheet(session: ActiveSession, onDismiss: () -> Unit) {
     SheetHeader(
       "Seeker network",
       subtitle =
-        "Your Seeker becomes a Wi-Fi network just for this Formation. Others join it by scanning, then find the Formation under Nearby.",
+        "Your Seeker becomes a Wi-Fi network just for this Formation. Others join it by scanning, then find the Formation under Nearby. Rewards settle once internet is available.",
     )
     val current = info
     if (current == null) {

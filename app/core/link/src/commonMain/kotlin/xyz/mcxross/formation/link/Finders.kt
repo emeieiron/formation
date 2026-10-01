@@ -9,6 +9,11 @@ class FixedHostFinder(addresses: Set<HostAddress>) : HostFinder {
 }
 
 class CombinedHostFinder(private val finders: List<HostFinder>) : HostFinder {
+  override val status: Flow<DiscoveryStatus> =
+    if (finders.isEmpty()) flowOf(DiscoveryStatus.Searching)
+    else combine(finders.map { it.status }) { states ->
+      states.firstOrNull { it is DiscoveryStatus.Failed } ?: DiscoveryStatus.Searching
+    }
   override val candidates: Flow<Set<HostAddress>> =
     if (finders.isEmpty()) flowOf(emptySet())
     else combine(finders.map { it.candidates }) { sets -> sets.flatMap { it }.toSet() }

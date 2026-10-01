@@ -10,11 +10,15 @@ import android.os.Looper
 import androidx.core.content.ContextCompat
 import kotlin.coroutines.resume
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.flow.MutableStateFlow
 
 internal class AndroidHotspot(context: Context, private val bridge: () -> ActivityBridge?) :
   HotspotPort {
   private val appContext = context.applicationContext
   private val wifi = appContext.getSystemService(WifiManager::class.java)
+  override val active = MutableStateFlow<HotspotInfo?>(null)
+  private val lock = Any()
+  private var generation = 0L
   private var reservation: WifiManager.LocalOnlyHotspotReservation? = null
 
   private val permission =
@@ -32,15 +36,24 @@ internal class AndroidHotspot(context: Context, private val bridge: () -> Activi
         IllegalStateException("The Seeker network needs permission to use nearby Wi-Fi.")
       )
     stop()
+    val request = synchronized(lock) { ++generation }
     return suspendCancellableCoroutine { cont ->
+      cont.invokeOnCancellation { stopRequest(request) }
       val callback =
         object : WifiManager.LocalOnlyHotspotCallback() {
           override fun onStarted(res: WifiManager.LocalOnlyHotspotReservation) {
-            reservation = res
-            if (cont.isActive) cont.resume(Result.success(describe(res)))
+            val accepted = synchronized(lock) {
+              if (request != generation || !cont.isActive) false
+              else { reservation = res; active.value = describe(res); true }
+            }
+            if (!accepted) res.close()
+            else if (cont.isActive) cont.resume(Result.success(describe(res)))
           }
 
+          override fun onStopped() { stopRequest(request) }
+
           override fun onFailed(reason: Int) {
+            stopRequest(request)
             val message =
               when (reason) {
                 ERROR_TETHERING_DISALLOWED -> "This phone doesn't allow hotspots."
@@ -63,8 +76,20 @@ internal class AndroidHotspot(context: Context, private val bridge: () -> Activi
   }
 
   override fun stop() {
-    reservation?.close()
-    reservation = null
+    val previous = synchronized(lock) {
+      generation++
+      reservation.also { reservation = null; active.value = null }
+    }
+    previous?.close()
+  }
+
+  private fun stopRequest(request: Long) {
+    val previous = synchronized(lock) {
+      if (generation != request) return
+      generation++
+      reservation.also { reservation = null; active.value = null }
+    }
+    previous?.close()
   }
 
   @Suppress("DEPRECATION")
