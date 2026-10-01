@@ -1,11 +1,13 @@
 package xyz.mcxross.formation.state
 
+import kotlin.coroutines.cancellation.CancellationException
 import com.solana.publickey.SolanaPublicKey
 import com.solana.transaction.Transaction
-import com.solana.transaction.TransactionInstruction
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.update
 import xyz.mcxross.formation.crypto.Base58
 import xyz.mcxross.formation.crypto.Ed25519KeyPair
@@ -20,7 +22,6 @@ import xyz.mcxross.formation.platform.WalletPort
 import xyz.mcxross.formation.platform.WalletResult
 import xyz.mcxross.formation.session.Seal
 import xyz.mcxross.formation.session.Sealing
-import xyz.mcxross.formation.session.Share
 import xyz.mcxross.formation.solana.FormationVault
 import xyz.mcxross.formation.solana.RpcException
 import xyz.mcxross.formation.solana.SolanaRpc
@@ -30,6 +31,7 @@ import xyz.mcxross.formation.solana.VaultState
 import xyz.mcxross.formation.solana.explorerUrl
 import xyz.mcxross.formation.solana.signedBy
 import xyz.mcxross.formation.solana.transaction
+import xyz.mcxross.formation.state.settlement.*
 
 class SolanaLedger(
   private val rpc: SolanaRpc,
@@ -51,6 +53,9 @@ class SolanaLedger(
   override val tickets: StateFlow<List<ClaimTicket>> = book.tickets
 
   private var config: VaultConfig? = null
+  private val settlementLock = Mutex()
+  private val journal = SubmissionJournal(store, "sol.submissions.$cluster")
+  private val submissions = SubmissionRunner(journal, RpcSubmissionTransport(rpc))
 
   override suspend fun refresh(seeker: SeekerIdentity) {
     runCatching {
@@ -82,108 +87,77 @@ class SolanaLedger(
     seeker: SeekerIdentity,
     opportunity: Opportunity,
     seal: Seal,
-  ): Result<UnlockReceipt> = attempt {
-    val payer = SolanaPublicKey.from(seeker.wallet)
-    val mint = config().mint
-    val id = opportunity.id.bytes()
-    val unlock =
-      vault.unlock(
-        payer,
-        mint,
-        id,
-        seal.root.hexToBytes(),
-        seal.roster.size,
-        Sealing.resultOf(seal),
-      )
-    val payouts =
-      seal.roster
-        .filter { it.wallet != null }
-        .map { share ->
-          val proof = Sealing.proof(seal, share.player).orEmpty()
-          share to
-            vault.claim(
-              payer,
-              SolanaPublicKey.from(share.claimKey),
-              SolanaPublicKey.from(share.wallet!!),
-              mint,
-              id,
-              share.index,
-              proof,
-              claimerSigns = false,
-            )
-        }
-    val batches = pack(payer, rpc.latestBlockhash(), unlock, payouts)
-    // A simulated Seeker is its claim key, so it can sign without a wallet app (emulators, local
-    // validator).
-    val signed =
-      if (seeker.simulated) batches.map { it.first.signedBy(claimKey()).serialize() }
-      else walletSign(batches.map { it.first })
-    val signature = send(signed.first())
-    _opportunities.update { list -> list.filterNot { it.id == opportunity.id } }
-    val paid = batches.first().second.map { it.player }.toMutableList()
-    signed.zip(batches).drop(1).forEach { (tx, batch) ->
-      runCatching { send(tx) }.onSuccess { paid += batch.second.map { it.player } }
+  ): Result<UnlockReceipt> = attempt { settlementLock.withLock {
+    check(seal.complete) { "Everyone must seal the Formation first" }
+    val prefix = opportunity.id.value
+    submissions.resumePending()
+    for (saved in journal.pending().filter { it.operation == "unlock:$prefix" || it.operation.startsWith("payout:$prefix:") }) {
+      submissions.execute(saved)
     }
-    UnlockReceipt(signature, explorerUrl(signature, cluster), paid)
-  }
-
-  // The unlock goes first; payouts join it, then fill further transactions, up to the size limit.
-  private fun pack(
-    payer: SolanaPublicKey,
-    blockhash: String,
-    unlock: TransactionInstruction,
-    payouts: List<Pair<Share, TransactionInstruction>>,
-  ): List<Pair<Transaction, List<Share>>> {
-    val batches =
-      mutableListOf<Pair<MutableList<TransactionInstruction>, MutableList<Share>>>(
-        mutableListOf(unlock) to mutableListOf()
-      )
-    for ((share, ix) in payouts) {
-      val (ixs, shares) = batches.last()
-      if (
-        transaction(payer, blockhash, *(ixs + ix).toTypedArray()).serialize().size <=
-          MAX_TRANSACTION_BYTES
-      ) {
-        ixs += ix
-        shares += share
-      } else {
-        batches += mutableListOf(ix) to mutableListOf(share)
+    val id = opportunity.id.bytes()
+    val address = vault.opportunity(id)
+    val onChain = rpc.account(address)?.let { VaultOpportunity.decode(address, it.data) }
+      ?: error("This reward is no longer available")
+    val payer = SolanaPublicKey.from(seeker.wallet)
+    check(onChain.seeker == payer) { "This reward belongs to another Seeker" }
+    val open = onChain.state == VaultState.OPEN
+    if (!open) {
+      check(onChain.rosterRoot.contentEquals(seal.root.hexToBytes()) &&
+        onChain.rosterSize == seal.roster.size && onChain.result.contentEquals(Sealing.resultOf(seal))) {
+        "The chain roster differs from the saved win"
       }
     }
-    return batches.map { (ixs, shares) ->
-      transaction(payer, blockhash, *ixs.toTypedArray()) to shares
+    val mint = config().mint
+    val unlock = if (open) vault.unlock(payer, mint, id, seal.root.hexToBytes(), seal.roster.size, Sealing.resultOf(seal)) else null
+    val bound = seal.roster.filter { it.wallet != null }
+    val paid = bound.filter { !open && onChain.hasClaimed(it.index) }.map { it.player }.toMutableList()
+    val payouts = bound.filter { it.player !in paid }.map { share ->
+      share to vault.claim(payer, SolanaPublicKey.from(share.claimKey), SolanaPublicKey.from(share.wallet!!),
+        mint, id, share.index, Sealing.proof(seal, share.player).orEmpty(), claimerSigns = false)
     }
-  }
+    val blockhash = rpc.latestBlockhashInfo()
+    val batches = packTransactions(payer, blockhash.value, unlock, payouts)
+    val signed = if (seeker.simulated) batches.map { it.transaction.signedBy(claimKey()).serialize() }
+      else if (batches.isEmpty()) emptyList() else walletSign(batches.map { it.transaction })
+    check(signed.size == batches.size) { "The wallet did not sign every transaction" }
+    // Save all approved batches before sending any of them.
+    val saved = signed.zip(batches).map { (bytes, batch) ->
+      val key = if (batch.unlock) "unlock:$prefix" else "payout:$prefix:${batch.shares.joinToString(",") { it.index.toString() }}"
+      journal.prepare(key, bytes, blockhash.lastValidBlockHeight)
+    }
+    var signature = journal.latest("unlock:$prefix")?.signature.orEmpty()
+    saved.zip(batches).forEach { (entry, batch) ->
+      val result = runCatching { submissions.execute(entry) }.onFailure { if (it is CancellationException) throw it }
+      if (batch.unlock) signature = result.getOrThrow()
+      if (result.isSuccess) paid += batch.shares.map { it.player }
+    }
+    _opportunities.update { list -> list.filterNot { it.id == opportunity.id } }
+    UnlockReceipt(signature, signature.takeIf { it.isNotEmpty() }?.let { explorerUrl(it, cluster) }, paid, paid.containsAll(bound.map { it.player }))
+  } }
 
   override fun keep(ticket: ClaimTicket) = book.keep(ticket)
 
-  override suspend fun claim(ticket: ClaimTicket, recipient: String): Result<String> = attempt {
+  override suspend fun claim(ticket: ClaimTicket, recipient: String): Result<String> = attempt { settlementLock.withLock {
+    val operation = "claim:${ticket.opportunity.value}:${ticket.index}"
+    submissions.resumePending()
+    journal.latest(operation)?.takeIf { it.state == SubmissionState.PENDING || it.state == SubmissionState.CONFIRMED }?.let {
+      val signature = submissions.execute(it)
+      book.claimed(ticket, ticket.wallet ?: recipient, signature)
+      return@attempt signature
+    }
     val key = claimKey()
     val claimer = SolanaPublicKey(key.publicKey)
     val payer = SolanaPublicKey.from(recipient)
-    // A share bound to a wallet can only go there; the connected wallet just pays the fee.
     val to = ticket.wallet?.let(SolanaPublicKey::from) ?: payer
-    val proof = ticket.proof.map { it.hexToBytes() }
-    val ix =
-      vault.claim(
-        payer,
-        claimer,
-        to,
-        config().mint,
-        ticket.opportunity.bytes(),
-        ticket.index,
-        proof,
-        claimerSigns = ticket.wallet == null,
-      )
-    val tx =
-      transaction(payer, rpc.latestBlockhash(), ix).let {
-        if (ticket.wallet == null) it.signedBy(key) else it
-      }
+    val blockhash = rpc.latestBlockhashInfo()
+    val ix = vault.claim(payer, claimer, to, config().mint, ticket.opportunity.bytes(), ticket.index,
+      ticket.proof.map { it.hexToBytes() }, claimerSigns = ticket.wallet == null)
+    val tx = transaction(payer, blockhash.value, ix).let { if (ticket.wallet == null) it.signedBy(key) else it }
     val signed = if (payer == claimer) tx.serialize() else walletSign(listOf(tx)).single()
-    val signature = send(signed)
+    val signature = submissions.execute(journal.prepare(operation, signed, blockhash.lastValidBlockHeight))
     book.claimed(ticket, to.base58(), signature)
     signature
-  }
+  } }
 
   override suspend fun stillLocked(opportunity: Opportunity): Boolean? = runCatching {
     val address = vault.opportunity(opportunity.id.bytes())
@@ -193,7 +167,8 @@ class SolanaLedger(
     .getOrNull()
 
   // Shares sealed while the Seeker was offline become claimable, or paid, once it unlocks.
-  override suspend fun sync() {
+  override suspend fun sync(): Unit = settlementLock.withLock {
+    submissions.resumePending()
     runCatching {
       for (ticket in tickets.value.filter { !it.claimed && !it.lapsed && it.index >= 0 }) {
         val address = vault.opportunity(ticket.opportunity.bytes())
@@ -234,12 +209,10 @@ class SolanaLedger(
       is WalletResult.Failed -> error(signed.message)
     }
 
-  private suspend fun send(transaction: ByteArray): String =
-    rpc.sendTransaction(transaction).also { rpc.confirm(it) }
-
   private suspend fun <T> attempt(block: suspend () -> T): Result<T> = runCatching {
     block()
   }
+    .onFailure { if (it is CancellationException) throw it }
     .recoverCatching { throw IllegalStateException(describe(it), it) }
 
   private fun describe(e: Throwable): String =
@@ -260,8 +233,6 @@ class SolanaLedger(
     )
   }
 }
-
-private const val MAX_TRANSACTION_BYTES = 1_232
 
 internal fun uuidOf(bytes: ByteArray): String {
   val hex = bytes.toHex()

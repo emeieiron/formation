@@ -76,14 +76,11 @@ class AppGraph(
         ?: return Result.failure(IllegalStateException("This phone is not a Seeker"))
     val result = ledger.unlock(identity, win.opportunity, win.seal)
     result.onSuccess { receipt ->
-      pending.remove(win.opportunity.id)
+      if (receipt.settled) pending.remove(win.opportunity.id)
       _session.value
         ?.takeIf { it.host?.snapshot?.value?.formation?.opportunity?.id == win.opportunity.id }
         ?.unlockedElsewhere(receipt)
     }
-    // Already unlocked (a lost confirmation), expired or gone: nothing left to retry.
-    if (result.isFailure && ledger.stillLocked(win.opportunity) == false)
-      pending.remove(win.opportunity.id)
     result
   }
 
@@ -225,6 +222,7 @@ class AppGraph(
 
   init {
     scope.launch { sounds.prepare() }
+    scope.launch { this@AppGraph.ledger.sync() }
     // A pretend Seeker signs with its own key, so it can retry quietly; a real one waits for a tap.
     scope.launch {
       while (true) {

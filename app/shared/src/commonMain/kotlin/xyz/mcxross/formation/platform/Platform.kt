@@ -35,6 +35,9 @@ interface KeyValueStore {
   fun get(key: String): String?
 
   fun put(key: String, value: String?)
+
+  // Complete persistence before acknowledging a financial or recovery record.
+  fun putDurable(key: String, value: String?) = put(key, value)
 }
 
 interface SecretStore {

@@ -26,8 +26,8 @@ class PendingUnlocks(private val store: KeyValueStore) {
   fun remove(id: OpportunityId) = save(_pending.value.filterNot { it.opportunity.id == id })
 
   private fun save(list: List<PendingUnlock>) {
+    store.putDurable(KEY, FormationJson.encodeToString(ListSerializer(PendingUnlock.serializer()), list))
     _pending.value = list
-    store.put(KEY, FormationJson.encodeToString(ListSerializer(PendingUnlock.serializer()), list))
   }
 
   private companion object {

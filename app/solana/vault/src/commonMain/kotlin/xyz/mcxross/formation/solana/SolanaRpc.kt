@@ -50,14 +50,22 @@ class SolanaRpc(
     class Memcmp(val offset: Int, val bytes: ByteArray) : Filter
   }
 
-  suspend fun latestBlockhash(): String =
+  data class Blockhash(val value: String, val lastValidBlockHeight: Long)
+
+  suspend fun latestBlockhash(): String = latestBlockhashInfo().value
+
+  suspend fun latestBlockhashInfo(): Blockhash =
     call("getLatestBlockhash", buildJsonArray { add(options()) })
       .jsonObject
       .getValue("value")
       .jsonObject
-      .getValue("blockhash")
-      .jsonPrimitive
-      .content
+      .let { value -> Blockhash(
+        value.getValue("blockhash").jsonPrimitive.content,
+        value.getValue("lastValidBlockHeight").jsonPrimitive.long,
+      ) }
+
+  suspend fun blockHeight(): Long =
+    call("getBlockHeight", buildJsonArray { add(options()) }).jsonPrimitive.long
 
   suspend fun account(key: SolanaPublicKey): Account? = multipleAccounts(listOf(key)).single()
 
@@ -131,10 +139,10 @@ class SolanaRpc(
     return call("sendTransaction", params).jsonPrimitive.content
   }
 
-  suspend fun signatureStatus(signature: String): SignatureStatus? {
+  suspend fun signatureStatus(signature: String, history: Boolean = false): SignatureStatus? {
     val params = buildJsonArray {
       add(buildJsonArray { add(signature) })
-      add(buildJsonObject { put("searchTransactionHistory", false) })
+      add(buildJsonObject { put("searchTransactionHistory", history) })
     }
     val status = call("getSignatureStatuses", params).jsonObject.getValue("value").jsonArray.first()
     if (status is JsonNull) return null

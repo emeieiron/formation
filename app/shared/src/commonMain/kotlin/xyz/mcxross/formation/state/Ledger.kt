@@ -53,6 +53,7 @@ data class UnlockReceipt(
   val signature: String,
   val explorerUrl: String?,
   val paid: List<PlayerId> = emptyList(),
+  val settled: Boolean = true,
 )
 
 interface RewardLedger {
@@ -112,8 +113,8 @@ class TicketBook(private val store: KeyValueStore, private val key: String) {
   }
 
   private fun save(list: List<ClaimTicket>) {
+    store.putDurable(key, FormationJson.encodeToString(ListSerializer(ClaimTicket.serializer()), list))
     _tickets.value = list
-    store.put(key, FormationJson.encodeToString(ListSerializer(ClaimTicket.serializer()), list))
   }
 }
 

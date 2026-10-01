@@ -54,6 +54,11 @@ class AndroidPlatform(private val context: Context) : PlatformServices {
       override fun put(key: String, value: String?) {
         prefs.edit().apply { if (value == null) remove(key) else putString(key, value) }.apply()
       }
+      override fun putDurable(key: String, value: String?) {
+        check(prefs.edit().apply { if (value == null) remove(key) else putString(key, value) }.commit()) {
+          "Couldn't save the recovery record"
+        }
+      }
     }
 
   override val secrets: SecretStore = KeystoreSecrets(context)
