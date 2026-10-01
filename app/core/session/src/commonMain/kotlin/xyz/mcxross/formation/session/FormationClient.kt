@@ -37,6 +37,8 @@ class FormationClient(
   private val scope: CoroutineScope,
   private val clock: Clock = MonotonicClock,
   private val json: Json = FormationJson,
+  private val observe: (DiagnosticEvent) -> Unit = {},
+  private val recovery: SessionSnapshot? = null,
 ) {
   sealed interface Status {
     data object Connecting : Status
@@ -71,6 +73,8 @@ class FormationClient(
   @Volatile private var light: Int = identity.light
   @Volatile private var finished = false
   private var job: Job? = null
+  private var connectingAt = clock.now()
+  private var reportedStage: DiagnosticCode? = null
   private var completionCheckpoint: (SessionSnapshot) -> Unit = {}
 
   fun checkpointCompletions(save: (SessionSnapshot) -> Unit) { completionCheckpoint = save }
@@ -115,10 +119,12 @@ class FormationClient(
 
   private fun end(reason: String) {
     finished = true
+    observe(DiagnosticEvent(DiagnosticCode.CONNECT_ENDED))
     if (_status.value !is Status.Rejected) _status.value = Status.Ended(reason)
   }
 
   private suspend fun run() {
+    observe(DiagnosticEvent(DiagnosticCode.CONNECT_START))
     var failures = 0
     var joinedOnce = false
     while (!finished) {
@@ -137,6 +143,7 @@ class FormationClient(
           failures >= RECONNECT_TRIES -> return end("Lost the Seeker.")
         }
         _status.value = if (joinedOnce) Status.Reconnecting(failures) else Status.Connecting
+        observe(DiagnosticEvent(DiagnosticCode.CONNECT_RETRY, failures.toLong()))
         delay(backoff(failures))
         continue
       }
@@ -145,6 +152,8 @@ class FormationClient(
       if (_me.value != null) joinedOnce = true
       if (!finished) {
         _status.value = Status.Reconnecting(1)
+        observe(DiagnosticEvent(DiagnosticCode.CONNECT_RETRY, 1))
+        connectingAt = clock.now()
         delay(RECONNECT_PAUSE_MS)
       }
     }
@@ -189,18 +198,29 @@ class FormationClient(
       is ToPlayer.Welcome -> {
         _me.value = message.you
         _status.value = Status.Joined
+        observe(DiagnosticEvent(DiagnosticCode.CONNECT_JOINED, clock.now() - connectingAt))
         send(ToHost.Ping(clock.now()))
       }
-      is ToPlayer.Pong -> sync.onPong(message.sent, message.host)
+      is ToPlayer.Pong -> {
+        sync.onPong(message.sent, message.host)
+        observe(DiagnosticEvent(DiagnosticCode.CLOCK_RTT, sync.rttMs))
+      }
       is ToPlayer.Session -> {
         var snapshot = message.snapshot
         val completed = snapshot.stage as? Stage.Won
         if (completed != null) {
           val problem = runCatching { completionCheckpoint(snapshot) }.exceptionOrNull()
-          if (problem != null) snapshot = snapshot.copy(stage = completed.copy(
+          if (problem != null) {
+            observe(DiagnosticEvent(DiagnosticCode.STORAGE_FAILED))
+            snapshot = snapshot.copy(stage = completed.copy(
             storageProblem = "This win could not be saved on this phone. Keep the session open and free some storage."))
+          }
         }
         if (snapshot.round != _snapshot.value?.round) _frame.value = null
+        if (snapshot.stage.diagnosticCode != reportedStage) {
+          reportedStage = snapshot.stage.diagnosticCode
+          observe(DiagnosticEvent(snapshot.stage.diagnosticCode, snapshot.round.toLong()))
+        }
         _snapshot.value = snapshot
         when (val stage = snapshot.stage) {
           is Stage.Closed -> end(stage.reason)
@@ -216,6 +236,7 @@ class FormationClient(
       }
       is ToPlayer.Rejected -> {
         _status.value = Status.Rejected(message.reason)
+        observe(DiagnosticEvent(DiagnosticCode.CONNECT_REJECTED, message.reason.ordinal.toLong()))
         finished = true
       }
     }
@@ -237,7 +258,12 @@ class FormationClient(
     val mine = snapshot.player(me) ?: return
     if (expected.message != won.seal.message || expected.root != won.seal.root || expected.roster != won.seal.roster ||
       expected.ownerAmount != won.seal.ownerAmount || expected.required != won.seal.required || mine.claimKey != identity.claimKey) return
-    if (!mine.seeker && mine.wallet != wallet) return
+    val restored = recovery?.takeIf { it.formation.session == snapshot.formation.session }
+    if (restored != null) {
+      val savedWin = runCatching { validatedCompletion(restored) }.getOrNull() ?: return
+      val original = restored.players.firstOrNull { it.claimKey == identity.claimKey } ?: return
+      if (savedWin.seal.message != won.seal.message || original.wallet != mine.wallet) return
+    } else if (!mine.seeker && mine.wallet != wallet) return
     sealedMessage = won.seal.message
     val signature = identity.key.sign(Base64.decode(won.seal.message))
     send(ToHost.SealIt(snapshot.round, Base58.encode(signature)))

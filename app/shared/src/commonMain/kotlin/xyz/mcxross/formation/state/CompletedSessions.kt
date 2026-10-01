@@ -28,10 +28,16 @@ class CompletedSessions(private val store: KeyValueStore) {
     if (before != null) {
       require(before.seal.message == won.seal.message) { "The saved win has a different commitment" }
       val signatures = before.seal.signatures + won.seal.signatures
+      val previousUnlock = before.unlock as? xyz.mcxross.formation.session.Unlock.Unlocked
+      val incomingUnlock = won.unlock as? xyz.mcxross.formation.session.Unlock.Unlocked
+      val unlock = when {
+        previousUnlock != null && incomingUnlock != null -> incomingUnlock.copy(paid = (previousUnlock.paid + incomingUnlock.paid).distinct(), settled = previousUnlock.settled || incomingUnlock.settled)
+        previousUnlock != null -> previousUnlock
+        else -> won.unlock
+      }
       won = won.copy(seal = won.seal.copy(signatures = signatures,
         signed = won.seal.required.filter { it in signatures }),
-        unlock = if (before.unlock is xyz.mcxross.formation.session.Unlock.Unlocked && won.unlock !is xyz.mcxross.formation.session.Unlock.Unlocked)
-          before.unlock else won.unlock)
+        unlock = unlock)
     }
     val record = CompletedSession(snapshot.copy(stage = won), address ?: previous?.address)
     if (record == previous) return@locked

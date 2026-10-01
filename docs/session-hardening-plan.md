@@ -1,5 +1,7 @@
 # Session and reward hardening
 
+Implementation is complete for the Android application. See [verification results](session-hardening-verification.md) for executed checks and the remaining physical-device work.
+
 Keep the existing onboarding, hosting, joining, and claiming flow. Harden the boundaries where local sessions, durable storage, and chain settlement meet. Challenge rules remain replaceable.
 
 ## 1. Settlement recovery

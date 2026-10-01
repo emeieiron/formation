@@ -40,6 +40,7 @@ class SolanaLedger(
   private val cluster: String,
   store: KeyValueStore,
   private val vault: FormationVault = FormationVault(),
+  private val observe: (xyz.mcxross.formation.session.DiagnosticEvent) -> Unit = {},
 ) : RewardLedger {
   override val mode = LedgerMode.SOLANA
 
@@ -55,7 +56,7 @@ class SolanaLedger(
   private var config: VaultConfig? = null
   private val settlementLock = Mutex()
   private val journal = SubmissionJournal(store, "sol.submissions.$cluster")
-  private val submissions = SubmissionRunner(journal, RpcSubmissionTransport(rpc))
+  private val submissions = SubmissionRunner(journal, RpcSubmissionTransport(rpc), observe = observe)
 
   override suspend fun refresh(seeker: SeekerIdentity) {
     runCatching {
@@ -185,6 +186,7 @@ class SolanaLedger(
         val reconciled = if (submission?.state == SubmissionState.CONFIRMED)
           ticket.copy(unlocked = true, lapsed = false, claimedTo = ticket.wallet ?: submission.recipient ?: "another wallet", claimReceipt = submission.signature)
         else reconcileClaim(ticket, chain, observedTime, submission?.recipient)
+        if (reconciled.lapsed && !ticket.lapsed) observe(xyz.mcxross.formation.session.DiagnosticEvent(xyz.mcxross.formation.session.DiagnosticCode.CLAIM_EXPIRED))
         book.update(if (reconciled.claimed && submission?.state == SubmissionState.CONFIRMED)
           reconciled.copy(claimReceipt = submission.signature) else reconciled)
       }

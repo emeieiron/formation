@@ -14,6 +14,7 @@ import xyz.mcxross.formation.link.HostFinder
 import xyz.mcxross.formation.model.ChallengeId
 import xyz.mcxross.formation.model.Skr
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class ClockAndNearbyTest {
   @Test
   fun theShortestRoundTripSetsTheOffset() {

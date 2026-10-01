@@ -149,6 +149,10 @@ internal fun Won(
                 )
               }
               stage.unlock is Unlock.Unlocked -> {
+                if (session.isHost && !(stage.unlock as Unlock.Unlocked).settled) {
+                  Notice("Some wallet payments are pending. Retry them from Home.", tone = Tone.Warning)
+                  Spacer(Modifier.height(Space.m))
+                }
                 Text("YOU EARNED", style = Theme.type.overline, color = c.reward)
                 Spacer(Modifier.height(Space.s))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -163,6 +167,7 @@ internal fun Won(
                     share == null -> "Your share went straight to your Seeker's wallet."
                     share.wallet != null && me in (stage.unlock as Unlock.Unlocked).paid ->
                       "It's in your wallet, ${shortAddress(share.wallet.orEmpty())}."
+                    share.wallet != null -> "Your wallet payment is pending. Check Rewards to claim directly."
                     walletReady -> "It's yours to claim. Check Rewards for the deadline."
                     else ->
                       "You need a Solana wallet to claim your share. Get ${suggested.name} now, or claim it later."

@@ -19,6 +19,7 @@ data class Submission(
   val state: SubmissionState = SubmissionState.PENDING,
   val problem: String? = null,
   val recipient: String? = null,
+  val observed: Boolean = false,
 )
 
 class SubmissionJournal(private val store: KeyValueStore, private val key: String) {

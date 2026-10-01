@@ -67,6 +67,8 @@ fun RecoveryScreen(onBack: (() -> Unit)? = null) {
             if (importing) {
               graph.recovery.import(export, password)
               graph.recoveryProblem.value = null
+              graph.diagnostics.sink(xyz.mcxross.formation.state.diagnostics.TraceSource.RECOVERY)(
+                xyz.mcxross.formation.session.DiagnosticEvent(xyz.mcxross.formation.session.DiagnosticCode.RECOVERY_RESTORED))
               export = ""
               graph.ledger.sync()
               graph.resumePendingJoin()

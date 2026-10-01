@@ -6,6 +6,8 @@ import kotlinx.coroutines.withTimeoutOrNull
 import xyz.mcxross.formation.crypto.Base64
 import xyz.mcxross.formation.solana.RpcException
 import xyz.mcxross.formation.solana.SolanaRpc
+import xyz.mcxross.formation.session.DiagnosticCode
+import xyz.mcxross.formation.session.DiagnosticEvent
 
 data class TransactionStatus(val confirmed: Boolean, val failure: String? = null)
 
@@ -28,14 +30,37 @@ class SubmissionRunner(
   private val transport: SubmissionTransport,
   private val timeoutMs: Long = 60_000,
   private val pollMs: Long = 600,
+  private val observe: (DiagnosticEvent) -> Unit = {},
 ) {
+  private fun update(entry: Submission): Submission {
+    val saved = journal.update(entry)
+    val code = when (saved.state) {
+      SubmissionState.PENDING -> DiagnosticCode.SUBMISSION_PENDING
+      SubmissionState.CONFIRMED -> DiagnosticCode.SUBMISSION_CONFIRMED
+      SubmissionState.FAILED -> DiagnosticCode.SUBMISSION_FAILED
+      SubmissionState.EXPIRED -> DiagnosticCode.SUBMISSION_EXPIRED
+    }
+    observe(DiagnosticEvent(code))
+    return saved
+  }
+
   suspend fun reconcile(entry: Submission): Submission {
     if (entry.state != SubmissionState.PENDING) return entry
     val status = transport.status(entry.signature)
     return when {
-      status?.failure != null -> journal.update(entry.copy(state = SubmissionState.FAILED, problem = status.failure))
-      status?.confirmed == true -> journal.update(entry.copy(state = SubmissionState.CONFIRMED, problem = null))
-      transport.blockHeight() > entry.validUntil -> journal.update(entry.copy(state = SubmissionState.EXPIRED))
+      status?.failure != null -> update(entry.copy(state = SubmissionState.FAILED, problem = status.failure))
+      status?.confirmed == true -> update(entry.copy(state = SubmissionState.CONFIRMED, problem = null))
+      transport.blockHeight() > entry.validUntil -> {
+        // A signature may have landed between the first status read and the height read.
+        val finalStatus = transport.status(entry.signature)
+        when {
+          finalStatus?.confirmed == true -> update(entry.copy(state = SubmissionState.CONFIRMED, problem = null))
+          finalStatus?.failure != null -> update(entry.copy(state = SubmissionState.FAILED, problem = finalStatus.failure))
+          finalStatus == null -> update(entry.copy(state = SubmissionState.EXPIRED))
+          else -> if (entry.observed) entry else update(entry.copy(observed = true))
+        }
+      }
+      status != null && !entry.observed -> update(entry.copy(observed = true))
       else -> entry
     }
   }
@@ -44,23 +69,28 @@ class SubmissionRunner(
     for (entry in journal.pending()) {
       try {
         val current = reconcile(entry)
-        if (current.state == SubmissionState.PENDING)
+        if (current.state == SubmissionState.PENDING && !current.observed)
           transport.broadcast(Base64.decode(current.transaction))
-      } catch (e: CancellationException) { throw e } catch (_: Exception) { /* Keep uncertain work. */ }
+      } catch (e: CancellationException) { throw e } catch (_: Exception) { observe(DiagnosticEvent(DiagnosticCode.SUBMISSION_UNCERTAIN)) }
     }
   }
 
   suspend fun execute(entry: Submission): String {
+    observe(DiagnosticEvent(DiagnosticCode.SUBMISSION_PENDING))
     val current = reconcile(entry)
     if (current.state == SubmissionState.CONFIRMED) return current.signature
     check(current.state == SubmissionState.PENDING) { current.problem ?: "The transaction expired. Try again." }
     try {
-      check(transport.broadcast(Base64.decode(current.transaction)) == current.signature) { "Unexpected transaction receipt" }
+      if (!current.observed) check(transport.broadcast(Base64.decode(current.transaction)) == current.signature) { "Unexpected transaction receipt" }
     } catch (e: CancellationException) {
       throw e
     } catch (e: RpcException) {
       // A preflight rejection is definite. A network failure leaves the transaction uncertain.
-      if (e.code == -32002) journal.update(current.copy(state = SubmissionState.FAILED, problem = e.describe()))
+      if (e.code == -32002) update(current.copy(state = SubmissionState.FAILED, problem = e.describe()))
+      if (e.code != -32002) observe(DiagnosticEvent(DiagnosticCode.SUBMISSION_UNCERTAIN))
+      throw e
+    } catch (e: Exception) {
+      observe(DiagnosticEvent(DiagnosticCode.SUBMISSION_UNCERTAIN))
       throw e
     }
     val confirmed = withTimeoutOrNull(timeoutMs) {
@@ -72,6 +102,7 @@ class SubmissionRunner(
       }
       @Suppress("UNREACHABLE_CODE") null
     }
+    if (confirmed == null) observe(DiagnosticEvent(DiagnosticCode.SUBMISSION_UNCERTAIN))
     return confirmed ?: error("Awaiting confirmation. Your signed transaction is saved; check again before retrying.")
   }
 }

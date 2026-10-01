@@ -99,7 +99,7 @@ internal constructor(
   }
 
   internal fun unlockedElsewhere(receipt: UnlockReceipt) =
-    host?.unlocked(receipt.signature, receipt.explorerUrl, receipt.paid)
+    host?.unlocked(receipt.signature, receipt.explorerUrl, receipt.paid, receipt.settled)
 
   fun ready(on: Boolean) = client.ready(on)
 

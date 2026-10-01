@@ -29,6 +29,10 @@ import xyz.mcxross.formation.session.MonotonicClock
 import xyz.mcxross.formation.session.NearbyScanner
 import xyz.mcxross.formation.solana.SgtFinder
 import xyz.mcxross.formation.solana.SolanaRpc
+import xyz.mcxross.formation.session.DiagnosticCode
+import xyz.mcxross.formation.session.DiagnosticEvent
+import xyz.mcxross.formation.state.diagnostics.LocalDiagnostics
+import xyz.mcxross.formation.state.diagnostics.TraceSource
 import xyz.mcxross.formation.ui.nav.Navigator
 import xyz.mcxross.formation.ui.nav.Screen
 
@@ -39,6 +43,7 @@ class AppGraph(
 ) {
   val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
   val navigator = Navigator()
+  val diagnostics = LocalDiagnostics(platform.store, ::now)
   val identity = Identity(platform)
   val sounds = SoundEffects(platform.store, platform.sound, scope)
   val seeker =
@@ -64,6 +69,7 @@ class AppGraph(
             { identity.claimKey },
             platform.config.cluster,
             platform.store,
+            observe = diagnostics.sink(TraceSource.SETTLEMENT),
           )
       }
 
@@ -75,19 +81,21 @@ class AppGraph(
     })
   val recoveryProblem = MutableStateFlow<String?>(null)
   private val unlocking = Mutex()
+  private val settlementCompletion = SettlementCompletion(completed, this.ledger)
 
   suspend fun unlockWin(win: PendingUnlock): Result<UnlockReceipt> = unlocking.withLock {
     val identity =
       seeker.identity.value
         ?: return Result.failure(IllegalStateException("This phone is not a Seeker"))
-    val result = ledger.unlock(identity, win.opportunity, win.seal)
-    result.onSuccess { receipt ->
-      if (receipt.settled) pending.remove(win.opportunity.id)
+    diagnostics.sink(TraceSource.SETTLEMENT)(DiagnosticEvent(DiagnosticCode.UNLOCK_START))
+    ledger.unlock(identity, win.opportunity, win.seal).mapCatching { receipt ->
+      settlementCompletion.record(win, receipt, identity, now())
+      if (receipt.settled) pending.remove(win.opportunity.id) else pending.paidPartially(win.opportunity.id)
       _session.value
         ?.takeIf { it.host?.snapshot?.value?.formation?.opportunity?.id == win.opportunity.id }
         ?.unlockedElsewhere(receipt)
-    }
-    result
+      receipt
+    }.onFailure { if (it is kotlin.coroutines.cancellation.CancellationException) throw it }
   }
 
   fun updateProfile(profile: Profile) {
@@ -125,7 +133,9 @@ class AppGraph(
     val sessionScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val info =
       recovery?.formation ?: FormationInfo(newUuid(), FormationHost.newCode(), identity.player().name, opportunity)
-    val host = FormationHost(info, challenge, sessionScope, recovery = recovery, checkpoint = { completed.remember(it) })
+    val tag = diagnostics.nextSession()
+    val host = FormationHost(info, challenge, sessionScope, recovery = recovery,
+      checkpoint = { completed.remember(it) }, observe = diagnostics.sink(TraceSource.HOST, tag))
     val port = server.start(LinkDefaults.PORTS, host::beacon) { channel -> host.serve(channel) }
     platform.network.advertiser?.advertise("Formation ${info.code}", port)
     val client =
@@ -137,6 +147,7 @@ class AppGraph(
           mine
         },
         sessionScope,
+        observe = diagnostics.sink(TraceSource.CLIENT, tag),
       )
     client.start()
     val address = platform.network.addresses().firstOrNull()?.let { HostAddress(it, port) }
@@ -158,13 +169,15 @@ class AppGraph(
       .also { _session.value = it }
   }
 
-  fun join(address: HostAddress): ActiveSession {
+  fun join(address: HostAddress, recovery: xyz.mcxross.formation.session.SessionSnapshot? = null): ActiveSession {
     check(identity.claims.status.value is xyz.mcxross.formation.state.recovery.ClaimKeyState.Ready) { "Restore this phone's claim key first" }
     endSession()
     val sessionScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val connector = WebSocketConnector(platform.network.http)
+    val tag = diagnostics.nextSession()
     val client =
-      FormationClient(identity.player(), connect = { connector.connect(address) }, sessionScope)
+      FormationClient(identity.player(), connect = { connector.connect(address) }, sessionScope,
+        observe = diagnostics.sink(TraceSource.CLIENT, tag), recovery = recovery)
     client.start()
     return ActiveSession(
         client,
@@ -190,7 +203,7 @@ class AppGraph(
       host(snapshot.formation.opportunity, snapshot).getOrThrow()
     } else {
       join(HostAddress.parse(record.address ?: error("Scan the Seeker's QR code to reconnect"))
-        ?: error("Scan the Seeker's QR code to reconnect"))
+        ?: error("Scan the Seeker's QR code to reconnect"), snapshot)
     }
     navigator.push(Screen.Session)
   }
@@ -244,6 +257,13 @@ class AppGraph(
   init {
     runCatching { recovery.resumePending() }.onFailure { recoveryProblem.value = it.message ?: "Recovery could not finish" }
     scope.launch { sounds.prepare() }
+    scope.launch {
+      platform.network.finder.status.collect { state ->
+        diagnostics.sink(TraceSource.DISCOVERY)(DiagnosticEvent(
+          if (state is xyz.mcxross.formation.link.DiscoveryStatus.Failed) DiagnosticCode.DISCOVERY_FAILED else DiagnosticCode.DISCOVERY_SEARCHING,
+          (state as? xyz.mcxross.formation.link.DiscoveryStatus.Failed)?.reason?.ordinal?.toLong()))
+      }
+    }
     platform.hotspot?.let { hotspot -> scope.launch {
       hotspot.active.collect { if (it == null) _session.value?.onSeekerNetworkStopped() }
     } }

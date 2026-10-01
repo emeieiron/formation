@@ -3,16 +3,13 @@ package xyz.mcxross.formation.session
 import kotlin.random.Random
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonElement
 import xyz.mcxross.formation.crypto.Base58
 import xyz.mcxross.formation.link.LinkChannel
 import xyz.mcxross.formation.model.PlayerId
@@ -36,6 +33,7 @@ class FormationHost(
   private val json: Json = FormationJson,
   recovery: SessionSnapshot? = null,
   private val checkpoint: (SessionSnapshot) -> Unit = {},
+  private val observe: (DiagnosticEvent) -> Unit = {},
 ) {
   private val info = formation
   private val seats = recovery?.players?.map { p ->
@@ -53,6 +51,9 @@ class FormationHost(
   private var lastFrame: String? = null
   private var latencyDirty = false
   private var latencyPublishedAt = 0L
+  private var reportedStage: DiagnosticCode? = null
+  private var reportedSeals = -1
+  private var sealingAt = 0L
 
   private val _snapshot = MutableStateFlow(SessionSnapshot(info, seats.map { it.toPlayer() }, stage, round))
   val snapshot: StateFlow<SessionSnapshot> = _snapshot.asStateFlow()
@@ -70,32 +71,10 @@ class FormationHost(
 
   // Only the Seeker's own in-process link ([local]) can take the Seeker's seat.
   suspend fun serve(channel: LinkChannel, local: Boolean = false) {
-    val conn = Conn(channel, local, admissionChallenge(info, rules))
-    conn.send(encode(ToPlayer.Authenticate(conn.challenge)))
-    try {
-      coroutineScope {
-        val deadline = launch {
-          delay(10_000)
-          command { if (seatOf(conn) == null) reject(conn, Rejection.IDENTITY) }
-        }
-        val writer = launch {
-          for (frame in conn.outbox) if (!channel.send(frame)) break
-          // The host closed the outbox: hang up once everything queued is out.
-          channel.close()
-        }
-        try {
-          channel.incoming.collect { text ->
-            decode(text)?.let { events.send(Event.Received(conn, it)) }
-          }
-        } finally {
-          writer.cancel()
-          deadline.cancel()
-        }
-      }
-    } finally {
-      events.trySend(Event.Closed(conn))
-      channel.close()
-    }
+    val conn = HostConnection(channel, local, admissionChallenge(info, rules), json)
+    conn.run(received = { events.send(Event.Received(conn, it)) },
+      closed = { events.trySend(Event.Closed(conn)) },
+      timedOut = { command { if (seatOf(conn) == null) reject(conn, Rejection.IDENTITY) } })
   }
 
   // Safe to call from any thread.
@@ -148,9 +127,9 @@ class FormationHost(
 
   fun unlocking() = updateUnlock { Unlock.Unlocking }
 
-  fun unlocked(receipt: String, explorerUrl: String?, paid: List<PlayerId> = emptyList()) =
+  fun unlocked(receipt: String, explorerUrl: String?, paid: List<PlayerId> = emptyList(), settled: Boolean = true) =
     updateUnlock {
-      Unlock.Unlocked(receipt, clock.now(), explorerUrl, paid)
+      Unlock.Unlocked(receipt, clock.now(), explorerUrl, paid, settled)
     }
 
   fun unlockFailed(message: String) = updateUnlock { Unlock.Failed(message) }
@@ -167,22 +146,13 @@ class FormationHost(
   }
 
   private sealed interface Event {
-    class Received(val conn: Conn, val message: ToHost) : Event
+    class Received(val conn: HostConnection, val message: ToHost) : Event
 
-    class Closed(val conn: Conn) : Event
+    class Closed(val conn: HostConnection) : Event
 
     class Command(val run: () -> Unit) : Event
 
     data object Tick : Event
-  }
-
-  private class Conn(val channel: LinkChannel, val local: Boolean, val challenge: AdmissionChallenge) {
-    // A slow phone loses old frames rather than holding up everyone; every message is a snapshot.
-    val outbox = Channel<String>(512, BufferOverflow.DROP_OLDEST)
-
-    fun send(frame: String) {
-      outbox.trySend(frame)
-    }
   }
 
   private class Seat(
@@ -193,7 +163,7 @@ class FormationHost(
     val seeker: Boolean,
     val claimKey: String,
     var wallet: String?,
-    var conn: Conn?,
+    var conn: HostConnection?,
     var ready: Boolean = false,
     var latencyMs: Int? = null,
     var disconnectedAt: Long? = null,
@@ -217,9 +187,9 @@ class FormationHost(
     }
   }
 
-  private fun seatOf(conn: Conn) = seats.firstOrNull { it.conn === conn }
+  private fun seatOf(conn: HostConnection) = seats.firstOrNull { it.conn === conn }
 
-  private fun receive(conn: Conn, message: ToHost) {
+  private fun receive(conn: HostConnection, message: ToHost) {
     if (message is ToHost.Hello) return hello(conn, message)
     if (message is ToHost.Ping) {
       conn.send(encode(ToPlayer.Pong(message.sent, clock.now())))
@@ -243,11 +213,11 @@ class FormationHost(
       is ToHost.Wallet -> wallet(seat, message.address)
       is ToHost.Profile -> profile(seat, message)
       ToHost.Leave -> left(seat)
-      else -> {}
+      is ToHost.Hello, is ToHost.Ping -> Unit
     }
   }
 
-  private fun hello(conn: Conn, hello: ToHost.Hello) {
+  private fun hello(conn: HostConnection, hello: ToHost.Hello) {
     if (stage is Stage.Closed) return reject(conn, Rejection.CLOSED)
     admissionRejection(conn.challenge, hello)?.let { return reject(conn, it) }
     if (seatOf(conn) != null) return reject(conn, Rejection.DUPLICATE)
@@ -307,18 +277,19 @@ class FormationHost(
     runCatching { Base58.decode(it).size }.getOrNull() == 32
   }
 
-  private fun welcome(conn: Conn, seat: Seat) {
+  private fun welcome(conn: HostConnection, seat: Seat) {
     conn.send(encode(ToPlayer.Welcome(seat.id)))
     publish()
     lastFrame?.takeIf { stage is Stage.Playing }?.let(conn::send)
   }
 
-  private fun reject(conn: Conn, reason: Rejection) {
+  private fun reject(conn: HostConnection, reason: Rejection) {
+    observe(DiagnosticEvent(DiagnosticCode.CONNECT_REJECTED, reason.ordinal.toLong()))
     conn.send(encode(ToPlayer.Rejected(reason)))
     conn.outbox.close()
   }
 
-  private fun disconnected(conn: Conn) {
+  private fun disconnected(conn: HostConnection) {
     val seat = seatOf(conn) ?: return
     seat.conn = null
     seat.disconnectedAt = clock.now()
@@ -390,6 +361,7 @@ class FormationHost(
     val now = clock.now()
     seats.filter { it.clockReady && now - it.syncReportedAt > ClockSync.MAX_AGE_MS }.forEach {
       it.clockReady = false
+      observe(DiagnosticEvent(DiagnosticCode.CLOCK_STALE))
       latencyDirty = true
     }
     when (val s = stage) {
@@ -466,12 +438,23 @@ class FormationHost(
   private fun publish() {
     var snapshot = SessionSnapshot(info, seats.map { it.toPlayer() }, stage, round)
     if (snapshot.stage is Stage.Won) {
-      val won = snapshot.stage as Stage.Won
+      val won = snapshot.stage
       val problem = runCatching { checkpoint(snapshot.copy(stage = won.copy(storageProblem = null))) }
         .exceptionOrNull()?.let { "This win could not be saved. Keep this session open and free some storage." }
+      if (problem != null) observe(DiagnosticEvent(DiagnosticCode.STORAGE_FAILED))
       stage = won.copy(storageProblem = problem)
       snapshot = snapshot.copy(stage = stage)
     }
+    val code = snapshot.stage.diagnosticCode
+    if (code != reportedStage) {
+      observe(DiagnosticEvent(code, round.toLong()))
+      if (code == DiagnosticCode.SESSION_WON) sealingAt = clock.now()
+      reportedStage = code
+    }
+    val count = (snapshot.stage as? Stage.Won)?.seal?.signed?.size
+    if (count != null && count != reportedSeals) { observe(DiagnosticEvent(DiagnosticCode.SEAL_PROGRESS, count.toLong()))
+      if ((snapshot.stage as? Stage.Won)?.seal?.complete == true) observe(DiagnosticEvent(DiagnosticCode.SEAL_DURATION, clock.now() - sealingAt))
+      reportedSeals = count }
     _snapshot.value = snapshot
     broadcast(encode(ToPlayer.Session(snapshot)))
   }
@@ -480,10 +463,7 @@ class FormationHost(
 
   private fun encode(message: ToPlayer) = json.encodeToString(ToPlayer.serializer(), message)
 
-  private fun decode(text: String): ToHost? = runCatching {
-    json.decodeFromString(ToHost.serializer(), text)
-  }
-    .getOrNull()
+
 
 
   companion object {

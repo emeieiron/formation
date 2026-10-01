@@ -105,6 +105,7 @@ sealed interface Unlock {
     val at: Long,
     val explorerUrl: String? = null,
     val paid: List<PlayerId> = emptyList(),
+    val settled: Boolean = true,
   ) : Unlock
 
   @Serializable @SerialName("failed") data class Failed(val message: String) : Unlock

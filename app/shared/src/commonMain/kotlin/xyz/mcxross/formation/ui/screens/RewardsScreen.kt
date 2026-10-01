@@ -183,7 +183,7 @@ private fun TicketCard(ticket: ClaimTicket, onClaim: () -> Unit) {
       }
       Column(Modifier.padding(Space.l), verticalArrangement = Arrangement.spacedBy(Space.m)) {
         ticket.claimDeadline?.let { deadline ->
-          Text("Claim before " + kotlin.time.Instant.fromEpochMilliseconds(deadline).toString().take(10) + " UTC",
+          Text("Claim before " + kotlin.time.Instant.fromEpochMilliseconds(deadline).toString().substringBefore('.').removeSuffix("Z").replace('T', ' ') + " UTC",
             style = Theme.type.caption, color = c.contentSecondary)
         }
         Row(verticalAlignment = Alignment.CenterVertically) {

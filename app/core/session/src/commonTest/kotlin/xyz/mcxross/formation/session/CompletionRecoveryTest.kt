@@ -42,11 +42,11 @@ class CompletionRecoveryTest {
     val host = FormationHost(info, TapChallenge, backgroundScope, Clock { testScheduler.currentTime },
       recovery = saved, checkpoint = { checkpoint = it })
     players.forEachIndexed { i, player ->
-      val client = FormationClient(PlayerIdentity(player.device!!, player.name, i, keys[i], formats = mapOf("tap" to 1)), connect = {
+      val client = FormationClient(PlayerIdentity(player.device!!, player.name, i, keys[i], wallet = if (i == 1) Base58.encode(ByteArray(32) { 9 }) else null, formats = mapOf("tap" to 1)), connect = {
         val (phone, server) = memoryLink()
         backgroundScope.launch { host.serve(server, local = i == 0) }
         phone
-      }, scope = backgroundScope, clock = Clock { testScheduler.currentTime })
+      }, scope = backgroundScope, clock = Clock { testScheduler.currentTime }, recovery = saved)
       client.start()
     }
     runCurrent()

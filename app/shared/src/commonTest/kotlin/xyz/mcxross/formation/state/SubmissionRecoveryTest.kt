@@ -56,6 +56,30 @@ class SubmissionRecoveryTest {
     assertEquals(SubmissionState.EXPIRED, runner.reconcile(saved).state)
   }
 
+  @Test fun confirmationThatArrivesAtTheExpiryBoundaryIsNotDiscarded() = runTest {
+    val journal = SubmissionJournal(Store(), "tx")
+    val saved = journal.prepare("claim:one:0", signed, 10)
+    var reads = 0
+    val node = object : SubmissionTransport {
+      override suspend fun status(signature: String): TransactionStatus? = if (++reads == 1) null else TransactionStatus(true)
+      override suspend fun blockHeight() = 11L
+      override suspend fun broadcast(signed: ByteArray): String = error("Must reconcile without sending")
+    }
+    assertEquals(SubmissionState.CONFIRMED, SubmissionRunner(journal, node).reconcile(saved).state)
+  }
+
+  @Test fun anObservedUnconfirmedTransactionIsPolledWithoutAnotherBroadcast() = runTest {
+    val journal = SubmissionJournal(Store(), "tx")
+    val saved = journal.prepare("claim:one:0", signed, 10)
+    val node = Node().apply { status = TransactionStatus(confirmed = false); height = 11 }
+    val runner = SubmissionRunner(journal, node, timeoutMs = 20, pollMs = 5)
+    assertFailsWith<IllegalStateException> { runner.execute(saved) }
+    assertEquals(SubmissionState.PENDING, journal.latest(saved.operation)!!.state)
+    assertEquals(0, node.broadcasts)
+    node.status = TransactionStatus(confirmed = true)
+    assertEquals(saved.signature, runner.execute(journal.latest(saved.operation)!!))
+  }
+
   @Test fun oneConfirmedBatchDoesNotHideAnUnsettledBatch() = runTest {
     val store = Store()
     val journal = SubmissionJournal(store, "tx")

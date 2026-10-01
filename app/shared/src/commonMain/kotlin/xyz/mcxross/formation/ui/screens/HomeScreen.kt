@@ -201,11 +201,11 @@ fun HomeScreen() {
       if (me != null && pendingWins.isNotEmpty()) {
         items(pendingWins, key = { "pending-" + it.opportunity.id.value }) { win ->
           Notice(
-            stringResource(Res.string.copy_offline_unlock),
+            if (win.unlocked) "Some wallet payments are still pending. Retry once online." else stringResource(Res.string.copy_offline_unlock),
             Modifier.padding(horizontal = Space.gutter, vertical = Space.s),
             tone = Tone.Warning,
             title = "${win.opportunity.reward.format(0)} SKR",
-            action = stringResource(Res.string.action_unlock),
+            action = if (win.unlocked) "Retry payments" else stringResource(Res.string.action_unlock),
             onAction = {
               scope.launch {
                 graph.unlockWin(win).onFailure {

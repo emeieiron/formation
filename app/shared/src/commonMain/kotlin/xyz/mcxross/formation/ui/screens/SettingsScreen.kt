@@ -199,6 +199,8 @@ fun SettingsScreen() {
         }
       }
 
+      DiagnosticsSettings()
+
       if (graph.platform.config.debug) {
         SectionHeader("Developer")
         Panel(Modifier.fillMaxWidth().padding(horizontal = Space.gutter)) {

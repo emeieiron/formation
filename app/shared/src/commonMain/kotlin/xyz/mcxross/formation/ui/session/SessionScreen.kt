@@ -104,7 +104,11 @@ fun SessionScreen() {
     ConfirmSheet(
       title = if (active.isHost) "End this Formation?" else "Leave this Formation?",
       body =
-        if (active.isHost)
+        if ((snapshot?.stage as? Stage.Won)?.storageProblem != null)
+          "This win has not been saved yet. Leaving may lose the result."
+        else if (snapshot?.stage is Stage.Won)
+          "The win is saved. Resume from Home if the group still needs to finish sealing it."
+        else if (active.isHost)
           "Everyone will be sent home and the reward stays locked for another time."
         else "The group can't finish without you unless the Seeker finds someone else.",
       confirm = if (active.isHost) "End Formation" else "Leave",
