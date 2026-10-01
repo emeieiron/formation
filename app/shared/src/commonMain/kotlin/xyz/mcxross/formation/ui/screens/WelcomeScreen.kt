@@ -8,7 +8,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.border
-import androidx.compose.foundation.background
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.layout.Arrangement
@@ -275,18 +274,15 @@ internal fun LightPicker(selected: Int, onPick: (Int) -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
           ) {
             Box(
-              Modifier.size(52.dp)
+              Modifier.size(44.dp)
                 .then(
-                  if (i == selected) Modifier.border(2.dp, light.color, Shapes.circle) else Modifier
+                  if (i == selected) Modifier.border(1.5.dp, light.color, Shapes.circle) else Modifier
                 ),
               contentAlignment = Alignment.Center,
             ) {
               PlayerLight("", light, size = 40.dp)
               if (i == selected) {
-                Box(
-                  Modifier.align(Alignment.BottomEnd).size(18.dp).clip(Shapes.circle).background(c.content),
-                  contentAlignment = Alignment.Center,
-                ) { Icon(Icons.Check, null, tint = c.background, size = 12.dp) }
+                Icon(Icons.Check, null, tint = light.content, size = 16.dp)
               }
             }
             Spacer(Modifier.height(Space.xs))
