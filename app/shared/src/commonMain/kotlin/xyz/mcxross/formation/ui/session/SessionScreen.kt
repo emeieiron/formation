@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -39,8 +38,6 @@ import xyz.mcxross.formation.design.components.ButtonStyle
 import xyz.mcxross.formation.design.components.ConfirmSheet
 import xyz.mcxross.formation.design.components.Page
 import xyz.mcxross.formation.design.components.Spinner
-import xyz.mcxross.formation.design.effects.Radar
-import xyz.mcxross.formation.design.effects.Starfield
 import xyz.mcxross.formation.design.foundation.Icon
 import xyz.mcxross.formation.design.foundation.Text
 import xyz.mcxross.formation.design.icons.Icons
@@ -82,7 +79,7 @@ fun SessionScreen() {
   val ended = status is FormationClient.Status.Ended || status is FormationClient.Status.Rejected
   BackHandler { if (ended) leave() else confirmLeave = true }
 
-  Page(background = { Starfield(brightness = 0.45f) }) {
+  Page {
     Box(Modifier.fillMaxSize()) {
       when (val st = status) {
         is FormationClient.Status.Rejected ->
@@ -176,7 +173,7 @@ private fun Connecting(status: FormationClient.Status, onCancel: () -> Unit) {
       horizontalAlignment = Alignment.CenterHorizontally,
     ) {
       Spacer(Modifier.weight(1f))
-      Radar(Modifier.size(180.dp), color = c.accent)
+      Spinner(28.dp, color = c.contentSecondary)
       Spacer(Modifier.height(Space.xl))
       Text(
         if (status is FormationClient.Status.Reconnecting) "Finding the Seeker again…"

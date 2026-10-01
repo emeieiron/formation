@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -44,7 +45,6 @@ import xyz.mcxross.formation.design.components.QrCode
 import xyz.mcxross.formation.design.components.SheetActions
 import xyz.mcxross.formation.design.components.SheetHeader
 import xyz.mcxross.formation.design.components.SkrAmount
-import xyz.mcxross.formation.design.components.Spinner
 import xyz.mcxross.formation.design.components.TextField
 import xyz.mcxross.formation.design.components.TopBar
 import xyz.mcxross.formation.design.effects.FormationRing
@@ -120,10 +120,13 @@ internal fun Lobby(
             style = Theme.type.footnote,
             color = c.contentSecondary,
           )
+          Spacer(Modifier.height(Space.xs))
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Locked reward", style = Theme.type.footnote, color = c.contentSecondary)
+            Spacer(Modifier.width(Space.s))
+            SkrAmount(o.reward.format(0), style = Theme.type.footnote, color = c.reward, coin = false)
+          }
         }
-        Icon(Icons.Lock, null, tint = c.reward, size = 18.dp)
-        Spacer(Modifier.width(Space.xs))
-        SkrAmount(o.reward.format(0), color = c.reward, coin = false)
       }
       Spacer(Modifier.height(Space.l))
       FormationRing(
@@ -167,18 +170,17 @@ internal fun Lobby(
           trailingIcon = if (missing <= 0) Icons.ArrowRight else null,
         )
       } else {
-        Row(
-          Modifier.fillMaxWidth().height(56.dp),
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.Center,
+        Box(
+          Modifier.fillMaxWidth().heightIn(min = 56.dp),
+          contentAlignment = Alignment.Center,
         ) {
-          Spinner(16.dp, color = c.contentSecondary)
-          Spacer(Modifier.width(Space.s))
           Text(
             if (missing > 0) "Waiting for $missing more ${if (missing == 1) "person" else "people"}"
             else "Waiting for ${snapshot.formation.host} to begin",
             style = Theme.type.subheadStrong,
             color = c.contentSecondary,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center,
           )
         }
       }
@@ -212,41 +214,43 @@ private fun JoinPanel(session: ActiveSession, snapshot: SessionSnapshot) {
   val network by session.network.collectAsState()
   val link = address?.let { session.joinLink }
   Panel(Modifier.fillMaxWidth().padding(horizontal = Space.gutter)) {
-    Row(Modifier.padding(Space.l), verticalAlignment = Alignment.CenterVertically) {
-      if (link != null) {
-        Box(
-          Modifier.size(112.dp)
-            .clip(Shapes.control)
-            .pressable({ bigQr = true }, shape = Shapes.control)
-            .background(Color.White)
-            .padding(10.dp),
-          contentAlignment = Alignment.Center,
-        ) {
-          QrCode(link, Modifier.fillMaxSize(), color = Color(0xFF06070A))
+    Column(Modifier.padding(Space.l)) {
+      Row(verticalAlignment = Alignment.CenterVertically) {
+        if (link != null) {
+          Box(
+            Modifier.size(112.dp)
+              .clip(Shapes.control)
+              .pressable({ bigQr = true }, shape = Shapes.control, onClickLabel = "Enlarge join QR")
+              .background(Color.White)
+              .padding(10.dp),
+            contentAlignment = Alignment.Center,
+          ) {
+            QrCode(link, Modifier.fillMaxSize(), color = Color(0xFF06070A))
+          }
+          Spacer(Modifier.width(Space.l))
         }
-        Spacer(Modifier.width(Space.l))
+        Column(Modifier.weight(1f)) {
+          Overline("Join code")
+          Text(
+            snapshot.formation.code,
+            style = Theme.type.numeralLarge.copy(letterSpacing = Theme.type.code.letterSpacing),
+            color = c.content,
+          )
+        }
       }
-      Column(Modifier.weight(1f)) {
-        Overline("Join code")
-        Text(
-          snapshot.formation.code,
-          style = Theme.type.numeralLarge.copy(letterSpacing = Theme.type.code.letterSpacing),
-          color = c.content,
-        )
-        Spacer(Modifier.height(Space.xs))
-        Text(
-          when {
-            graph.platform.device.emulator ->
-              "Emulator: run scripts/emulators.sh link so the others can see this Formation."
-            network != null ->
-              "People on your Seeker network, ${network!!.ssid}, see it under Nearby. Or scan the code."
-            address != null -> "People on the same Wi-Fi see it under Nearby. Or scan the code."
-            else -> "Connect to Wi-Fi, or open a Seeker network, so people can join."
-          },
-          style = Theme.type.footnote,
-          color = c.contentSecondary,
-        )
-      }
+      Spacer(Modifier.height(Space.m))
+      Text(
+        when {
+          graph.platform.device.emulator ->
+            "Emulator: run scripts/emulators.sh link so the others can see this Formation."
+          network != null ->
+            "People on your Seeker network, ${network!!.ssid}, see it under Nearby. Or scan the code."
+          address != null -> "People on the same Wi-Fi see it under Nearby. Or scan the code."
+          else -> "Connect to Wi-Fi, or open a Seeker network, so people can join."
+        },
+        style = Theme.type.footnote,
+        color = c.contentSecondary,
+      )
     }
   }
   if (graph.platform.hotspot != null) {
@@ -381,7 +385,7 @@ private fun ProfileSheet(onDismiss: () -> Unit) {
   ModalSheet(onDismiss) {
     SheetHeader("How the group sees you", subtitle = "Changes show on every phone in the lobby.")
     Column(Modifier.padding(horizontal = Space.xxl)) {
-      TextField(name, { name = it }, placeholder = "Your name", maxLength = 20)
+      TextField(name, { name = it }, label = "Your name", maxLength = 20)
       Spacer(Modifier.height(Space.l))
       LightPicker(light, onPick = { light = it })
     }
@@ -409,26 +413,17 @@ private fun GuestPanel(snapshot: SessionSnapshot, me: PlayerId) {
   val installed = rememberWalletInstalled(graph.platform)
   var connecting by remember { mutableStateOf(false) }
   val suggested = MwaWallets.first()
-  Panel(Modifier.fillMaxWidth().padding(horizontal = Space.gutter), glow = c.reward) {
+  Panel(Modifier.fillMaxWidth().padding(horizontal = Space.gutter)) {
     Column(Modifier.padding(Space.l)) {
-      Row(verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-          Overline("Your share if you unlock it")
-          Spacer(Modifier.height(Space.xs))
-          SkrAmount(
-            o.split().helper.format(2),
-            style = Theme.type.numeral,
-            color = c.reward,
-            unitColor = c.reward,
-          )
-        }
-        Text(
-          "No wallet needed\nto play",
-          style = Theme.type.footnote,
-          color = c.contentSecondary,
-          textAlign = TextAlign.End,
-        )
-      }
+      Overline("Your share if you unlock it")
+      Spacer(Modifier.height(Space.xs))
+      SkrAmount(
+        o.split().helper.format(2),
+        style = Theme.type.numeral,
+        color = c.reward,
+        unitColor = c.contentSecondary,
+      )
+      Text("No wallet needed to play", style = Theme.type.footnote, color = c.contentSecondary)
       Spacer(Modifier.height(Space.m))
       Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(

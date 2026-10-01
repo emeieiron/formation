@@ -21,12 +21,11 @@ import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.components.BottomActions
 import xyz.mcxross.formation.design.components.Button
 import xyz.mcxross.formation.design.components.ButtonStyle
-import xyz.mcxross.formation.design.components.IconTile
 import xyz.mcxross.formation.design.components.Overline
 import xyz.mcxross.formation.design.components.ReadyDots
 import xyz.mcxross.formation.design.components.TextButton
 import xyz.mcxross.formation.design.components.TopBar
-import xyz.mcxross.formation.design.foundation.Panel
+import xyz.mcxross.formation.design.foundation.Icon
 import xyz.mcxross.formation.design.foundation.Text
 import xyz.mcxross.formation.design.icons.Icons
 import xyz.mcxross.formation.design.tokens.Space
@@ -63,29 +62,24 @@ internal fun Briefing(
     Column(
       Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = Space.gutter)
     ) {
-      ChallengeGlyph(info, size = 64.dp)
+      ChallengeGlyph(info, size = 48.dp)
       Spacer(Modifier.height(Space.l))
-      Text(info?.title ?: o.challenge.value, style = Theme.type.display)
-      Text(info?.tagline ?: "", style = Theme.type.title3, color = c.contentSecondary)
+      Text(info?.title ?: o.challenge.value, style = Theme.type.title1)
+      Text(info?.tagline ?: "", style = Theme.type.body, color = c.contentSecondary)
       Spacer(Modifier.height(Space.xl))
-      Panel(Modifier.fillMaxWidth(), glow = info?.let { c.light(it.light).color }) {
-        Column(Modifier.padding(Space.l)) {
-          Overline("The goal")
-          Spacer(Modifier.height(Space.xs))
-          Text(challenge?.goal(o.players, o.difficulty) ?: "", style = Theme.type.title3)
-        }
-      }
+      Overline("The goal")
+      Spacer(Modifier.height(Space.s))
+      Text(challenge?.goal(o.players, o.difficulty) ?: "", style = Theme.type.bodyStrong)
       role?.let {
-        Spacer(Modifier.height(Space.m))
-        Panel(Modifier.fillMaxWidth()) {
-          Row(Modifier.padding(Space.l), verticalAlignment = Alignment.CenterVertically) {
-            IconTile(it.icon, tint = c.content, background = c.surfaceHigher)
-            Spacer(Modifier.width(Space.m))
-            Column(Modifier.weight(1f)) {
-              Overline("Your role")
-              Text(it.title, style = Theme.type.headline)
-              Text(it.text, style = Theme.type.subhead, color = c.contentSecondary)
-            }
+        Spacer(Modifier.height(Space.xl))
+        Row(verticalAlignment = Alignment.Top) {
+          Icon(it.icon, null, tint = c.contentSecondary, size = 24.dp)
+          Spacer(Modifier.width(Space.m))
+          Column(Modifier.weight(1f)) {
+            Overline("Your role")
+            Spacer(Modifier.height(Space.xs))
+            Text(it.title, style = Theme.type.subheadStrong)
+            Text(it.text, style = Theme.type.subhead, color = c.contentSecondary)
           }
         }
       }
@@ -94,18 +88,17 @@ internal fun Briefing(
       Spacer(Modifier.height(Space.xl))
     }
     BottomActions {
-      Row(
+      Column(
         Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalArrangement = Arrangement.spacedBy(Space.s),
       ) {
-        ReadyDots(snapshot.players.map { p -> if (p.ready) c.light(p.light).color else null })
         val left = ((stage.until - now) / 1000).coerceAtLeast(0)
         Text(
           "$readyCount of ${snapshot.players.size} ready · starts in ${left}s",
           style = Theme.type.footnote,
           color = c.contentSecondary,
         )
+        ReadyDots(snapshot.players.map { p -> if (p.ready) c.light(p.light).color else null })
       }
       Button(
         if (ready) "Ready" else "I'm ready",

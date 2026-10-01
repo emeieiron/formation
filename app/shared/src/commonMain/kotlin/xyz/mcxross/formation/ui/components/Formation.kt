@@ -70,14 +70,14 @@ fun RewardSplitView(
       drawRoundRect(
         c.reward,
         Offset.Zero,
-        Size(ownerW - gap / 2, size.height),
+        Size((ownerW - gap / 2).coerceAtLeast(0f), size.height),
         CornerRadius(size.height / 2),
       )
       val each = (size.width - ownerW) / split.helpers
       for (i in 0 until split.helpers) {
         val x = ownerW + i * each + gap / 2
         drawRoundRect(
-          c.lights[(i + 3) % c.lights.size].color,
+          c.contentSecondary,
           Offset(x, 0f),
           Size((each - gap).coerceAtLeast(1f), size.height),
           CornerRadius(size.height / 2),
@@ -85,12 +85,12 @@ fun RewardSplitView(
       }
     }
     Spacer(Modifier.height(Space.m))
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-      Column {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Space.m)) {
+      Column(Modifier.weight(1f)) {
         Text(ownerLabel, style = Theme.type.footnote, color = c.contentSecondary)
         SkrAmount(split.owner.format(2), color = c.reward)
       }
-      Column(horizontalAlignment = Alignment.End) {
+      Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
         Text(
           "Each of ${split.helpers} ${if (split.helpers == 1) "helper" else "helpers"}",
           style = Theme.type.footnote,
