@@ -147,6 +147,7 @@ class AppGraph(
         { seeker.identity.value },
         ::unlockWin,
         pending::add,
+        sounds::play,
         sessionScope,
       )
       .also { _session.value = it }
@@ -170,6 +171,7 @@ class AppGraph(
         { seeker.identity.value },
         ::unlockWin,
         {},
+        sounds::play,
         sessionScope,
       )
       .also { _session.value = it }

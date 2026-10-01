@@ -1,6 +1,17 @@
 package xyz.mcxross.formation.design.icons
 
 object Icons {
+  val Sound by lazy {
+    icon("Sound") {
+      stroke {
+        polyline(4f, 9f, 8f, 9f, 12f, 5f, 12f, 19f, 8f, 15f, 4f, 15f, 4f, 9f)
+        moveTo(16f, 8f)
+        curveTo(19f, 10f, 19f, 14f, 16f, 16f)
+        moveTo(19f, 5f)
+        curveTo(24f, 9f, 24f, 15f, 19f, 19f)
+      }
+    }
+  }
   val ArrowLeft by lazy {
     icon("ArrowLeft") {
       stroke {

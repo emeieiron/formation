@@ -17,11 +17,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import xyz.mcxross.formation.resources.Res
 import xyz.mcxross.formation.resources.label_name
 import xyz.mcxross.formation.resources.label_profile
+import xyz.mcxross.formation.resources.label_sound
+import xyz.mcxross.formation.resources.label_sound_effects
 import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.components.LiveryRule
 import xyz.mcxross.formation.design.components.Button
@@ -59,6 +63,7 @@ fun SettingsScreen() {
   val profile by graph.identity.profile.collectAsState()
   val seeker by graph.seeker.identity.collectAsState()
   val status by graph.seeker.status.collectAsState()
+  val soundEnabled by graph.sounds.enabled.collectAsState()
   var name by remember { mutableStateOf(profile?.name ?: "") }
   var light by remember { mutableStateOf(profile?.light ?: 0) }
 
@@ -98,6 +103,22 @@ fun SettingsScreen() {
           onPick = {
             light = it
             save()
+          },
+        )
+      }
+
+      SectionHeader(stringResource(Res.string.label_sound))
+      val soundLabel = stringResource(Res.string.label_sound_effects)
+      Panel(Modifier.fillMaxWidth().padding(horizontal = Space.gutter)) {
+        SettingRow(
+          soundLabel,
+          icon = Icons.Sound,
+          trailing = {
+            Toggle(
+              soundEnabled,
+              graph.sounds::setEnabled,
+              modifier = Modifier.semantics { contentDescription = soundLabel },
+            )
           },
         )
       }

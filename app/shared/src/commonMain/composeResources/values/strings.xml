@@ -25,6 +25,8 @@
     <string name="label_you">You</string>
     <string name="label_hosted">Hosted</string>
     <string name="label_play">Play</string>
+    <string name="label_sound">Sound</string>
+    <string name="label_sound_effects">Sound effects</string>
 
     <string name="state_searching">Searching…</string>
     <string name="state_found">Found</string>

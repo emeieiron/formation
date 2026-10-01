@@ -70,6 +70,7 @@ import xyz.mcxross.formation.design.icons.Icons
 import xyz.mcxross.formation.design.tokens.Space
 import xyz.mcxross.formation.design.tokens.Tone
 import xyz.mcxross.formation.model.Skr
+import xyz.mcxross.formation.platform.SoundCue
 import xyz.mcxross.formation.state.ClaimTicket
 import xyz.mcxross.formation.state.LedgerMode
 import xyz.mcxross.formation.state.NO_WALLET
@@ -261,7 +262,10 @@ private fun ClaimSheet(ticket: ClaimTicket, onDismiss: () -> Unit) {
         graph.ledger
           .claim(ticket, to)
           .fold(
-            onSuccess = { done = to },
+            onSuccess = {
+              done = to
+              graph.sounds.play(SoundCue.REWARD)
+            },
             onFailure = { error = it.message ?: "The claim didn't go through" },
           )
       }

@@ -14,6 +14,7 @@ import xyz.mcxross.formation.link.HostAddress
 import xyz.mcxross.formation.link.LinkServer
 import xyz.mcxross.formation.model.PlayerId
 import xyz.mcxross.formation.platform.HotspotInfo
+import xyz.mcxross.formation.platform.SoundCue
 import xyz.mcxross.formation.session.FormationClient
 import xyz.mcxross.formation.session.FormationHost
 import xyz.mcxross.formation.session.Sealing
@@ -33,6 +34,7 @@ internal constructor(
   private val seeker: () -> SeekerIdentity?,
   private val unlockWin: suspend (PendingUnlock) -> Result<UnlockReceipt>,
   private val onSealed: (PendingUnlock) -> Unit,
+  private val onSound: (SoundCue) -> Unit,
   private val scope: CoroutineScope,
 ) {
   val isHost: Boolean
@@ -69,10 +71,12 @@ internal constructor(
   }
 
   init {
+    val soundEvents = SessionSoundEvents()
     scope.launch {
       client.snapshot.collect { s ->
         if (s == null) return@collect
         keepShare(s)
+        soundEvents.next(s)?.let(onSound)
         val won = s.stage as? Stage.Won
         if (host != null && won != null && won.seal.complete && won.unlock !is Unlock.Unlocked) {
           onSealed(PendingUnlock(s.formation.opportunity, won.seal, now()))
