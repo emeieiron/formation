@@ -104,7 +104,7 @@ private fun Core(
   modifier: Modifier,
 ) {
   val c = Theme.colors
-  val calm = c.aurora[1]
+  val calm = c.celebration[1]
   val angry = c.negative
   val beat by
     rememberInfiniteTransition(label = "core")

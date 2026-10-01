@@ -1,11 +1,6 @@
 package xyz.mcxross.formation.design.components
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -14,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
@@ -21,16 +17,13 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.composed
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -50,7 +43,6 @@ enum class ButtonStyle {
   Secondary,
   Ghost,
   Reward,
-  Aurora,
   Destructive,
 }
 
@@ -75,19 +67,13 @@ fun Button(
 ) {
   val c = Theme.colors
   val live = enabled && !loading
-  val fill: Brush? =
-    when {
-      !enabled -> null
-      style == ButtonStyle.Reward -> c.goldBrush()
-      style == ButtonStyle.Aurora -> c.auroraBrush()
-      else -> null
-    }
   val solid by
     animateColorAsState(
       when {
         !enabled && style != ButtonStyle.Ghost -> c.surfaceHigh
         style == ButtonStyle.Primary -> c.inverse
         style == ButtonStyle.Secondary -> c.surfaceHigher
+        style == ButtonStyle.Reward -> c.reward
         style == ButtonStyle.Destructive -> c.negative
         else -> Color.Transparent
       },
@@ -98,21 +84,19 @@ fun Button(
     when {
       !enabled -> c.contentDisabled
       style == ButtonStyle.Primary -> c.onInverse
-      style == ButtonStyle.Reward -> c.onGold
-      style == ButtonStyle.Aurora -> c.onInverse
-      style == ButtonStyle.Destructive -> Color.White
+      style == ButtonStyle.Reward -> c.onReward
+      style == ButtonStyle.Destructive -> c.highlight
       else -> c.content
     }
   val shape = if (size == ButtonSize.Small) Shapes.pill else Shapes.control
   Box(
     modifier
       .then(if (fillWidth) Modifier.fillMaxWidth() else Modifier)
-      .then(if (style == ButtonStyle.Aurora && enabled) Modifier.auroraGlow() else Modifier)
       .defaultMinSize(minWidth = size.height)
       .height(size.height)
       .pressable(onClick, enabled = live, shape = shape, squeeze = true)
+      .semantics { if (loading) stateDescription = "In progress" }
       .background(solid)
-      .then(if (fill != null) Modifier.background(fill) else Modifier)
       .then(
         if (style == ButtonStyle.Ghost) Modifier.border(Sizes.hairline, c.lineStrong, shape)
         else Modifier
@@ -140,34 +124,6 @@ fun Button(
   }
 }
 
-fun Modifier.auroraGlow(): Modifier = composed {
-  val colors = Theme.colors.aurora
-  val breath by
-    rememberInfiniteTransition(label = "glow")
-      .animateFloat(
-        0.55f,
-        1f,
-        infiniteRepeatable(tween(1_800, easing = Motion.standard), RepeatMode.Reverse),
-        label = "breath",
-      )
-  drawBehind {
-    val spread = 18.dp.toPx()
-    val r = size.height * 1.1f
-    colors.forEachIndexed { i, color ->
-      val x = size.width * (0.2f + 0.3f * i)
-      drawOval(
-        Brush.radialGradient(
-          listOf(color.copy(alpha = 0.34f * breath), Color.Transparent),
-          center = Offset(x, size.height / 2),
-          radius = r,
-        ),
-        topLeft = Offset(x - r, -spread),
-        size = Size(r * 2, size.height + spread * 2),
-      )
-    }
-  }
-}
-
 @Composable
 fun TextButton(
   text: String,
@@ -182,6 +138,7 @@ fun TextButton(
     if (!enabled) c.contentDisabled else if (tone == Tone.Neutral) c.content else c.tone(tone)
   Row(
     modifier
+      .heightIn(min = 44.dp)
       .pressable(onClick, enabled = enabled, shape = Shapes.pill)
       .padding(horizontal = Space.m, vertical = Space.s),
     verticalAlignment = Alignment.CenterVertically,

@@ -29,12 +29,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -72,7 +76,7 @@ fun TextField(
   val focused by source.collectIsFocusedAsState()
   val border by
     animateColorAsState(
-      if (focused) c.accent.copy(alpha = 0.8f) else c.line,
+      if (focused) c.accent else c.lineStrong,
       Motion.standard(),
       label = "field-border",
     )
@@ -80,14 +84,16 @@ fun TextField(
   if (autoFocus) LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
   Column(modifier.fillMaxWidth()) {
     label?.let {
-      Overline(it, Modifier.padding(start = 4.dp, bottom = Space.s))
+      Text(it, Modifier.padding(bottom = Space.s), style = Theme.type.subheadStrong)
     }
     BasicTextField(
       value = value,
       onValueChange = { next ->
         onValueChange(if (maxLength != null) next.take(maxLength) else next)
       },
-      modifier = Modifier.fillMaxWidth().focusRequester(focus),
+      modifier = Modifier.fillMaxWidth().focusRequester(focus).semantics {
+        (label ?: placeholder)?.let { contentDescription = it }
+      },
       singleLine = singleLine,
       textStyle = textStyle.copy(color = c.content),
       cursorBrush = SolidColor(c.accent),
@@ -100,7 +106,7 @@ fun TextField(
             .heightIn(min = Sizes.controlLarge)
             .clip(Shapes.field)
             .background(if (LocalRaised.current) c.surfaceHigher else c.surfaceHigh)
-            .border(Sizes.hairline, border, Shapes.field)
+            .border(if (focused) 2.dp else Sizes.hairline, border, Shapes.field)
             .padding(horizontal = Space.l),
           verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -143,7 +149,7 @@ fun CodeField(
       onValueChange(cleaned)
       if (cleaned.length == length) onDone()
     },
-    modifier = modifier.focusRequester(focus),
+    modifier = modifier.fillMaxWidth().focusRequester(focus).semantics { contentDescription = "Join code" },
     singleLine = true,
     cursorBrush = SolidColor(Color.Transparent),
     textStyle = Theme.type.code.copy(color = Color.Transparent),
@@ -155,8 +161,10 @@ fun CodeField(
         imeAction = ImeAction.Go,
       ),
     keyboardActions = KeyboardActions(onGo = { onDone() }),
-    decorationBox = {
+    decorationBox = { inner ->
+      Box(Modifier.size(1.dp).alpha(0f)) { inner() }
       Row(
+        Modifier.fillMaxWidth().clearAndSetSemantics {},
         horizontalArrangement = Arrangement.spacedBy(Space.m),
         verticalAlignment = Alignment.CenterVertically,
       ) {
@@ -169,11 +177,9 @@ fun CodeField(
               Motion.standard(),
               label = "code$i",
             )
-          val lift by
-            animateDpAsState(if (ch != null) (-2).dp else 0.dp, Motion.bouncy(), label = "lift$i")
           Box(
-            Modifier.offset(y = lift)
-              .size(width = 60.dp, height = 72.dp)
+            Modifier.weight(1f)
+              .height(64.dp)
               .clip(Shapes.control)
               .background(c.surfaceHigh)
               .border(if (active) 1.5.dp else Sizes.hairline, border, Shapes.control),
@@ -209,17 +215,22 @@ fun Toggle(
   val x by animateDpAsState(if (checked) 22.dp else 2.dp, Motion.snappy(), label = "thumb")
   Box(
     modifier
-      .size(width = 50.dp, height = 30.dp)
-      .clip(Shapes.pill)
-      .background(if (enabled) track else c.surfaceHigh)
-      .toggleable(checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange)
+      .size(width = 50.dp, height = 44.dp)
+      .toggleable(checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange),
+    contentAlignment = Alignment.Center,
   ) {
     Box(
-      Modifier.offset(x = x, y = 2.dp)
-        .size(26.dp)
-        .clip(Shapes.circle)
-        .background(if (enabled) Color.White else c.contentDisabled)
-    )
+      Modifier.size(width = 50.dp, height = 30.dp)
+        .clip(Shapes.pill)
+        .background(if (enabled) track else c.surfaceHigh)
+    ) {
+      Box(
+        Modifier.offset(x = x, y = 2.dp)
+          .size(26.dp)
+          .clip(Shapes.circle)
+          .background(if (!enabled) c.contentDisabled else if (checked) c.onAccent else c.content)
+      )
+    }
   }
 }
 

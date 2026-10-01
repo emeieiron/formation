@@ -69,7 +69,7 @@ internal fun OpportunitySheet(o: Opportunity, onDismiss: () -> Unit, onStart: ()
       }
       Spacer(Modifier.height(Space.xl))
       Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Lock, null, tint = c.gold, size = 26.dp)
+        Icon(Icons.Lock, null, tint = c.reward, size = 26.dp)
         Spacer(Modifier.width(Space.s))
         SkrAmount(o.reward.format(0), style = Theme.type.numeralLarge, color = c.content)
       }
@@ -103,7 +103,7 @@ internal fun OpportunitySheet(o: Opportunity, onDismiss: () -> Unit, onStart: ()
           starting = true
           onStart()
         },
-        style = ButtonStyle.Aurora,
+        style = ButtonStyle.Primary,
         loading = starting,
         enabled = challenge != null,
         trailingIcon = Icons.ArrowRight,

@@ -1,7 +1,6 @@
 package xyz.mcxross.formation.design.components
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -38,6 +37,8 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -78,29 +79,25 @@ fun PlayerLight(
         .value
     else 0.8f
   val color = if (dimmed) light.color.copy(alpha = 0.35f) else light.color
-  Box(modifier.size(size), contentAlignment = Alignment.Center) {
+  Box(
+    modifier.size(size).clearAndSetSemantics {
+      contentDescription = listOfNotNull(
+        name.takeIf { it.isNotBlank() },
+        if (seeker) "Seeker" else null,
+        if (dimmed) "Disconnected" else null,
+      ).joinToString(", ")
+    },
+    contentAlignment = Alignment.Center,
+  ) {
     Canvas(Modifier.size(size)) {
       val r = this.size.minDimension / 2
-      drawCircle(
-        Brush.radialGradient(
-          listOf(color.copy(alpha = 0.45f * glow), Color.Transparent),
-          center,
-          r,
-        ),
-        radius = r,
-      )
-      drawCircle(
-        Brush.radialGradient(
-          listOf(
-            Color.White.copy(alpha = if (dimmed) 0.2f else 0.55f),
-            color,
-            color.copy(alpha = 0.85f),
-          ),
-          center = Offset(center.x - r * 0.18f, center.y - r * 0.22f),
-          radius = r * 0.9f,
-        ),
-        radius = r * 0.72f,
-      )
+      if (pulse) {
+        drawCircle(
+          Brush.radialGradient(listOf(color.copy(alpha = 0.2f * glow), Color.Transparent), center, r),
+          radius = r,
+        )
+      }
+      drawCircle(color, radius = r * 0.8f)
     }
     if (name.isNotBlank()) {
       Text(
@@ -111,7 +108,7 @@ fun PlayerLight(
             lineHeight = (size.value * 0.4f).sp,
             fontWeight = FontWeight.Bold,
           ),
-        color = Color(0xE6070A10),
+        color = light.content,
         maxLines = 1,
       )
     }
@@ -123,10 +120,10 @@ fun PlayerLight(
           .background(Theme.colors.background)
           .padding(2.dp)
           .clip(Shapes.circle)
-          .background(Theme.colors.gold),
+          .background(Theme.colors.reward),
         contentAlignment = Alignment.Center,
       ) {
-        Icon(Icons.Spark, "Seeker", tint = Theme.colors.onGold, size = (size.value * 0.22f).dp)
+        Icon(Icons.Spark, "Seeker", tint = Theme.colors.onReward, size = (size.value * 0.22f).dp)
       }
     }
   }
@@ -137,9 +134,6 @@ private fun initial(name: String): String = name.trim().firstOrNull()?.uppercase
 @Composable
 fun EmptySlot(modifier: Modifier = Modifier, size: Dp = Sizes.lightM) {
   val c = Theme.colors
-  val phase by
-    rememberInfiniteTransition(label = "slot")
-      .animateFloat(0f, 1f, infiniteRepeatable(tween(4_000, easing = LinearEasing)), label = "spin")
   Canvas(modifier.size(size)) {
     val r = this.size.minDimension / 2 * 0.72f
     val dash = floatArrayOf(r * 0.28f, r * 0.24f)
@@ -149,7 +143,7 @@ fun EmptySlot(modifier: Modifier = Modifier, size: Dp = Sizes.lightM) {
       style =
         Stroke(
           1.4.dp.toPx(),
-          pathEffect = PathEffect.dashPathEffect(dash, phase * (dash[0] + dash[1]) * 4),
+          pathEffect = PathEffect.dashPathEffect(dash),
         ),
     )
   }
@@ -177,8 +171,8 @@ fun SkrCoin(size: Dp, modifier: Modifier = Modifier, spin: Boolean = false) {
     }
   ) {
     val r = this.size.minDimension / 2
-    drawCircle(c.goldBrush(), r)
-    drawCircle(Color.White.copy(alpha = 0.25f), r * 0.82f, style = Stroke(r * 0.07f))
+    drawCircle(c.rewardBrush(), r)
+    drawCircle(c.rewardHighlight.copy(alpha = 0.25f), r * 0.82f, style = Stroke(r * 0.07f))
     val star = Path()
     for (i in 0 until 8) {
       val a = (-90.0 + i * 45.0) * PI / 180
@@ -188,7 +182,7 @@ fun SkrCoin(size: Dp, modifier: Modifier = Modifier, spin: Boolean = false) {
       if (i == 0) star.moveTo(x, y) else star.lineTo(x, y)
     }
     star.close()
-    drawPath(star, c.onGold.copy(alpha = 0.78f))
+    drawPath(star, c.onReward.copy(alpha = 0.78f))
   }
 }
 
@@ -272,7 +266,11 @@ fun Tag(
   val accent = color ?: if (tone == Tone.Neutral) c.contentSecondary else c.tone(tone)
   val (background, content) =
     when (style) {
-      TagStyle.Solid -> accent to if (tone == Tone.Negative) Color.White else c.onInverse
+      TagStyle.Solid -> accent to when (tone) {
+        Tone.Negative -> c.highlight
+        Tone.Reward -> c.onReward
+        else -> c.onAccent
+      }
       TagStyle.Subtle ->
         (if (tone == Tone.Neutral && color == null) c.surfaceHigher
         else accent.copy(alpha = 0.15f)) to
@@ -341,9 +339,10 @@ fun IconTile(
 
 @Composable
 fun VerticalRule(modifier: Modifier = Modifier, height: Dp = 32.dp) {
+  val line = Theme.colors.line
   Box(
     modifier.width(Sizes.hairline).height(height).drawBehind {
-      drawRect(Color.White.copy(alpha = 0.08f))
+      drawRect(line)
     }
   )
 }

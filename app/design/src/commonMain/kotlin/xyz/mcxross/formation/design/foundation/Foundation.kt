@@ -10,6 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.InteractionSource
+import androidx.compose.foundation.interaction.FocusInteraction
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -136,12 +137,6 @@ fun Panel(
       .clip(shape)
       .background(color)
       .drawBehind {
-        drawRect(
-          Brush.verticalGradient(
-            0f to Color.White.copy(alpha = 0.035f),
-            0.45f to Color.Transparent,
-          )
-        )
         if (glow != null) {
           drawRect(
             Brush.radialGradient(
@@ -157,36 +152,42 @@ fun Panel(
   )
 }
 
-object GlowIndication : IndicationNodeFactory {
+class PressIndication(private val color: Color) : IndicationNodeFactory {
   override fun create(interactionSource: InteractionSource): DelegatableNode =
-    GlowNode(interactionSource)
+    PressNode(interactionSource, color)
 
-  override fun equals(other: Any?): Boolean = other === this
+  override fun equals(other: Any?): Boolean = other is PressIndication && other.color == color
 
-  override fun hashCode(): Int = 4_217
+  override fun hashCode(): Int = color.hashCode()
 }
 
-private class GlowNode(private val source: InteractionSource) : Modifier.Node(), DrawModifierNode {
+private class PressNode(private val source: InteractionSource, private val color: Color) :
+  Modifier.Node(), DrawModifierNode {
   private val level = Animatable(0f)
 
   override fun onAttach() {
     coroutineScope.launch {
       var pressed = 0
+      var focused = false
       source.interactions.collect { interaction ->
         when (interaction) {
           is PressInteraction.Press -> pressed++
           is PressInteraction.Release,
           is PressInteraction.Cancel -> pressed = (pressed - 1).coerceAtLeast(0)
+          is FocusInteraction.Focus -> focused = true
+          is FocusInteraction.Unfocus -> focused = false
           else -> return@collect
         }
-        launch { level.animateTo(if (pressed > 0) 1f else 0f, tween(if (pressed > 0) 60 else 280)) }
+        launch {
+          level.animateTo(if (pressed > 0 || focused) 1f else 0f, tween(if (pressed > 0) 60 else 140))
+        }
       }
     }
   }
 
   override fun ContentDrawScope.draw() {
     drawContent()
-    if (level.value > 0f) drawRect(Color.White.copy(alpha = 0.07f * level.value))
+    if (level.value > 0f) drawRect(color.copy(alpha = 0.08f * level.value))
   }
 }
 
@@ -199,6 +200,8 @@ fun Modifier.pressable(
   onClickLabel: String? = null,
 ): Modifier = composed {
   val source = remember { MutableInteractionSource() }
+  val contentColor = Theme.colors.content
+  val indication = remember(contentColor) { PressIndication(contentColor) }
   val pressed by source.collectIsPressedAsState()
   val scale by
     animateFloatAsState(
@@ -215,7 +218,7 @@ fun Modifier.pressable(
     .then(if (shape != null) Modifier.clip(shape) else Modifier)
     .clickable(
       interactionSource = source,
-      indication = GlowIndication,
+      indication = indication,
       enabled = enabled,
       onClickLabel = onClickLabel,
       role = role,

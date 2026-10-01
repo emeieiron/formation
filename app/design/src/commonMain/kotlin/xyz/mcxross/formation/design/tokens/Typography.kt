@@ -93,7 +93,7 @@ internal fun rememberTypography(): Typography {
     subheadStrong = style(inter, FontWeight.Medium, 14, 20, -0.002),
     footnote = style(inter, FontWeight.Normal, 13, 18, 0.0),
     caption = style(inter, FontWeight.Medium, 12, 16, 0.0),
-    overline = style(grotesk, FontWeight.Medium, 11, 14, 0.14),
+    overline = style(grotesk, FontWeight.Medium, 12, 16, 0.08),
     button = style(inter, FontWeight.SemiBold, 16, 20, -0.006),
     buttonSmall = style(inter, FontWeight.SemiBold, 14, 18, -0.002),
     numeralHero = style(grotesk, FontWeight.Light, 96, 96, -0.05, "tnum"),

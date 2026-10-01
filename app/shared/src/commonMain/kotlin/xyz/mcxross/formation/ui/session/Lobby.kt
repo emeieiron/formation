@@ -121,9 +121,9 @@ internal fun Lobby(
             color = c.contentSecondary,
           )
         }
-        Icon(Icons.Lock, null, tint = c.gold, size = 18.dp)
+        Icon(Icons.Lock, null, tint = c.reward, size = 18.dp)
         Spacer(Modifier.width(Space.xs))
-        SkrAmount(o.reward.format(0), color = c.gold, coin = false)
+        SkrAmount(o.reward.format(0), color = c.reward, coin = false)
       }
       Spacer(Modifier.height(Space.l))
       FormationRing(
@@ -162,7 +162,7 @@ internal fun Lobby(
         Button(
           if (missing > 0) "Waiting for $missing more" else "Begin",
           { session.begin() },
-          style = ButtonStyle.Aurora,
+          style = ButtonStyle.Primary,
           enabled = missing <= 0,
           trailingIcon = if (missing <= 0) Icons.ArrowRight else null,
         )
@@ -409,7 +409,7 @@ private fun GuestPanel(snapshot: SessionSnapshot, me: PlayerId) {
   val installed = rememberWalletInstalled(graph.platform)
   var connecting by remember { mutableStateOf(false) }
   val suggested = MwaWallets.first()
-  Panel(Modifier.fillMaxWidth().padding(horizontal = Space.gutter), glow = c.gold) {
+  Panel(Modifier.fillMaxWidth().padding(horizontal = Space.gutter), glow = c.reward) {
     Column(Modifier.padding(Space.l)) {
       Row(verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
@@ -418,8 +418,8 @@ private fun GuestPanel(snapshot: SessionSnapshot, me: PlayerId) {
           SkrAmount(
             o.split().helper.format(2),
             style = Theme.type.numeral,
-            color = c.gold,
-            unitColor = c.gold,
+            color = c.reward,
+            unitColor = c.reward,
           )
         }
         Text(

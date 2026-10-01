@@ -60,7 +60,7 @@ fun Starfield(
   val t by
     rememberInfiniteTransition(label = "stars")
       .animateFloat(0f, 1f, infiniteRepeatable(tween(60_000, easing = LinearEasing)), label = "t")
-  val warm = Theme.colors.gold
+  val warm = Theme.colors.reward
   Canvas(modifier) {
     val time = t * 60f
     for (s in stars) {
@@ -79,7 +79,7 @@ fun Starfield(
 fun AuroraBackdrop(
   modifier: Modifier = Modifier.fillMaxSize(),
   intensity: Float = 1f,
-  colors: List<Color> = Theme.colors.aurora,
+  colors: List<Color> = Theme.colors.celebration,
 ) {
   val t by
     rememberInfiniteTransition(label = "aurora")

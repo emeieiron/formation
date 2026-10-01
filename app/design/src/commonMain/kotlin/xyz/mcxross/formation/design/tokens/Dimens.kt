@@ -27,10 +27,10 @@ object Space {
 
 object Radius {
   val xs = 6.dp
-  val s = 10.dp
-  val m = 16.dp
-  val l = 22.dp
-  val xl = 28.dp
+  val s = 8.dp
+  val m = 12.dp
+  val l = 18.dp
+  val xl = 22.dp
 }
 
 object Shapes {
@@ -48,7 +48,7 @@ object Shapes {
 object Sizes {
   val controlLarge = 56.dp
   val controlMedium = 48.dp
-  val controlSmall = 36.dp
+  val controlSmall = 44.dp
 
   val iconXs = 14.dp
   val iconS = 16.dp

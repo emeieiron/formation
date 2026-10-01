@@ -285,9 +285,9 @@ private fun Caller(scope: StageScope<CircuitState, CircuitInput>, pulse: Pulse) 
   val target = scope.player(scope.state.nodes.getOrNull(pulse.node))
   val symbol = pulse.symbol ?: return
   Column(horizontalAlignment = Alignment.CenterHorizontally) {
-    Text("CALL IT OUT", style = Theme.type.overline, color = c.gold)
+    Text("CALL IT OUT", style = Theme.type.overline, color = c.reward)
     Spacer(Modifier.height(Space.m))
-    SymbolGlyph(symbol, c.gold, Modifier.size(150.dp))
+    SymbolGlyph(symbol, c.reward, Modifier.size(150.dp))
     Spacer(Modifier.height(Space.l))
     Text(SymbolNames[symbol], style = Theme.type.display, color = c.content)
     Spacer(Modifier.height(Space.s))

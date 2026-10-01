@@ -117,7 +117,7 @@ internal fun RallyStage(scope: StageScope<RallyState, RallyInput>) {
         if (e is RallyEvent.Hit && e.player == scope.me) {
           particles.burst(
             paddle,
-            listOf(myColor, Color.White, c.gold),
+            listOf(myColor, Color.White, c.reward),
             count = 30,
             direction = -90f,
             spread = 150f,
@@ -174,7 +174,7 @@ private fun RallyOrbit(
       val span = (ball.arriveAt - ball.launchAt).coerceAtLeast(1)
       val t = ((now - ball.launchAt).toFloat() / span).coerceIn(0f, 1f)
       val p = mid + from + (to - from) * t
-      val color = ball.from?.let { scope.player(it)?.light?.color } ?: c.gold
+      val color = ball.from?.let { scope.player(it)?.light?.color } ?: c.reward
       drawLine(
         Brush.linearGradient(listOf(Color.Transparent, color.copy(alpha = 0.6f)), mid + from, p),
         mid + from,

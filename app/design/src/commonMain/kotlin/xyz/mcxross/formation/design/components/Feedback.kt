@@ -191,7 +191,6 @@ fun Notice(
   Panel(
     modifier.fillMaxWidth(),
     shape = Shapes.control,
-    glow = if (tone == Tone.Neutral) null else tint,
   ) {
     Row(
       Modifier.fillMaxWidth().padding(horizontal = Space.l, vertical = 14.dp),

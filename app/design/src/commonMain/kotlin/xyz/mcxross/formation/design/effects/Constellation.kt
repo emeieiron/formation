@@ -1,13 +1,9 @@
 package xyz.mcxross.formation.design.effects
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -45,6 +41,7 @@ import xyz.mcxross.formation.design.components.PlayerLight
 import xyz.mcxross.formation.design.foundation.Text
 import xyz.mcxross.formation.design.tokens.Light
 import xyz.mcxross.formation.design.tokens.Motion
+import xyz.mcxross.formation.design.tokens.Shapes
 
 @Immutable
 data class RingMember(
@@ -68,14 +65,6 @@ fun FormationRing(
   val c = Theme.colors
   val joined by
     animateFloatAsState(if (complete) 1f else 0f, Motion.emphasized(900), label = "complete")
-  val spin by
-    rememberInfiniteTransition(label = "ring")
-      .animateFloat(
-        0f,
-        1f,
-        infiniteRepeatable(tween(24_000, easing = LinearEasing)),
-        label = "spin",
-      )
   BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
     val density = LocalDensity.current
     val side = min(constraints.maxWidth, constraints.maxHeight).toFloat()
@@ -94,18 +83,10 @@ fun FormationRing(
         c.line,
         radius,
         mid,
-        style =
-          Stroke(
-            1.dp.toPx(),
-            pathEffect =
-              androidx.compose.ui.graphics.PathEffect.dashPathEffect(
-                floatArrayOf(2.dp.toPx(), 7.dp.toPx()),
-                spin * 90.dp.toPx(),
-              ),
-          ),
+        style = Stroke(1.dp.toPx()),
       )
       val gap = (lightPx * 0.62f / radius) * 180f / PI.toFloat()
-      drawLinks(members, radius, gap, mid, joined, c.lineStrong, c.aurora)
+      drawLinks(members, radius, gap, mid, joined, c.lineStrong, c.celebration)
     }
 
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center, content = center)
@@ -139,7 +120,11 @@ fun FormationRing(
 private fun ArrivingLight(member: RingMember, size: Dp) {
   val scale = remember { Animatable(0.3f) }
   LaunchedEffect(Unit) { scale.animateTo(1f, Motion.bouncy()) }
-  Box(Modifier.size(size), contentAlignment = Alignment.Center) {
+  val outline = Theme.colors.content
+  Box(
+    Modifier.size(size).then(if (member.me) Modifier.border(1.dp, outline, Shapes.circle) else Modifier),
+    contentAlignment = Alignment.Center,
+  ) {
     PlayerLight(
       member.name,
       member.light,
@@ -147,7 +132,6 @@ private fun ArrivingLight(member: RingMember, size: Dp) {
       size = size * scale.value,
       seeker = member.seeker,
       dimmed = !member.connected,
-      pulse = member.me,
     )
   }
 }
@@ -251,7 +235,7 @@ fun FormationMark(
       )
       drawCircle(colors[i].color.copy(alpha = on), r * on.coerceAtLeast(0.001f), p)
       drawCircle(
-        Color.White.copy(alpha = 0.55f * on),
+        c.highlight.copy(alpha = 0.55f * on),
         r * 0.38f * on,
         p + Offset(-r * 0.22f, -r * 0.22f),
       )

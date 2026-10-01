@@ -88,14 +88,14 @@ internal fun Won(
     val height = with(density) { maxHeight.toPx() }
     LaunchedEffect(Unit) {
       graph.platform.haptics.heavy()
-      particles.confetti(width, c.lights.map { it.color } + c.gold)
+      particles.confetti(width, c.lights.map { it.color } + c.reward)
     }
     LaunchedEffect(stage.unlock is Unlock.Unlocked) {
       if (stage.unlock is Unlock.Unlocked) {
         graph.platform.haptics.heavy()
         particles.burst(
           Offset(width / 2, height * 0.3f),
-          listOf(c.gold, c.goldDeep, androidx.compose.ui.graphics.Color.White),
+          listOf(c.reward, c.rewardDeep, androidx.compose.ui.graphics.Color.White),
           count = 60,
           speed = 1_300f,
         )
@@ -160,7 +160,7 @@ internal fun Won(
                 )
               }
               stage.unlock is Unlock.Unlocked -> {
-                Text("YOU EARNED", style = Theme.type.overline, color = c.gold)
+                Text("YOU EARNED", style = Theme.type.overline, color = c.reward)
                 Spacer(Modifier.height(Space.s))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                   SkrCoin(40.dp)
@@ -184,7 +184,7 @@ internal fun Won(
                 )
               }
               stage.unlock is Unlock.Unlocking -> {
-                Spinner(28.dp, color = c.gold)
+                Spinner(28.dp, color = c.reward)
                 Spacer(Modifier.height(Space.m))
                 Text(
                   "Unlocking the reward…",
@@ -277,7 +277,7 @@ internal fun Won(
                   unlocking = false
                 }
               },
-              style = ButtonStyle.Aurora,
+              style = ButtonStyle.Primary,
               loading = unlocking,
               leadingIcon = Icons.Unlock,
             )

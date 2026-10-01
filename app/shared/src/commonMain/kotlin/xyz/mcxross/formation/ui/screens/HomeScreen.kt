@@ -290,9 +290,9 @@ private fun OpportunityCard(o: Opportunity, onOpen: () -> Unit) {
   Panel(
     Modifier.width(284.dp)
       .pressable(onOpen, shape = Shapes.card, squeeze = true)
-      .then(if (legendary) Modifier.shimmer(c.gold) else Modifier),
-    glow = c.gold,
-    border = if (legendary) c.gold.copy(alpha = 0.6f) else c.line,
+      .then(if (legendary) Modifier.shimmer(c.reward) else Modifier),
+    glow = c.reward,
+    border = if (legendary) c.reward.copy(alpha = 0.6f) else c.line,
   ) {
     Column(Modifier.padding(Space.l)) {
       Row(verticalAlignment = Alignment.CenterVertically) {
@@ -311,7 +311,7 @@ private fun OpportunityCard(o: Opportunity, onOpen: () -> Unit) {
       }
       Spacer(Modifier.height(Space.xl))
       Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Lock, "Locked", tint = c.gold, size = 22.dp)
+        Icon(Icons.Lock, "Locked", tint = c.reward, size = 22.dp)
         Spacer(Modifier.width(Space.s))
         SkrAmount(
           o.reward.format(0),
@@ -337,7 +337,7 @@ private fun OpportunityCard(o: Opportunity, onOpen: () -> Unit) {
       Spacer(Modifier.height(Space.m))
       Row(verticalAlignment = Alignment.CenterVertically) {
         Text("You ", style = Theme.type.footnote, color = c.contentSecondary)
-        Text(split.owner.format(0), style = Theme.type.subheadStrong, color = c.gold)
+        Text(split.owner.format(0), style = Theme.type.subheadStrong, color = c.reward)
         Text("  ·  each helper ", style = Theme.type.footnote, color = c.contentSecondary)
         Text(split.helper.format(0), style = Theme.type.subheadStrong, color = c.content)
       }
@@ -367,8 +367,8 @@ private fun NearbyCard(formation: NearbyFormation, onJoin: () -> Unit) {
             SkrAmount(
               b.reward.format(0),
               style = Theme.type.footnote,
-              color = c.gold,
-              unitColor = c.gold,
+              color = c.reward,
+              unitColor = c.reward,
             )
           }
         }
@@ -494,21 +494,21 @@ private fun RewardsBanner(total: Skr, count: Int, onOpen: () -> Unit) {
       .padding(horizontal = Space.gutter, vertical = Space.l)
       .clip(Shapes.control)
       .pressable(onOpen, shape = Shapes.control)
-      .background(c.gold.copy(alpha = 0.12f))
-      .border(1.dp, c.gold.copy(alpha = 0.35f), Shapes.control)
+      .background(c.reward.copy(alpha = 0.12f))
+      .border(1.dp, c.reward.copy(alpha = 0.35f), Shapes.control)
       .padding(Space.l),
     verticalAlignment = Alignment.CenterVertically,
   ) {
     SkrCoin(30.dp, spin = true)
     Spacer(Modifier.width(Space.m))
     Column(Modifier.weight(1f)) {
-      SkrAmount(total.format(2), color = c.gold, coin = false)
+      SkrAmount(total.format(2), color = c.reward, coin = false)
       Text(
         "$count ${if (count == 1) "reward" else "rewards"} ready to claim",
         style = Theme.type.footnote,
         color = c.contentSecondary,
       )
     }
-    Icon(Icons.ChevronRight, null, tint = c.gold)
+    Icon(Icons.ChevronRight, null, tint = c.reward)
   }
 }

@@ -68,7 +68,7 @@ fun RewardSplitView(
       val gap = 3.dp.toPx()
       val ownerW = size.width * split.owner.units / total
       drawRoundRect(
-        c.gold,
+        c.reward,
         Offset.Zero,
         Size(ownerW - gap / 2, size.height),
         CornerRadius(size.height / 2),
@@ -88,7 +88,7 @@ fun RewardSplitView(
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
       Column {
         Text(ownerLabel, style = Theme.type.footnote, color = c.contentSecondary)
-        SkrAmount(split.owner.format(2), color = c.gold)
+        SkrAmount(split.owner.format(2), color = c.reward)
       }
       Column(horizontalAlignment = Alignment.End) {
         Text(

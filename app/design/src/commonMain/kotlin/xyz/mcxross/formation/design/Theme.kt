@@ -11,7 +11,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
-import xyz.mcxross.formation.design.foundation.GlowIndication
+import xyz.mcxross.formation.design.foundation.PressIndication
 import xyz.mcxross.formation.design.tokens.Colors
 import xyz.mcxross.formation.design.tokens.FormationColors
 import xyz.mcxross.formation.design.tokens.Typography
@@ -35,8 +35,7 @@ object Theme {
 }
 
 @Composable
-fun FormationTheme(content: @Composable () -> Unit) {
-  val colors = FormationColors
+fun FormationTheme(colors: Colors = FormationColors, content: @Composable () -> Unit) {
   val type = rememberTypography()
   val selection =
     remember(colors) {
@@ -50,7 +49,7 @@ fun FormationTheme(content: @Composable () -> Unit) {
     LocalTypography provides type,
     LocalContentColor provides colors.content,
     LocalTextStyle provides type.body,
-    LocalIndication provides GlowIndication,
+    LocalIndication provides remember(colors.content) { PressIndication(colors.content) },
     LocalTextSelectionColors provides selection,
     content = content,
   )

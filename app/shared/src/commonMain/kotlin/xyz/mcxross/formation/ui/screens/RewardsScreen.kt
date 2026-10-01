@@ -66,7 +66,7 @@ fun RewardsScreen() {
   val waiting = tickets.filter { !it.claimed && it.unlocked && !it.lapsed }
   LaunchedEffect(Unit) { graph.ledger.sync() }
   Page(
-    background = { AuroraBackdrop(intensity = 0.4f, colors = listOf(c.gold, c.goldDeep, c.gold)) },
+    background = { AuroraBackdrop(intensity = 0.4f, colors = listOf(c.reward, c.rewardDeep, c.reward)) },
     topBar = {
       TopBar(title = "Rewards", onBack = { graph.navigator.pop() })
     },
@@ -118,7 +118,7 @@ fun RewardsScreen() {
 private fun TicketCard(ticket: ClaimTicket, onClaim: () -> Unit) {
   val c = Theme.colors
   val info = challengeInfo(ticket.challenge)
-  Panel(Modifier.fillMaxWidth(), glow = if (ticket.claimed || ticket.lapsed) null else c.gold) {
+  Panel(Modifier.fillMaxWidth(), glow = if (ticket.claimed || ticket.lapsed) null else c.reward) {
     Row(Modifier.padding(Space.l), verticalAlignment = Alignment.CenterVertically) {
       ChallengeGlyph(info)
       Spacer(Modifier.width(Space.m))
@@ -131,7 +131,7 @@ private fun TicketCard(ticket: ClaimTicket, onClaim: () -> Unit) {
         )
         SkrAmount(
           ticket.amount.format(2),
-          color = if (ticket.claimed) c.contentSecondary else c.gold,
+          color = if (ticket.claimed) c.contentSecondary else c.reward,
           unitColor = c.contentSecondary,
         )
         if (ticket.claimed) {
@@ -215,8 +215,8 @@ private fun ClaimSheet(ticket: ClaimTicket, onDismiss: () -> Unit) {
       SkrAmount(
         ticket.amount.format(2),
         style = Theme.type.numeral,
-        color = c.gold,
-        unitColor = c.gold,
+        color = c.reward,
+        unitColor = c.reward,
       )
       Spacer(Modifier.height(Space.l))
       Text(

@@ -146,7 +146,7 @@ private fun Round(scope: StageScope<SyncState, SyncInput>, round: SyncRound) {
         if (!sent && !blind && now >= round.countFrom && beatsLeft in 1..SyncGame.BEATS)
           Theme.type.numeralLarge
         else Theme.type.title2,
-      color = if (blind) c.gold else c.content,
+      color = if (blind) c.reward else c.content,
     )
     Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
       Rings(round, now, color, blind, sent)
@@ -202,7 +202,7 @@ private fun Rings(round: SyncRound, now: Long, color: Color, blind: Boolean, sen
     }
     if (blind) {
       drawCircle(
-        c.gold.copy(alpha = 0.35f),
+        c.reward.copy(alpha = 0.35f),
         outer,
         style =
           Stroke(
