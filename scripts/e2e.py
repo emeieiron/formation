@@ -52,8 +52,8 @@ class Phone:
 
     def nodes(self):
         for _ in range(5):
-            self.shell("uiautomator dump /sdcard/formation-ui.xml >/dev/null 2>&1; true")
-            xml = self.shell("cat /sdcard/formation-ui.xml")
+            self.shell("rm -f /sdcard/formation-ui.xml; uiautomator dump /sdcard/formation-ui.xml >/dev/null 2>&1; true")
+            xml = self.adb("shell", "cat /sdcard/formation-ui.xml", check=False)
             if xml.startswith("<?xml"):
                 return ET.fromstring(xml)
             time.sleep(0.5)
@@ -161,6 +161,9 @@ def onboard(phone, name, light):
     phone.tap_text("Get started")
     edit = next(n for n in phone.nodes().iter("node") if n.get("class") == "android.widget.EditText")
     phone.tap(edit)
+    if not any(n.get("class") == "android.widget.EditText" and n.get("focused") == "true"
+               for n in phone.nodes().iter("node")):
+        raise Failed(f"{phone.role}: name field did not receive focus")
     phone.shell(f"input text {name}")
     phone.tap_text(light)
     phone.tap_text("Continue")
@@ -198,7 +201,7 @@ def pretend_seeker(phone):
     log(f"{phone.role}: Settings → Developer → Pretend to be a Seeker")
     avatar = next(n for n in phone.nodes().iter("node") if n.get("clickable") == "true" and bounds(n)[3] < 400 and bounds(n)[0] > 1000)
     phone.tap(avatar)
-    phone.wait("You", timeout=10)
+    phone.wait("Profile", timeout=10)
     for _ in range(6):
         row = phone.find("Pretend to be a Seeker")
         if row is not None:
@@ -408,7 +411,7 @@ def finish(args, seeker, guest, chain_wallet, before):
 def open_rewards_screen(phone):
     avatar = next(n for n in phone.nodes().iter("node") if n.get("clickable") == "true" and bounds(n)[3] < 400 and bounds(n)[0] > 1000)
     phone.tap(avatar)
-    phone.wait("You", timeout=10)
+    phone.wait("Profile", timeout=10)
     for _ in range(6):
         row = phone.find("Your rewards")
         if row is not None:
