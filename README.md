@@ -1,132 +1,161 @@
 # Formation
 
-A Seeker owner receives locked SKR ("600 SKR · requires 5 players"). They host a Formation on their Seeker, people nearby join with any phone, and the group plays a short synchronized challenge. When it wins, the Seeker unlocks the reward and it is split between the owner and every helper.
+Formation is a local multiplayer Android app for unlocking shared SKR rewards on Solana. A Seeker hosts a short cooperative challenge. Nearby players join without a wallet, help the group win, and receive a share of the reward.
 
-Guests never need a wallet to play: **join → play → help → claim**.
+Play runs over a local network. Funding, unlocks and claims use Solana. Guests can connect a wallet before play or keep their entitlement on the phone and claim later.
+
+## Architecture
+
+![Formation architecture: guest phones exchange inputs, seals, state and clock samples with the Seeker over a local network. The Seeker submits recoverable unlock and payout transactions to the Solana vault. Guests retain a proof and claim key for deferred claims. Sponsors fund the vault, which pays the owner and helpers.](docs/images/architecture.png)
+
+[Vector diagram](docs/images/architecture.svg)
+
+The Seeker runs the authoritative session. Guests send inputs and render the state it broadcasts. The shared session framework handles admission, readiness, clock synchronization, disconnects and sealing; each challenge module supplies its rules and stage UI. Session logic and Compose UI use Kotlin Multiplatform, with Android integrations for wallets, protected storage and networking.
+
+The application saves completed results separately from settlement. This allows a win to survive a restart and lets chain reconciliation continue without replaying the challenge. The vault enforces reward ownership, the committed roster, payout amounts and one claim per helper slot. It does not verify the gameplay itself.
 
 ## How it works
 
-- **Local session.** The Seeker runs the session itself: a Ktor WebSocket server found over mDNS, a QR code or a four-letter code. Without Wi-Fi it can open its own local-only hotspot. No backend.
-- **One referee.** The Seeker's session is authoritative. Phones sync their clocks to it (NTP-style) and send inputs, and every phone draws the state it sends back. Each challenge format is its own Gradle module.
-- **Seal.** On a win, every phone checks the result and signs a seal with its claim key. The claim key is an Ed25519 key the phone creates on first launch. The seal commits to the opportunity, the session, the helpers' Merkle roster root and the result.
-- **Unlock and payout.** A guest can connect a wallet in the lobby; its address goes into their roster entry and the seal. The Seeker unlocks the reward on chain and, in the same transaction, pays the owner's share and every connected helper's share straight into their wallets, covering the fees. Helpers who didn't connect claim later with a Merkle proof signed by their claim key.
+1. **Fund a reward.** A sponsor deposits SKR into the vault for a wallet holding a Seeker Genesis Token. The reward specifies a challenge, player count, split and expiry.
+2. **Form a group.** The Seeker advertises a local session over mDNS. Guests can also join through a QR code or a four-letter code while on the same network. A signed handshake proves control of each guest's claim key and checks protocol, format and device compatibility.
+3. **Play together.** Phones synchronize their clocks to the Seeker. A round starts after participants are connected, synchronized and ready. The host evaluates the challenge rules and broadcasts the resulting state.
+4. **Save and seal the result.** Each phone checks the completed result and signs a commitment binding the reward, session, helper roster and result. Completed results and verified acknowledgements are saved before the app reports them as durable. An interrupted completion can resume sealing after reconnection.
+5. **Settle the reward.** The owner approves the unlock through their wallet. The app records signed transactions before submission and tracks each payout batch independently. Wallet-bound helpers are paid to their committed addresses; helpers without a bound wallet claim later using their claim key and Merkle proof.
 
-Formats: **Rally** (keep a spark in the air), **Circuit** (pass a pulse round the group), **Sync** (different moves, one instant), **Formation** (arrange the phones into figures), **Rush** (keep a reactor stable together).
+An unlock and all helper payments may require several transactions. The app distinguishes a recorded unlock from complete settlement and reconciles uncertain submissions against chain state before requesting another signature. A confirmation timeout is not treated as proof of failure.
 
-## Layout
+Current formats are Rally, Circuit, Sync, Formation and Rush. Their rules and presentation live in separate modules, so changing a challenge does not require replacing the surrounding session and reward flow.
 
-| Path | What |
+## Recovery and connectivity
+
+Completed wins retain their original roster and verified seal acknowledgements. The app can reopen a saved completion, authenticate returning players and collect missing acknowledgements. A real Seeker's pending unlock waits for the owner's action; a debug Seeker can retry automatically because it signs with its own claim key.
+
+Each Android installation creates an Ed25519 claim key for session signatures and wallet-free claims. The key is distinct from the user's wallet. Android protects it with Keystore encryption and an independently encrypted local recovery copy. On launch, a usable recovery copy can repair damaged primary storage after its public identity is checked. An unreadable existing key is never silently replaced.
+
+Encrypted key and reward-proof export is available under Profile → Rewards → Reward recovery → Advanced backup. Local protection cannot recover a lost phone, an uninstalled app or both lost protected copies. Those cases require an independent backup. Deferred helper claims expire 30 days after the on-chain unlock; recovery does not extend that deadline.
+
+Without ordinary Wi-Fi, the host can open a local-only hotspot from the lobby. Guests join its Wi-Fi QR code, then join the Formation. This network supports local play but provides no internet access. Solana operations require an internet connection; a saved win can wait until one is available.
+
+Diagnostics stay on the device. The app records a bounded set of session, discovery and settlement events, with explicit export and clear controls in Profile. It does not upload these traces automatically.
+
+## Repository layout
+
+| Path | Responsibility |
 | --- | --- |
-| `app/design` | Design system (no Material): tokens, components, effects, icons |
-| `app/core/model` | Opportunities, SKR amounts, reward splits |
-| `app/core/crypto` | Ed25519, SHA-2, Base58/64, roster Merkle tree |
-| `app/core/link` | Local transport: WebSocket links, mDNS, beacons, the emulator bridge |
-| `app/core/sensors` | Pose, lean, gestures and haptics, plus a simulator for emulators |
-| `app/core/session` | Session host and client, protocol, clock sync, sealing |
-| `app/challenges/*` | `api` and one module per format (rules, stage, autopilot) |
-| `app/solana/vault` | Kotlin client for the vault program: instructions, accounts, RPC, SGT lookup |
-| `app/shared` | App state and screens (Compose Multiplatform) |
-| `app/androidApp` | Android entry point: MWA wallet, Keystore secrets, hotspot |
-| `program/formation-vault` | Anchor program holding locked SKR |
-| `scripts/emulators.sh` | Install on, and connect, running emulators |
+| `app/design` | Custom Compose tokens, components, effects and icons; no Material dependency |
+| `app/core/model` | Opportunities, SKR amounts and reward splits |
+| `app/core/crypto` | Ed25519, SHA-2, Base58/64 and the roster Merkle tree |
+| `app/core/link` | WebSocket transport, mDNS discovery, beacons and the emulator bridge |
+| `app/core/sensors` | Motion, pose, gestures, haptics and emulator input simulation |
+| `app/core/session` | Host/client protocol, signed admission, clock synchronization and sealing |
+| `app/challenges/*` | Shared challenge API and one module per format |
+| `app/solana/vault` | Kotlin vault instructions, account decoding, RPC and SGT lookup |
+| `app/shared` | Compose screens, app coordination, settlement, saved completion and recovery |
+| `app/androidApp` | Android entry point, Mobile Wallet Adapter, Keystore storage and hotspot lifecycle |
+| `app/iosApp` | iOS shell; secure recovery and wallet support do not have Android feature parity |
+| `program/formation-vault` | Anchor program holding and distributing locked SKR |
+| `scripts` | Emulator linking, local validator setup, testnet provisioning and end-to-end journeys |
 
-## Running
+## Build and run
 
-```bash
-cd app && ./gradlew :androidApp:assembleDebug
+The Android build uses Gradle and an installed Android SDK. Anchor and the Solana CLI are needed for program builds and validator testing.
+
+```sh
+cd app
+./gradlew :androidApp:assembleDebug
 ```
 
-The app targets testnet by default. `-Pformation.rpcUrl=…` and `-Pformation.cluster=…` override it; use `http://10.0.2.2:8899` for a validator on the host machine.
+The default cluster is testnet. Override `formation.rpcUrl` and `formation.cluster` when building for another cluster. An Android emulator reaches a validator on the host machine through `10.0.2.2`:
 
-### On emulators
+```sh
+./gradlew :androidApp:assembleDebug \
+  -Pformation.rpcUrl=http://10.0.2.2:8899 \
+  -Pformation.cluster=localnet
+```
 
-Emulators can't see each other's networks. `link` forwards each emulator's session port through the host.
+### Emulators
 
-```bash
+From the repository root, install the app on running emulators and forward their session ports:
+
+```sh
 scripts/emulators.sh install
-```
-
-```bash
 scripts/emulators.sh link
 ```
 
-Then on one emulator, go to Settings → Developer → Pretend to be a Seeker (debug builds only, for testing), and host a reward from Home. Other emulators list it under Nearby. The motion pad (the button at the bottom left while playing) holds poses and fakes shakes, swings and covers. Its Autoplay chip lets the phone play its own part, so one person can drive a whole group.
+In Profile → Developer, enable **Pretend to be a Seeker** on the host. This option is limited to debug builds. Turn off **Solana ledger** and restart the app to use simulated rewards. A debug Seeker and a simulated ledger are separate settings: the former supplies a test host identity; the latter avoids chain transactions.
 
-### Tests
+Host a reward from Home and join it from another emulator's Nearby list. During play, the motion pad simulates sensor inputs. Its Autoplay option lets one tester exercise the group flow.
 
-```bash
-cd app && ./gradlew testAndroidHostTest
+### Verification
+
+Run host tests from `app`:
+
+```sh
+./gradlew testAndroidHostTest
 ```
 
-```bash
-cd program && anchor build && cargo test -p formation-vault
+Build and test the vault program from `program`:
+
+```sh
+anchor build
+cargo test -p formation-vault
 ```
 
-End to end on two running emulators: the first plays a simulated Seeker, the second a guest. The script installs the app, onboards both phones, hosts a duo, joins it, plays on Autoplay and unlocks. On a chain it checks that the guest's wallet was paid.
+After changing the program, copy `program/target/idl/formation_vault.json` to `program/formation-vault/idl/`. The Kotlin `IdlContractTest` checks the client against that interface.
 
-```bash
+Two-emulator journeys run from the repository root:
+
+```sh
 scripts/e2e.py --chain simulated
-```
-
-```bash
 scripts/e2e.py --chain localnet --wallet GUEST_WALLET
-```
-
-```bash
 scripts/e2e.py --chain testnet --wallet connect --approve
 ```
 
-`--offline` cuts the Seeker's network at unlock, kills both apps, restores the network, and checks that the saved win unlocks on its own and the guest's share catches up.
+The journey hosts a duo, joins, plays through Autoplay, seals and unlocks. Chain runs can check the guest's token balance. `--format` selects a challenge; Sync is the default. `--offline` interrupts the host's network at unlock and checks recovery after relaunch.
 
-`--wallet connect` goes through the guest's wallet app (Solflare or Phantom). `--approve` taps the wallet's Connect button; without it the script waits for you, and it never types a wallet password. The script reads screens with UI Automator, which allows one client per device, so stop other automation tools first. `--format` picks the challenge (sync by default).
+`--wallet connect` opens the guest's wallet flow. `--approve` taps its connection approval; otherwise the script waits for manual approval. It never enters a wallet password. The harness uses UI Automator and may fail to inspect animated screens; the current verification notes describe the layout adapter used for the completed emulator checks.
 
-After changing the program, copy `program/target/idl/formation_vault.json` to `program/formation-vault/idl/`. The Kotlin `IdlContractTest` checks the client against it.
+See [verification results](docs/session-hardening-verification.md) for executed checks and remaining physical-device work. Emulator Autoplay verifies the session flow; it does not establish the quality of human play or physical-network reliability.
 
-## Rewards
-
-Rewards live in the vault program on the configured cluster. Settings → Developer → Solana ledger switches to a **simulated** ledger that keeps everything on the phone (after a restart).
+## Rewards and deployment
 
 ### Testnet
 
-Deploy with the program's upgrade authority, then set up a test SKR mint, a test Seeker Genesis Token group and the vault config. Give each Seeker wallet a test token and some rewards. A simulated Seeker's wallet is its claim key, shown in Settings.
+Deploy the program with its upgrade authority, then provision a test SKR mint, test SGT group and vault configuration. From the repository root:
 
-```bash
-solana program deploy program/target/deploy/formation_vault.so --program-id program/target/deploy/formation_vault-keypair.json -u testnet -k ~/.config/solana/seekers-testnet.json
-```
+```sh
+solana program deploy program/target/deploy/formation_vault.so \
+  --program-id program/target/deploy/formation_vault-keypair.json \
+  -u testnet -k ~/.config/solana/seekers-testnet.json
 
-```bash
 scripts/testnet.py setup
-```
-
-```bash
 scripts/testnet.py seeker SEEKER_WALLET
-```
-
-```bash
 scripts/testnet.py drops SEEKER_WALLET
 ```
 
-Addresses are kept in `program/testnet.json`. `FORMATION_RPC` points the script elsewhere, such as a local validator for a rehearsal.
+The provisioning script stores addresses in `program/testnet.json`. `FORMATION_RPC` overrides its endpoint. The program ID is `3AzZbKhGFcnaBRRenDDdNSdVumjKoXSkNHsPVeo5q6GW`; preserve the deployment keypair and upgrade authority when maintaining a deployment.
 
-### Without Wi-Fi
+### Real Seeker
 
-In the lobby the Seeker can open a Seeker network: a local-only hotspot with no internet. Guests join it from a Wi-Fi QR code; the join QR code and the Nearby announcement then move to the hotspot. Play needs no internet. The unlock does: once every phone has sealed a win, the Seeker saves it. If it can't reach Solana, the win waits on Home, and a pretend Seeker retries every 30 seconds. Guests keep their share from the moment of the seal, and Rewards picks up the unlock from the chain.
+The owner explicitly links a Seeker through the app's wallet flow. Formation checks the wallet's Seeker Genesis Token on mainnet and rechecks the stored address on later launches. Remembered wallet authorization supports subsequent requests; new signing requests still go through the wallet.
 
-### On a real Seeker
-
-The app recognises a Seeker by its hardware and links it on its own. On first launch it opens the Seed Vault once for approval, then checks the wallet's Seeker Genesis Token on mainnet. Later launches only re-check the stored address, and the approval is remembered for signing unlocks. Other phones never see any of this; they join Formations. To give a real Seeker rewards on testnet, run `scripts/testnet.py seeker SEED_VAULT_ADDRESS` then `drops SEED_VAULT_ADDRESS`. That mints a test Seeker Genesis Token (the vault's testnet config uses a test group) and sends 0.2 testnet SOL for unlock fees.
+For testnet rewards, provision the linked wallet with `scripts/testnet.py seeker SEED_VAULT_ADDRESS`, then `scripts/testnet.py drops SEED_VAULT_ADDRESS`. This creates a token in the test SGT group and funds the wallet with testnet SOL for fees.
 
 ### Local validator
 
-`scripts/localnet.py SEEKER_CLAIM_KEY GUEST_CLAIM_KEY` starts a validator with the program and its state preloaded, and funds the given keys. Build with `-Pformation.rpcUrl=http://10.0.2.2:8899 -Pformation.cluster=localnet`.
+`scripts/localnet.py SEEKER_CLAIM_KEY GUEST_CLAIM_KEY` starts a validator with the program and test state preloaded, then funds the given keys. Build the app with the localnet properties above.
 
-The vault program (`3AzZbKhGFcnaBRRenDDdNSdVumjKoXSkNHsPVeo5q6GW`, keypair in `program/target/deploy`; back it up before deploying):
+### Vault instructions
 
-- `create`: a sponsor locks SKR for the wallet holding a Seeker Genesis Token. The program checks the token on chain, via its Token-2022 group-member entry, against the SGT group in the config (`GT22s89n…99Te` on mainnet).
-- `unlock`: only that wallet can call it, before expiry, with a roster of at least `players − 1` helpers. The owner gets their share plus rounding dust.
-- `claim`: once per roster slot. A slot bound to a wallet pays only that wallet and anyone can submit it, which is how the Seeker pays connected helpers at unlock. An unbound slot needs the helper's claim key to sign, and pays any wallet. The payer covers the fee and the recipient's token account (about 0.002 SOL).
-- `close`: returns unclaimed or expired SKR to the sponsor after 30 days, or earlier once everyone has claimed.
+| Instruction | Enforced behavior |
+| --- | --- |
+| `create` | A sponsor deposits SKR for a designated Seeker wallet. The program validates SGT membership against the configured Token-2022 group. |
+| `unlock` | The designated Seeker wallet commits the roster and result before the reward expires. The owner receives their configured share plus rounding dust. |
+| `claim` | Each committed helper slot pays once. A wallet-bound slot pays only its recorded wallet; an unbound slot requires the claim key's signature. The transaction payer covers fees and recipient token-account creation. |
+| `close` | Remaining SKR returns to the sponsor after an unopened reward expires, after all helpers claim, or after the 30-day claim window ends. |
 
-### Trust model
+## Trust boundaries
 
-The program enforces who can unlock, the split, one claim per slot and refunds. It can't prove that the roster is made of different people. The challenges are designed so one person can't play several phones at once, but a modified app on the Seeker could invent helpers. Before real rewards, consider per-SGT sponsor limits, device attestation, or checking every helper's seal signature on chain with the Ed25519 precompile.
+Client admission proves control of a claim key, not that each phone belongs to a different person. Local seal verification preserves agreement on a result, but the current vault program does not verify every participant's seal signature or the challenge execution on chain. A modified host can fabricate a roster and result.
+
+The current enforcement is reward ownership, committed payout destinations, the split, one claim per helper slot and refund conditions. Before distributing rewards with material value, evaluate stronger host and participant verification against the intended reward size and abuse model.
