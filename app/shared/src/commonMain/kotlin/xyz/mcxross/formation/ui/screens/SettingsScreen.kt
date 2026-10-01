@@ -18,6 +18,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.stringResource
+import xyz.mcxross.formation.resources.Res
+import xyz.mcxross.formation.resources.label_name
+import xyz.mcxross.formation.resources.label_profile
 import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.components.LiveryRule
 import xyz.mcxross.formation.design.components.Button
@@ -65,7 +69,7 @@ fun SettingsScreen() {
   Page(
     topBar = {
       TopBar(
-        title = "You",
+        title = stringResource(Res.string.label_profile),
         onBack = {
           save()
           graph.navigator.pop()
@@ -75,7 +79,6 @@ fun SettingsScreen() {
   ) {
     LiveryRule(Modifier.padding(horizontal = Space.gutter))
     Column(Modifier.verticalScroll(rememberScrollState())) {
-      Text("YOUR PROFILE", Modifier.padding(horizontal = Space.gutter, vertical = Space.l), style = Theme.type.title1)
       Box(
         Modifier.fillMaxWidth().padding(vertical = Space.l),
         contentAlignment = Alignment.Center,
@@ -88,7 +91,7 @@ fun SettingsScreen() {
         )
       }
       Column(Modifier.padding(horizontal = Space.gutter)) {
-        TextField(name, { name = it }, label = "Name", maxLength = 20)
+        TextField(name, { name = it }, label = stringResource(Res.string.label_name), maxLength = 20)
         Spacer(Modifier.height(Space.l))
         LightPicker(
           light,

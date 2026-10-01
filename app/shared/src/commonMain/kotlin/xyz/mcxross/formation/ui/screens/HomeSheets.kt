@@ -22,7 +22,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.stringResource
-import xyz.mcxross.formation.resources.*
+import xyz.mcxross.formation.resources.Res
+import xyz.mcxross.formation.resources.action_join
+import xyz.mcxross.formation.resources.label_code
+import xyz.mcxross.formation.resources.state_found
+import xyz.mcxross.formation.resources.state_searching
 import xyz.mcxross.formation.challenge.ChallengeInfo
 import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.components.Button

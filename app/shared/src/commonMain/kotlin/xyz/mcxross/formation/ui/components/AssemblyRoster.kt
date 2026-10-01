@@ -31,6 +31,11 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import org.jetbrains.compose.resources.stringResource
+import xyz.mcxross.formation.resources.Res
+import xyz.mcxross.formation.resources.label_you
+import xyz.mcxross.formation.resources.state_disconnected
+import xyz.mcxross.formation.resources.state_open_place
 import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.components.PlayerLight
 import xyz.mcxross.formation.design.foundation.Text
@@ -50,6 +55,9 @@ internal fun AssemblyRoster(
   compact: Boolean = false,
 ) {
   val c = Theme.colors
+  val you = stringResource(Res.string.label_you)
+  val disconnected = stringResource(Res.string.state_disconnected)
+  val openPlace = stringResource(Res.string.state_open_place)
   val plateSize = if (slots <= 2 && !compact) 100.dp else 68.dp
   val stagger = if (slots <= 2 && !compact) 48.dp else 20.dp
   val roster = players + List((slots - players.size).coerceAtLeast(0)) { null }
@@ -106,11 +114,11 @@ internal fun AssemblyRoster(
                     contentDescription = player?.let {
                       listOfNotNull(
                         it.name,
-                        if (it.id == me) "You" else null,
+                        if (it.id == me) you else null,
                         if (it.seeker) "Seeker" else null,
-                        if (!it.connected) "Disconnected" else null,
+                        if (!it.connected) disconnected else null,
                       ).joinToString(", ")
-                    } ?: "Open place"
+                    } ?: openPlace
                   },
                 horizontalAlignment = Alignment.CenterHorizontally,
               ) {
@@ -137,25 +145,23 @@ internal fun AssemblyRoster(
                 }
                 Spacer(Modifier.height(Space.s))
                 Text(
-                  player?.name ?: "Open place",
+                  player?.name ?: "—",
                   Modifier.fillMaxWidth(),
                   style = Theme.type.subheadStrong,
                   maxLines = 1,
                   textAlign = TextAlign.Center,
                 )
-                Text(
-                  when {
-                    player == null -> "Waiting to join"
-                    !player.connected -> "Disconnected"
-                    player.seeker && player.id == me -> "Seeker · You"
-                    player.seeker -> "Seeker"
-                    player.id == me -> "You"
-                    else -> "Joined"
-                  },
-                  style = Theme.type.caption,
-                  color = c.contentSecondary,
-                  maxLines = 1,
-                  textAlign = TextAlign.Center,
+                val role = when {
+                  player == null -> null
+                  !player.connected -> disconnected
+                  else -> listOfNotNull(
+                    "Seeker".takeIf { player.seeker },
+                    you.takeIf { player.id == me },
+                  ).joinToString(" · ").takeIf { it.isNotEmpty() }
+                }
+                if (role != null) Text(
+                  role, style = Theme.type.caption, color = c.contentSecondary,
+                  maxLines = 1, textAlign = TextAlign.Center,
                 )
               }
             }

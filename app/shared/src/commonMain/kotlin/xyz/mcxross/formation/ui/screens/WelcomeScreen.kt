@@ -2,6 +2,7 @@ package xyz.mcxross.formation.ui.screens
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -40,6 +41,15 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.stringResource
+import xyz.mcxross.formation.resources.Res
+import xyz.mcxross.formation.resources.action_continue
+import xyz.mcxross.formation.resources.action_get_started
+import xyz.mcxross.formation.resources.copy_no_account
+import xyz.mcxross.formation.resources.headline_play_together
+import xyz.mcxross.formation.resources.label_light
+import xyz.mcxross.formation.resources.label_name
+import xyz.mcxross.formation.resources.label_profile
 import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.components.BackHandler
 import xyz.mcxross.formation.design.components.BottomActions
@@ -64,6 +74,7 @@ import xyz.mcxross.formation.design.tokens.Tone
 import xyz.mcxross.formation.state.Profile
 import xyz.mcxross.formation.state.SeekerStatus
 import xyz.mcxross.formation.ui.LocalGraph
+import xyz.mcxross.formation.ui.components.IntroJourney
 
 @Composable
 fun WelcomeScreen(onDone: (Profile) -> Unit) {
@@ -106,7 +117,7 @@ private fun Intro(onNext: () -> Unit) {
   val c = Theme.colors
   val draw = remember { Animatable(0f) }
   LaunchedEffect(Unit) {
-    draw.animateTo(1f, tween(520, easing = Motion.emphasized))
+    draw.animateTo(1f, tween(1_100, easing = LinearEasing))
   }
   Column(Modifier.fillMaxSize()) {
     Column(
@@ -114,27 +125,32 @@ private fun Intro(onNext: () -> Unit) {
       horizontalAlignment = Alignment.CenterHorizontally,
     ) {
       Spacer(Modifier.height(Space.x6l))
-      FormationMark(Modifier.size(width = 96.dp, height = 64.dp), progress = draw.value)
+      FormationMark(
+        Modifier.size(width = 96.dp, height = 64.dp),
+        progress = (draw.value / 0.25f).coerceAtMost(1f),
+      )
       Spacer(Modifier.height(Space.xl))
       Text("Formation", style = Theme.type.title3, color = c.contentSecondary)
       Spacer(Modifier.height(Space.l))
       Text(
-        "REWARDS THAT ONLY UNLOCK TOGETHER.",
-        style = Theme.type.title1,
+        stringResource(Res.string.headline_play_together),
+        style = Theme.type.hero,
         color = c.content,
         textAlign = TextAlign.Center,
       )
       Spacer(Modifier.height(Space.x4l))
       LiveryRule()
       Spacer(Modifier.height(Space.x4l))
-      Column(verticalArrangement = Arrangement.spacedBy(Space.l)) {
-        Point(Icons.Seeker, "A Seeker receives locked SKR.")
-        Point(Icons.Users, "It takes a group, together in one place.")
-        Point(Icons.Unlock, "Move as one to unlock it. Everyone gets a share.")
-      }
+      IntroJourney(draw.value)
+      Spacer(Modifier.height(Space.xxl))
+      Text(
+        stringResource(Res.string.copy_no_account),
+        style = Theme.type.footnote,
+        color = c.contentSecondary,
+      )
       Spacer(Modifier.height(Space.xxl))
     }
-    BottomActions { Button("Get started", onNext, trailingIcon = Icons.ArrowRight) }
+    BottomActions { Button(stringResource(Res.string.action_get_started), onNext, trailingIcon = Icons.ArrowRight) }
   }
 }
 
@@ -164,13 +180,7 @@ private fun Introduce(
     ) {
       LiveryRule()
       Spacer(Modifier.height(Space.xl))
-      Text("WHAT SHOULD THE GROUP CALL YOU?", style = Theme.type.title1)
-      Spacer(Modifier.height(Space.s))
-      Text(
-        "Choose a name and a light so the group can recognise you. No account needed.",
-        style = Theme.type.body,
-        color = c.contentSecondary,
-      )
+      Text(stringResource(Res.string.label_profile), style = Theme.type.title1)
       Spacer(Modifier.height(Space.xl))
       Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         PlayerLight(
@@ -180,21 +190,16 @@ private fun Introduce(
         )
       }
       Spacer(Modifier.height(Space.xl))
-      TextField(name, onName, label = "Your name", maxLength = 20, autoFocus = true)
+      TextField(name, onName, label = stringResource(Res.string.label_name), maxLength = 20, autoFocus = true)
       Spacer(Modifier.height(Space.xl))
-      Text("YOUR LIGHT", style = Theme.type.overline, color = c.contentSecondary)
+      Text(stringResource(Res.string.label_light), style = Theme.type.overline, color = c.contentSecondary)
       Spacer(Modifier.height(Space.m))
       LightPicker(light, onPick = onLight)
       Spacer(Modifier.height(Space.l))
-      Text(
-        "You can change your name and light anytime from your profile.",
-        style = Theme.type.footnote,
-        color = c.contentTertiary,
-      )
     }
     BottomActions {
       Button(
-        "Continue",
+        stringResource(Res.string.action_continue),
         onDone,
         enabled = name.isNotBlank(),
         trailingIcon = Icons.ArrowRight,

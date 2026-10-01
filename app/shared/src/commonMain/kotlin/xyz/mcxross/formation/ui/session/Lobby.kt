@@ -27,9 +27,29 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.stringResource
+import xyz.mcxross.formation.resources.Res
+import xyz.mcxross.formation.resources.a11y_enlarge_qr
+import xyz.mcxross.formation.resources.a11y_locked_reward
+import xyz.mcxross.formation.resources.a11y_occupancy
+import xyz.mcxross.formation.resources.action_begin
+import xyz.mcxross.formation.resources.action_open_network
+import xyz.mcxross.formation.resources.action_save
+import xyz.mcxross.formation.resources.action_share
+import xyz.mcxross.formation.resources.headline_scan_to_join
+import xyz.mcxross.formation.resources.label_code
+import xyz.mcxross.formation.resources.label_emulator
+import xyz.mcxross.formation.resources.label_name
+import xyz.mcxross.formation.resources.label_profile
+import xyz.mcxross.formation.resources.state_connect_wifi
+import xyz.mcxross.formation.resources.state_group_ready
+import xyz.mcxross.formation.resources.state_waiting
+import xyz.mcxross.formation.resources.state_waiting_host
 import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.components.BottomActions
 import xyz.mcxross.formation.design.components.LiveryRule
@@ -41,13 +61,13 @@ import xyz.mcxross.formation.design.components.IconButtonStyle
 import xyz.mcxross.formation.design.components.LocalToaster
 import xyz.mcxross.formation.design.components.ModalSheet
 import xyz.mcxross.formation.design.components.Overline
-import xyz.mcxross.formation.design.components.PlayerLight
 import xyz.mcxross.formation.design.components.QrCode
 import xyz.mcxross.formation.design.components.SheetActions
 import xyz.mcxross.formation.design.components.SheetHeader
 import xyz.mcxross.formation.design.components.SkrAmount
 import xyz.mcxross.formation.design.components.TextField
 import xyz.mcxross.formation.design.components.TopBar
+import xyz.mcxross.formation.design.components.Tag
 import xyz.mcxross.formation.design.foundation.Icon
 import xyz.mcxross.formation.design.foundation.Panel
 import xyz.mcxross.formation.design.foundation.Text
@@ -57,7 +77,6 @@ import xyz.mcxross.formation.design.tokens.Shapes
 import xyz.mcxross.formation.design.tokens.Space
 import xyz.mcxross.formation.design.tokens.Tone
 import xyz.mcxross.formation.model.PlayerId
-import xyz.mcxross.formation.session.Player
 import xyz.mcxross.formation.session.SessionSnapshot
 import xyz.mcxross.formation.state.ActiveSession
 import xyz.mcxross.formation.state.ChallengeCatalog
@@ -67,7 +86,6 @@ import xyz.mcxross.formation.ui.components.AssemblyRoster
 import xyz.mcxross.formation.ui.components.ChallengeGlyph
 import xyz.mcxross.formation.ui.components.MwaWallets
 import xyz.mcxross.formation.ui.components.challengeInfo
-import xyz.mcxross.formation.ui.components.possessive
 import xyz.mcxross.formation.ui.components.rememberWalletInstalled
 import xyz.mcxross.formation.ui.components.shortAddress
 import xyz.mcxross.formation.ui.screens.HowToPlay
@@ -89,17 +107,21 @@ internal fun Lobby(
   if (editing) ProfileSheet(onDismiss = { editing = false })
   Column(Modifier.fillMaxSize()) {
     TopBar(
-      title =
-        if (session.isHost) "Your Formation"
-        else "${possessive(snapshot.formation.host)} Formation",
+      title = "Formation",
       onBack = onLeave,
       backIcon = Icons.Close,
       actions = {
+        IconButton(
+          Icons.User,
+          stringResource(Res.string.label_profile),
+          { editing = true },
+          style = IconButtonStyle.Ghost,
+        )
         session.joinLink?.let { link ->
           IconButton(
             Icons.Share,
-            "Share",
-            { graph.platform.external.share("Join my Formation: $link") },
+            stringResource(Res.string.action_share),
+            { graph.platform.external.share(link) },
             style = IconButtonStyle.Ghost,
           )
         }
@@ -121,7 +143,7 @@ internal fun Lobby(
           )
           Spacer(Modifier.height(Space.xs))
           Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Locked reward", style = Theme.type.footnote, color = c.contentSecondary)
+            Icon(Icons.Lock, stringResource(Res.string.a11y_locked_reward), size = 14.dp, tint = c.contentSecondary)
             Spacer(Modifier.width(Space.s))
             SkrAmount(o.reward.format(0), style = Theme.type.footnote, color = c.reward, coin = false)
           }
@@ -130,14 +152,23 @@ internal fun Lobby(
       Spacer(Modifier.height(Space.xl))
       LiveryRule(Modifier.padding(horizontal = Space.gutter))
       Column(Modifier.padding(horizontal = Space.gutter, vertical = Space.xl)) {
-        Text(if (missing > 0) "ASSEMBLING THE GROUP" else "GROUP ASSEMBLED", style = Theme.type.title1)
-        Spacer(Modifier.height(Space.xs))
-        Text("${snapshot.players.size} of ${o.players} joined", style = Theme.type.footnote, color = c.contentSecondary)
+        val occupancy = stringResource(Res.string.a11y_occupancy, snapshot.players.size, o.players)
+        val ready = stringResource(Res.string.state_group_ready)
+        val assembled = missing <= 0 && snapshot.players.all { it.connected }
+        Row(
+          Modifier.fillMaxWidth().clearAndSetSemantics {
+            contentDescription = listOfNotNull(occupancy, ready.takeIf { assembled }).joinToString(", ")
+          },
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          Icon(Icons.Users, null, tint = c.accent, size = 26.dp)
+          Spacer(Modifier.width(Space.m))
+          Text("${snapshot.players.size}/${o.players}", Modifier.weight(1f), style = Theme.type.numeralLarge)
+          if (assembled) Tag(ready, tone = Tone.Positive, icon = Icons.Check)
+        }
         Spacer(Modifier.height(Space.xl))
         AssemblyRoster(snapshot.players, o.players, me, Modifier.fillMaxWidth())
       }
-      snapshot.player(me)?.let { mine -> YouRow(mine, onEdit = { editing = true }) }
-      Spacer(Modifier.height(Space.l))
       if (session.isHost) JoinPanel(session, snapshot) else GuestPanel(snapshot, me)
       ChallengeCatalog[o.challenge]?.let { challenge ->
         Column(Modifier.padding(horizontal = Space.gutter, vertical = Space.xl)) {
@@ -152,7 +183,7 @@ internal fun Lobby(
     BottomActions {
       if (session.isHost) {
         Button(
-          if (missing > 0) "Waiting for $missing more" else "Begin",
+          stringResource(Res.string.action_begin),
           { session.begin() },
           style = ButtonStyle.Primary,
           enabled = missing <= 0,
@@ -164,8 +195,7 @@ internal fun Lobby(
           contentAlignment = Alignment.Center,
         ) {
           Text(
-            if (missing > 0) "Waiting for $missing more ${if (missing == 1) "person" else "people"}"
-            else "Waiting for ${snapshot.formation.host} to begin",
+            stringResource(if (missing > 0) Res.string.state_waiting else Res.string.state_waiting_host),
             style = Theme.type.subheadStrong,
             color = c.contentSecondary,
             modifier = Modifier.fillMaxWidth(),
@@ -193,7 +223,7 @@ private fun JoinPanel(session: ActiveSession, snapshot: SessionSnapshot) {
           Box(
             Modifier.size(112.dp)
               .clip(Shapes.control)
-              .pressable({ bigQr = true }, shape = Shapes.control, onClickLabel = "Enlarge join QR")
+              .pressable({ bigQr = true }, shape = Shapes.control, onClickLabel = stringResource(Res.string.a11y_enlarge_qr))
               .background(Color.White)
               .padding(10.dp),
             contentAlignment = Alignment.Center,
@@ -203,7 +233,7 @@ private fun JoinPanel(session: ActiveSession, snapshot: SessionSnapshot) {
           Spacer(Modifier.width(Space.l))
         }
         Column(Modifier.weight(1f)) {
-          Overline("Join code")
+          Overline(stringResource(Res.string.label_code))
           Text(
             snapshot.formation.code,
             style = Theme.type.numeralLarge.copy(letterSpacing = Theme.type.code.letterSpacing),
@@ -212,24 +242,28 @@ private fun JoinPanel(session: ActiveSession, snapshot: SessionSnapshot) {
         }
       }
       Spacer(Modifier.height(Space.m))
-      Text(
-        when {
-          graph.platform.device.emulator ->
-            "Emulator: run scripts/emulators.sh link so the others can see this Formation."
-          network != null ->
-            "People on your Seeker network, ${network!!.ssid}, see it under Nearby. Or scan the code."
-          address != null -> "People on the same Wi-Fi see it under Nearby. Or scan the code."
-          else -> "Connect to Wi-Fi, or open a Seeker network, so people can join."
-        },
-        style = Theme.type.footnote,
-        color = c.contentSecondary,
-      )
+      Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Space.s),
+      ) {
+        Icon(Icons.Wifi, null, tint = c.contentSecondary, size = 16.dp)
+        Text(
+          when {
+            graph.platform.device.emulator -> stringResource(Res.string.label_emulator)
+            network != null -> network!!.ssid
+            address != null -> "Wi-Fi"
+            else -> stringResource(Res.string.state_connect_wifi)
+          },
+          style = Theme.type.footnote,
+          color = c.contentSecondary,
+        )
+      }
     }
   }
   if (graph.platform.hotspot != null) {
     Row(Modifier.padding(horizontal = Space.gutter, vertical = Space.m)) {
       Button(
-        network?.let { "Seeker network: ${it.ssid}" } ?: "No Wi-Fi? Open a Seeker network",
+        network?.ssid ?: stringResource(Res.string.action_open_network),
         { hotspot = true },
         style = ButtonStyle.Ghost,
         size = ButtonSize.Medium,
@@ -239,7 +273,7 @@ private fun JoinPanel(session: ActiveSession, snapshot: SessionSnapshot) {
   }
   if (bigQr && link != null) {
     ModalSheet(onDismiss = { bigQr = false }) {
-      SheetHeader("Scan to join", subtitle = "Point any phone's camera at this code.")
+      SheetHeader(stringResource(Res.string.headline_scan_to_join))
       Box(
         Modifier.fillMaxWidth()
           .padding(horizontal = Space.xxl)
@@ -327,44 +361,21 @@ private fun SeekerNetworkSheet(session: ActiveSession, onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun YouRow(mine: Player, onEdit: () -> Unit) {
-  val c = Theme.colors
-  Row(
-    Modifier.fillMaxWidth().padding(horizontal = Space.gutter),
-    horizontalArrangement = Arrangement.Center,
-    verticalAlignment = Alignment.CenterVertically,
-  ) {
-    Row(
-      Modifier.fillMaxWidth().heightIn(min = 44.dp).clip(Shapes.control)
-        .pressable(onEdit, shape = Shapes.control)
-        .padding(horizontal = Space.m, vertical = Space.s),
-      verticalAlignment = Alignment.CenterVertically,
-    ) {
-      PlayerLight(mine.name, c.light(mine.light), size = 24.dp)
-      Spacer(Modifier.width(Space.s))
-      Text("You're ${mine.name}", Modifier.weight(1f), style = Theme.type.subheadStrong, color = c.content, maxLines = 1)
-      Spacer(Modifier.width(Space.s))
-      Text("Edit", style = Theme.type.subheadStrong, color = c.accent)
-    }
-  }
-}
-
-@Composable
 private fun ProfileSheet(onDismiss: () -> Unit) {
   val graph = LocalGraph.current
   val current = graph.identity.profile.value ?: return
   var name by remember { mutableStateOf(current.name) }
   var light by remember { mutableStateOf(current.light) }
   ModalSheet(onDismiss) {
-    SheetHeader("How the group sees you", subtitle = "Changes show on every phone in the lobby.")
+    SheetHeader(stringResource(Res.string.label_profile))
     Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(horizontal = Space.xxl)) {
-      TextField(name, { name = it }, label = "Your name", maxLength = 20)
+      TextField(name, { name = it }, label = stringResource(Res.string.label_name), maxLength = 20)
       Spacer(Modifier.height(Space.l))
       LightPicker(light, onPick = { light = it })
     }
     SheetActions {
       Button(
-        "Save",
+        stringResource(Res.string.action_save),
         {
           graph.updateProfile(Profile(name.trim(), light))
           onDismiss()
