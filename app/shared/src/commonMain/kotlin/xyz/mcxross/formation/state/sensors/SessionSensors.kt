@@ -10,8 +10,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import xyz.mcxross.formation.sensors.SensorHub
-import xyz.mcxross.formation.sensors.capabilities.InputCapability
-import xyz.mcxross.formation.sensors.capabilities.SensorRequirement
+import xyz.mcxross.formation.sensors.capabilities.Assessment
 import xyz.mcxross.formation.sensors.runtime.PreparationState
 import xyz.mcxross.formation.session.FormationClient
 import xyz.mcxross.formation.session.Stage
@@ -35,14 +34,16 @@ class SessionSensors(
         val challenge = selected?.first ?: return@collectLatest
         state.value = PreparationState.Starting
         val players = selected.second
-        val required = challenge.requiredCapabilities(players)
-        val supported = hub.capabilities.value.supported(allowSimulated)
-        val requested = required + challenge.optionalCapabilities(players).intersect(supported)
-        val preparations = requested.mapNotNull { id ->
-          InputCapability.entries.firstOrNull { it.id == id }?.let {
-            id to hub.prepare(listOf(SensorRequirement(it, allowSimulated = allowSimulated)))
-          }
-        }.toMap()
+        val mandatorySensors = challenge.requiredSensors(players).map {
+          it.copy(allowSimulated = it.allowSimulated && allowSimulated)
+        }
+        val optionalSensors = challenge.optionalSensors(players).map {
+          it.copy(allowSimulated = it.allowSimulated && allowSimulated)
+        }.filter { hub.assess(listOf(it)) == Assessment.Ready }
+        val required = mandatorySensors.map { it.capability.id }
+        val preparations = (mandatorySensors + optionalSensors).distinctBy { it.capability }.associate {
+          it.capability.id to hub.prepare(listOf(it))
+        }
         val states = if (preparations.isEmpty()) flowOf(emptyList())
           else combine(preparations.values.map { it.readiness }) { it.toList() }
         try {

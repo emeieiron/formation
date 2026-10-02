@@ -44,7 +44,7 @@ class Identity(private val platform: PlatformServices, private val capabilities:
   fun player(): PlayerIdentity {
     val p = profile.value ?: Profile("Player", 0)
     return PlayerIdentity(device, p.name, p.light, claimKey, wallet.value,
-      ChallengeCatalog.all.associate { it.id.value to it.formatVersion },
+      ChallengeCatalog.formats,
       capabilities())
   }
 

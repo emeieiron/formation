@@ -25,8 +25,6 @@ import xyz.mcxross.formation.sensors.MotionSense
 import xyz.mcxross.formation.sensors.MotionSimulator
 import xyz.mcxross.formation.sensors.SensorHub
 import xyz.mcxross.formation.sensors.capabilities.Assessment
-import xyz.mcxross.formation.sensors.capabilities.InputCapability
-import xyz.mcxross.formation.sensors.capabilities.SensorRequirement
 import xyz.mcxross.formation.session.FormationClient
 import xyz.mcxross.formation.session.FormationHost
 import xyz.mcxross.formation.session.FormationInfo
@@ -138,10 +136,8 @@ class AppGraph(
       ChallengeCatalog[opportunity.challenge] ?: error("This app doesn't know that challenge yet")
     check(opportunity.players in challenge.info.players) { "This game does not support this group size." }
     if (recovery == null) {
-      val required = challenge.requiredCapabilities(opportunity.players).mapNotNull { id ->
-        InputCapability.entries.firstOrNull { it.id == id }?.let {
-          SensorRequirement(it, allowSimulated = simulator != null)
-        }
+      val required = challenge.requiredSensors(opportunity.players).map {
+        it.copy(allowSimulated = it.allowSimulated && simulator != null)
       }
       check(sensors.assess(required) == Assessment.Ready) {
         "This phone cannot provide the inputs required by this Formation."

@@ -1,16 +1,23 @@
 package xyz.mcxross.formation.state
 
 import xyz.mcxross.formation.challenge.Challenge
+import xyz.mcxross.formation.challenge.ChallengeRegistry
 import xyz.mcxross.formation.model.ChallengeId
 import xyz.mcxross.formation.model.Opportunity
 
 object ChallengeCatalog {
-  val all: List<Challenge<*, *>> = emptyList()
+  private val registry = ChallengeRegistry(
+    challenges = emptyList(),
+    retiredIds = setOf("rally", "circuit", "sync", "formation", "rush").map(::ChallengeId).toSet(),
+    retiredCodes = (1..5).toSet(),
+  )
+  val all: List<Challenge<*, *>> get() = registry.all
+  val formats get() = registry.formats
 
-  operator fun get(id: ChallengeId): Challenge<*, *>? = all.firstOrNull { it.id == id }
+  operator fun get(id: ChallengeId): Challenge<*, *>? = registry[id]
 
-  fun byCode(code: Int): Challenge<*, *>? = all.firstOrNull { it.info.code == code }
+  fun byCode(code: Int): Challenge<*, *>? = registry.byCode(code)
 
   fun supports(opportunity: Opportunity): Boolean =
-    get(opportunity.challenge)?.info?.players?.contains(opportunity.players) == true
+    registry.supports(opportunity)
 }
