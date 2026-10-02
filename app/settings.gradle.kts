@@ -44,16 +44,6 @@ include(":core:session")
 
 include(":challenges:api")
 
-include(":challenges:rally")
-
-include(":challenges:circuit")
-
-include(":challenges:sync")
-
-include(":challenges:formation")
-
-include(":challenges:rush")
-
 include(":solana:vault")
 
 include(":shared")

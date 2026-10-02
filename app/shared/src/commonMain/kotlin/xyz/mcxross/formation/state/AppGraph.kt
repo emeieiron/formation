@@ -136,6 +136,7 @@ class AppGraph(
     endSession()
     val challenge =
       ChallengeCatalog[opportunity.challenge] ?: error("This app doesn't know that challenge yet")
+    check(opportunity.players in challenge.info.players) { "This game does not support this group size." }
     if (recovery == null) {
       val required = challenge.requiredCapabilities(opportunity.players).mapNotNull { id ->
         InputCapability.entries.firstOrNull { it.id == id }?.let {

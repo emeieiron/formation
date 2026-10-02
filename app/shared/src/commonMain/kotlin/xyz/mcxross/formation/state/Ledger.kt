@@ -1,6 +1,5 @@
 package xyz.mcxross.formation.state
 
-import kotlin.random.Random
 import kotlin.time.Clock
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,7 +12,6 @@ import xyz.mcxross.formation.crypto.Base64
 import xyz.mcxross.formation.crypto.Sha256
 import xyz.mcxross.formation.crypto.toHex
 import xyz.mcxross.formation.model.ChallengeId
-import xyz.mcxross.formation.model.Difficulty
 import xyz.mcxross.formation.model.Opportunity
 import xyz.mcxross.formation.model.OpportunityId
 import xyz.mcxross.formation.model.PlayerId
@@ -89,7 +87,6 @@ interface RewardLedger {
 
 class SimulatedLedger(
   private val store: KeyValueStore,
-  private val random: Random = Random.Default,
 ) : RewardLedger {
   override val mode = LedgerMode.SIMULATED
 
@@ -105,10 +102,7 @@ class SimulatedLedger(
   override suspend fun refresh(seeker: SeekerIdentity) {
     val now = now()
     val live = _opportunities.value.filter { it.expiresAt > now }
-    val topped =
-      if (live.size >= SHELF) live
-      else live + SimulatedDrops.fresh(SHELF - live.size, now, random, avoid = live)
-    save(topped.sortedBy { it.expiresAt })
+    save(live.sortedBy { it.expiresAt })
   }
 
   override suspend fun unlock(
@@ -150,7 +144,6 @@ class SimulatedLedger(
   private companion object {
     const val KEY_OPPORTUNITIES = "sim.opportunities"
     const val KEY_TICKETS = "sim.tickets"
-    const val SHELF = 9
   }
 }
 
@@ -158,52 +151,5 @@ internal fun <T> loadList(store: KeyValueStore, key: String, serializer: KSerial
   store.get(key)?.let {
     runCatching { FormationJson.decodeFromString(ListSerializer(serializer), it) }.getOrNull()
   } ?: emptyList()
-
-internal object SimulatedDrops {
-  private class Drop(
-    val challenge: String,
-    val reward: Long,
-    val players: Int,
-    val ownerBps: Int,
-    val difficulty: Difficulty,
-    val sponsor: String,
-    val days: Int,
-    val title: String?,
-  )
-
-  private val drops =
-    listOf(
-      Drop("rally", 600, 5, 5_000, Difficulty.NORMAL, "Solana Mobile", 2, "Genesis Rally"),
-      Drop("sync", 120, 2, 5_000, Difficulty.EASY, "Formation", 1, null),
-      Drop("formation", 200, 2, 5_000, Difficulty.EASY, "Formation", 1, null),
-      Drop("rush", 250, 2, 5_000, Difficulty.EASY, "Formation", 1, null),
-      Drop("circuit", 160, 2, 5_000, Difficulty.EASY, "Formation", 1, null),
-      Drop("rally", 140, 2, 5_000, Difficulty.EASY, "Formation", 1, null),
-      Drop("formation", 900, 4, 4_000, Difficulty.NORMAL, "Seeker Season", 3, "Night Sky"),
-      Drop("circuit", 1_500, 10, 4_000, Difficulty.HARD, "Solana Mobile", 5, "The Long Wire"),
-      Drop("rush", 5_000, 20, 3_000, Difficulty.EXTREME, "Seeker Genesis", 7, "Meltdown"),
-      Drop("rally", 180, 3, 5_000, Difficulty.EASY, "Formation", 1, null),
-      Drop("circuit", 360, 3, 5_000, Difficulty.NORMAL, "Solana Mobile", 2, null),
-      Drop("formation", 300, 3, 5_000, Difficulty.EASY, "Formation", 2, null),
-    )
-
-  fun fresh(count: Int, now: Long, random: Random, avoid: List<Opportunity>): List<Opportunity> {
-    val taken = avoid.map { it.challenge.value to it.players }.toSet()
-    val pool = drops.filter { (it.challenge to it.players) !in taken }.ifEmpty { drops }
-    return pool.take(count).map {
-      Opportunity(
-        id = OpportunityId(newUuid()),
-        challenge = ChallengeId(it.challenge),
-        reward = Skr.of(it.reward),
-        players = it.players,
-        ownerBps = it.ownerBps,
-        difficulty = it.difficulty,
-        expiresAt = now + it.days * 86_400_000L + random.nextLong(3_600_000L),
-        sponsor = it.sponsor,
-        title = it.title,
-      )
-    }
-  }
-}
 
 internal fun now(): Long = Clock.System.now().toEpochMilliseconds()

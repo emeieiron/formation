@@ -71,6 +71,7 @@
         <item quantity="one">%1$d reward ready</item>
         <item quantity="other">%1$d rewards ready</item>
     </plurals>
+    <string name="state_no_games">No games available</string>
     <string name="sensor_ready">Inputs ready</string>
     <string name="sensor_checking">Checking inputs</string>
     <string name="sensor_paused">Inputs paused</string>

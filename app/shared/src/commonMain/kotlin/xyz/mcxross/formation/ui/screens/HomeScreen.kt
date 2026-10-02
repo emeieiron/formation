@@ -58,6 +58,7 @@ import xyz.mcxross.formation.resources.player_count
 import xyz.mcxross.formation.resources.ready_reward_count
 import xyz.mcxross.formation.resources.state_full
 import xyz.mcxross.formation.resources.state_no_locked_rewards
+import xyz.mcxross.formation.resources.state_no_games
 import xyz.mcxross.formation.resources.state_playing
 import xyz.mcxross.formation.resources.state_searching
 import xyz.mcxross.formation.design.Theme
@@ -93,6 +94,7 @@ import xyz.mcxross.formation.model.Skr
 import xyz.mcxross.formation.session.NearbyFormation
 import xyz.mcxross.formation.state.Links
 import xyz.mcxross.formation.state.SeekerStatus
+import xyz.mcxross.formation.state.ChallengeCatalog
 import xyz.mcxross.formation.ui.LocalGraph
 import xyz.mcxross.formation.ui.components.ChallengeGlyph
 import xyz.mcxross.formation.ui.components.Slots
@@ -110,7 +112,8 @@ fun HomeScreen() {
   val scope = rememberCoroutineScope()
   val profile by graph.identity.profile.collectAsState()
   val seeker by graph.seeker.identity.collectAsState()
-  val opportunities by graph.ledger.opportunities.collectAsState()
+  val rewards by graph.ledger.opportunities.collectAsState()
+  val opportunities = rewards.filter { ChallengeCatalog.supports(it) }
   val tickets by graph.ledger.tickets.collectAsState()
   val problem by graph.ledger.problem.collectAsState()
   // Scans only while Home is on screen.
@@ -229,7 +232,7 @@ fun HomeScreen() {
         if (opportunities.isEmpty()) {
           item {
             Text(
-              stringResource(Res.string.state_no_locked_rewards),
+              stringResource(if (ChallengeCatalog.all.isEmpty()) Res.string.state_no_games else Res.string.state_no_locked_rewards),
               Modifier.padding(horizontal = Space.gutter),
               style = Theme.type.subhead,
               color = c.contentSecondary,

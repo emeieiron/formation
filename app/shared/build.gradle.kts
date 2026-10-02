@@ -23,11 +23,6 @@ kotlin {
       implementation(projects.core.link)
 
       api(projects.challenges.api)
-      implementation(projects.challenges.rally)
-      implementation(projects.challenges.circuit)
-      implementation(projects.challenges.sync)
-      implementation(projects.challenges.formation)
-      implementation(projects.challenges.rush)
 
       implementation(projects.solana.vault)
 
