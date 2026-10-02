@@ -11,12 +11,14 @@ import xyz.mcxross.formation.model.Difficulty
 import xyz.mcxross.formation.model.PlayerId
 import xyz.mcxross.formation.session.ChallengeSetup
 import xyz.mcxross.formation.session.GameStatus
+import xyz.mcxross.formation.sensors.capabilities.InputCapability
 
 class SyncRulesTest {
   private val players = listOf(PlayerId("p1"), PlayerId("p2"), PlayerId("p3"))
 
   private fun game(difficulty: Difficulty = Difficulty.NORMAL) =
-    SyncGame(ChallengeSetup(players, players[0], difficulty, seed = 9, startAt = 1_000))
+    SyncGame(ChallengeSetup(players, players[0], difficulty, seed = 9, startAt = 1_000,
+      capabilities = players.associateWith { setOf(InputCapability.TILT.id, InputCapability.JOLT.id, InputCapability.COVER.id) }))
 
   private fun SyncGame.play(offsets: Map<PlayerId, Long?> = emptyMap()): Long {
     val round = assertNotNull(state.round)
@@ -103,4 +105,21 @@ class SyncRulesTest {
     game.input(players[0], SyncInput(round.attempt + 5, round.moment), round.moment)
     assertTrue(game.state.acted.isEmpty())
   }
+  @Test
+  fun eachPhoneOnlyReceivesActionsSupportedByItsFrozenCapabilities() {
+    val capabilities = mapOf(players[0] to setOf(InputCapability.TILT.id),
+      players[1] to setOf(InputCapability.JOLT.id), players[2] to emptySet())
+    val game = SyncGame(ChallengeSetup(players, players[0], Difficulty.NORMAL, 9, 1_000, capabilities))
+    var now = 0L
+    repeat(4) { index ->
+      if (index > 0) game.tick(now + SyncGame.RESULT_MS)
+      assertNotNull(game.state.round).tasks.forEach { (player, task) ->
+        assertTrue(task.capability == null || task.capability in capabilities.getValue(PlayerId(player)))
+        assertFalse(task == SyncTask.COVER)
+      }
+      now = game.play()
+    }
+    assertIs<GameStatus.Won>(game.status)
+  }
+
 }

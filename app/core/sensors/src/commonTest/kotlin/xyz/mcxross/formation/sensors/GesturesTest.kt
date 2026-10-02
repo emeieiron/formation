@@ -85,4 +85,29 @@ class GesturesTest {
     runCurrent()
     assertEquals(null, sense.pose.value)
   }
+  @OptIn(ExperimentalCoroutinesApi::class)
+  @Test
+  fun shakeHistoryCannotCrossAnAcquisitionInterruption() = runTest {
+    val backend = FakeSensorBackend(SensorKind.LINEAR_ACCELERATION)
+    val hub = SensorHub(backend, backgroundScope) { testScheduler.currentTime }
+    val sense = MotionSense(hub, backgroundScope)
+    val gestures = mutableListOf<Gesture>()
+    hub.setForeground(true)
+    backgroundScope.launch { sense.gestures.collect { gestures += it } }
+    runCurrent()
+    repeat(2) { index ->
+      backend.emit(SensorKind.LINEAR_ACCELERATION, 13f, 0f, 0f, timestampNanos = index * 140_000_000L)
+      runCurrent()
+      backend.emit(SensorKind.LINEAR_ACCELERATION, 0f, 0f, 0f, timestampNanos = index * 140_000_000L + 40_000_000)
+      runCurrent()
+    }
+    hub.setForeground(false)
+    runCurrent()
+    hub.setForeground(true)
+    runCurrent()
+    backend.emit(SensorKind.LINEAR_ACCELERATION, 13f, 0f, 0f, timestampNanos = 300_000_000)
+    runCurrent()
+    assertTrue(gestures.isEmpty())
+  }
+
 }

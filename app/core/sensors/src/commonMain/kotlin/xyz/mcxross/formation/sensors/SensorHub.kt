@@ -45,6 +45,7 @@ class SensorHub(private val backend: SensorBackend, private val scope: Coroutine
   fun prepare(requirements: Collection<SensorRequirement>, timeoutMs: Long = 3_000): SensorPreparation =
     SensorPreparation(requirements, inputs, scope, timeoutMs)
   fun setForeground(active: Boolean) { managed.forEach { it.setForeground(active) } }
+  fun retry() { backend.refresh(); managed.forEach { it.retry() } }
 }
 
 class UnsupportedSensorBackend : SensorBackend {

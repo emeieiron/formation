@@ -14,9 +14,10 @@ import xyz.mcxross.formation.model.Difficulty
 import xyz.mcxross.formation.model.PlayerId
 import xyz.mcxross.formation.session.ChallengeGame
 import xyz.mcxross.formation.session.ChallengeSetup
+import xyz.mcxross.formation.sensors.capabilities.InputCapability
 
 object FormationChallenge : Challenge<FormationState, FormationInput>() {
-  override fun requiredCapabilities(players: Int): Set<String> = setOf("ACCELEROMETER")
+  override fun requiredCapabilities(players: Int): Set<String> = setOf(InputCapability.TILT.id)
 
   override val info =
     ChallengeInfo(

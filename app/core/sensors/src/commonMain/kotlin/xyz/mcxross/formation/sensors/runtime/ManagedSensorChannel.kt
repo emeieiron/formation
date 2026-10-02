@@ -30,6 +30,7 @@ internal class ManagedSensorChannel<T>(
     class Detach<T>(val consumer: Channel<SensorUpdate<T>>) : Command
     class Foreground(val active: Boolean) : Command
     data object Refresh : Command
+    data object Retry : Command
     data object Tick : Command
   }
   private data class Packet(val generation: Long, val update: BackendUpdate)
@@ -117,6 +118,7 @@ internal class ManagedSensorChannel<T>(
               is Command.Detach<*> -> { consumers.remove(command.consumer); reconcile() }
               is Command.Foreground -> { foreground = command.active; reconcile() }
               Command.Refresh -> reconcile()
+              Command.Retry -> reconcile(force = true)
               Command.Tick -> if (registration != null &&
                 (!hasReading || backend.catalog.value.getValue(kind).continuous) && now() - lastReceived > 2_000) {
                 stop()
@@ -155,6 +157,7 @@ internal class ManagedSensorChannel<T>(
   }
 
   fun setForeground(active: Boolean) { commands.trySend(Command.Foreground(active)) }
+  fun retry() { commands.trySend(Command.Retry) }
 
   override fun observe(request: SamplingRequest) = callbackFlow {
     val updates = Channel<SensorUpdate<T>>(64)

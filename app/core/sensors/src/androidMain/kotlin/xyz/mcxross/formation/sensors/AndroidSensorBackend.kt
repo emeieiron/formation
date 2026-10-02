@@ -18,6 +18,7 @@ class AndroidSensorBackend(context: Context) : SensorBackend {
   private val manager = context.getSystemService(SensorManager::class.java)
   private val inventory = AndroidSensorCatalog(manager)
   override val catalog = inventory.catalog
+  override fun refresh() { inventory.refresh() }
 
   override fun register(kind: SensorKind, request: SamplingRequest, receive: (BackendUpdate) -> Unit): SensorRegistration {
     val sensor = inventory.sensors[kind]

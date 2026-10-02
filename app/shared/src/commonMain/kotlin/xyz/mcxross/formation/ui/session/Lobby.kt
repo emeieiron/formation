@@ -186,12 +186,13 @@ internal fun Lobby(
       }
     }
     BottomActions {
+      SensorStatus(session, Modifier.fillMaxWidth())
       if (session.isHost) {
         Button(
           stringResource(Res.string.action_begin),
           { session.begin() },
           style = ButtonStyle.Primary,
-          enabled = missing <= 0,
+          enabled = missing <= 0 && snapshot.players.all { it.connected && it.sensorReady },
           trailingIcon = if (missing <= 0) Icons.ArrowRight else null,
         )
       } else {

@@ -24,7 +24,9 @@ import xyz.mcxross.formation.platform.WalletResult
 import xyz.mcxross.formation.sensors.MotionSense
 import xyz.mcxross.formation.sensors.MotionSimulator
 import xyz.mcxross.formation.sensors.SensorHub
+import xyz.mcxross.formation.sensors.capabilities.Assessment
 import xyz.mcxross.formation.sensors.capabilities.InputCapability
+import xyz.mcxross.formation.sensors.capabilities.SensorRequirement
 import xyz.mcxross.formation.session.FormationClient
 import xyz.mcxross.formation.session.FormationHost
 import xyz.mcxross.formation.session.FormationInfo
@@ -50,14 +52,7 @@ class AppGraph(
   val simulator = if (platform.config.debug && platform.device.emulator) MotionSimulator(scope) else null
   val sensors = SensorHub(simulator ?: platform.sensorBackend, scope, MonotonicClock::now)
   val motion = MotionSense(sensors, scope, simulator)
-  val identity = Identity(platform) {
-    buildSet {
-      val supported = sensors.capabilities.value.supported(allowSimulated = simulator != null)
-      if (InputCapability.TILT.id in supported && InputCapability.JOLT.id in supported) add("ACCELEROMETER")
-      if (InputCapability.COVER.id in supported) add("PROXIMITY")
-      if (InputCapability.ROTATION.id in supported) add("GYROSCOPE")
-    }
-  }
+  val identity = Identity(platform) { sensors.capabilities.value.supported(allowSimulated = simulator != null) }
   val sounds = SoundEffects(platform.store, platform.sound, scope)
   val seeker =
     SeekerState(
@@ -141,6 +136,16 @@ class AppGraph(
     endSession()
     val challenge =
       ChallengeCatalog[opportunity.challenge] ?: error("This app doesn't know that challenge yet")
+    if (recovery == null) {
+      val required = challenge.requiredCapabilities(opportunity.players).mapNotNull { id ->
+        InputCapability.entries.firstOrNull { it.id == id }?.let {
+          SensorRequirement(it, allowSimulated = simulator != null)
+        }
+      }
+      check(sensors.assess(required) == Assessment.Ready) {
+        "This phone cannot provide the inputs required by this Formation."
+      }
+    }
     val server = platform.network.server ?: error("This phone can't host Formations")
     val sessionScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val info =
@@ -177,6 +182,8 @@ class AppGraph(
         sounds::play,
         sessionScope,
         { completed.remember(it) },
+        sensors,
+        simulator != null,
       )
       .also { _session.value = it }
   }
@@ -205,6 +212,8 @@ class AppGraph(
         sounds::play,
         sessionScope,
         { completed.remember(it, address.toString()) },
+        sensors,
+        simulator != null,
       )
       .also { _session.value = it }
   }

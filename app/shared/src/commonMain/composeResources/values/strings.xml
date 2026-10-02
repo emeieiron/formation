@@ -71,4 +71,15 @@
         <item quantity="one">%1$d reward ready</item>
         <item quantity="other">%1$d rewards ready</item>
     </plurals>
+    <string name="sensor_ready">Inputs ready</string>
+    <string name="sensor_checking">Checking inputs</string>
+    <string name="sensor_paused">Inputs paused</string>
+    <string name="sensor_failed">Input interrupted</string>
+    <string name="sensor_motion_unavailable">Motion unavailable</string>
+    <string name="sensor_cover_unavailable">Cover gestures unavailable</string>
+    <string name="sensor_rotation_unavailable">Rotation unavailable</string>
+    <string name="sensor_light_unavailable">Light input unavailable</string>
+    <string name="sensor_retry">Retry</string>
+    <string name="sensor_waiting">Waiting for inputs</string>
+    <string name="sensor_access_restricted">Sensor access restricted</string>
 </resources>

@@ -169,9 +169,12 @@ class FormationHost(
     var disconnectedAt: Long? = null,
     var clockReady: Boolean = false,
     var syncReportedAt: Long = 0,
+    var capabilities: Set<String> = emptySet(),
+    var availableInputs: Set<String> = emptySet(),
+    var sensorReady: Boolean = true,
   ) {
     fun toPlayer() =
-      Player(id, name, light, seeker, claimKey, wallet, conn != null, ready, latencyMs, device, clockReady)
+      Player(id, name, light, seeker, claimKey, wallet, conn != null, ready, latencyMs, device, clockReady, availableInputs, sensorReady)
   }
 
   private fun command(run: () -> Unit) {
@@ -208,6 +211,7 @@ class FormationHost(
     val seat = seatOf(conn) ?: return
     when (message) {
       is ToHost.Ready -> ready(seat, message.ready)
+      is ToHost.Sensors -> sensors(seat, message)
       is ToHost.Play -> play(seat, message)
       is ToHost.SealIt -> sealed(seat, message)
       is ToHost.Wallet -> wallet(seat, message.address)
@@ -226,6 +230,9 @@ class FormationHost(
     if (returning != null) {
       if (returning.seeker != conn.local || returning.claimKey != hello.claimKey) return reject(conn, Rejection.DUPLICATE)
       if (returning.conn != null && returning.conn !== conn) return reject(conn, Rejection.DUPLICATE)
+      returning.capabilities = hello.capabilities
+      returning.availableInputs = emptySet()
+      returning.sensorReady = rules.requiredCapabilities(info.opportunity.players).isEmpty()
       returning.conn = conn
       val interruptedPlay = stage is Stage.Playing && returning.disconnectedAt != null
       returning.disconnectedAt = null
@@ -253,6 +260,8 @@ class FormationHost(
         claimKey = hello.claimKey,
         wallet = validWallet(hello.wallet),
         conn = conn,
+        capabilities = hello.capabilities,
+        sensorReady = rules.requiredCapabilities(info.opportunity.players).isEmpty(),
       )
     if (seat.seeker) seats.add(0, seat) else seats.add(seat)
     welcome(conn, seat)
@@ -308,21 +317,38 @@ class FormationHost(
     publish()
   }
 
+  private fun sensors(seat: Seat, message: ToHost.Sensors) {
+    if (message.round != round || stage is Stage.Won || stage is Stage.Lost || stage is Stage.Closed) return
+    val available = message.available.intersect(seat.capabilities)
+    val sensorReady = available.containsAll(rules.requiredCapabilities(info.opportunity.players))
+    if (seat.availableInputs == available && seat.sensorReady == sensorReady) return
+    seat.availableInputs = available
+    seat.sensorReady = sensorReady
+    if (!sensorReady) seat.ready = false
+    if (stage is Stage.Playing && game?.activeCapabilities(seat.id, seats.size)?.all { it in available } == false) {
+      finish(RoundResult("A phone's input stopped. Restore it and try again.", null, emptyList(), clock.now()), won = false)
+    } else publish()
+  }
+
   private fun ready(seat: Seat, ready: Boolean) {
     if (stage !is Stage.Briefing) return
-    seat.ready = ready
+    seat.ready = ready && seat.sensorReady
     publish()
     if (seats.all { it.ready && it.conn != null }) startRound()
   }
 
   private fun toBriefing() {
-    seats.forEach { it.ready = false }
+    seats.forEach {
+      it.ready = false
+      it.availableInputs = emptySet()
+      it.sensorReady = rules.requiredCapabilities(info.opportunity.players).isEmpty()
+    }
     stage = Stage.Briefing(clock.now() + timing.briefingMs)
     publish()
   }
 
   private fun readyToPlay() = seats.size == info.opportunity.players && seats.all {
-    it.conn != null && it.clockReady && clock.now() - it.syncReportedAt <= ClockSync.MAX_AGE_MS
+    it.conn != null && it.sensorReady && it.clockReady && clock.now() - it.syncReportedAt <= ClockSync.MAX_AGE_MS
   }
 
   private fun startRound() {
@@ -337,6 +363,7 @@ class FormationHost(
         difficulty = info.opportunity.difficulty,
         seed = random.nextLong(),
         startAt = goAt,
+        capabilities = seats.associate { it.id to it.availableInputs.toSet() },
       )
     game = HostedGame.start(rules, setup, json)
     frameSeq = 0
@@ -351,6 +378,7 @@ class FormationHost(
     val playing = stage as? Stage.Playing ?: return
     val running = game ?: return
     if (message.round != round || seats.any { it.conn == null }) return
+    if (!seat.availableInputs.containsAll(running.activeCapabilities(seat.id, seats.size))) return
     val now = clock.now()
     if (now < playing.goAt - EARLY_GRACE_MS) return
     running.input(seat.id, message.input, now)
@@ -367,6 +395,11 @@ class FormationHost(
     when (val s = stage) {
       is Stage.Briefing -> if (now >= s.until && readyToPlay()) startRound()
       is Stage.Playing -> {
+        val stopped = seats.any { seat -> game?.activeCapabilities(seat.id, seats.size)?.all { it in seat.availableInputs } == false }
+        if (stopped) {
+          finish(RoundResult("A phone's input stopped. Restore it and try again.", null, emptyList(), now), won = false)
+          return
+        }
         val missing = seats.firstOrNull { it.conn == null && now - (it.disconnectedAt ?: now) >= timing.disconnectGraceMs }
         if (missing != null) {
           finish(RoundResult("The connection was interrupted. Reconnect and try again.", null, emptyList(), now), won = false)

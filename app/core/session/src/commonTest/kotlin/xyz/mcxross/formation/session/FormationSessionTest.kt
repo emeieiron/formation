@@ -41,12 +41,12 @@ class FormationSessionTest {
       sponsor = "Test",
     )
 
-  private inner class Formation(val test: TestScope) {
+  private inner class Formation(val test: TestScope, rules: ChallengeRules<TapChallenge.State, TapChallenge.Tap> = TapChallenge) {
     val clock = Clock { test.testScheduler.currentTime }
     val host =
       FormationHost(
         FormationInfo("session-1", "K7QX", "Aaron", opportunity),
-        TapChallenge,
+        rules,
         test.backgroundScope,
         clock,
         Random(1),
@@ -61,10 +61,11 @@ class FormationSessionTest {
       device: String = name,
       key: Ed25519KeyPair = Ed25519KeyPair.generate(),
       wallet: String? = null,
+      capabilities: Set<String> = emptySet(),
     ): FormationClient {
       val client =
         FormationClient(
-          PlayerIdentity(device, name, 0, key, wallet, formats = mapOf("tap" to 1)),
+          PlayerIdentity(device, name, 0, key, wallet, formats = mapOf("tap" to 1), capabilities = capabilities),
           connect = {
             val (phone, seekerSide) = memoryLink()
             links[device] = seekerSide
@@ -346,4 +347,37 @@ class FormationSessionTest {
     runCurrent()
     phones.forEach { assertEquals(FormationClient.Status.Ended("Done for today"), it.status.value) }
   }
+  @Test
+  fun requiredInputsGateStartAndInterruptionCannotBecomeAWin() = runTest {
+    val input = "sensor.tilt.v1"
+    val rules = object : ChallengeRules<TapChallenge.State, TapChallenge.Tap> by TapChallenge {
+      override fun requiredCapabilities(players: Int) = setOf(input)
+      override fun activeCapabilities(state: TapChallenge.State, player: xyz.mcxross.formation.model.PlayerId, players: Int) = setOf(input)
+    }
+    val f = Formation(this, rules)
+    val phones = listOf(f.join("Host", seeker = true, capabilities = setOf(input)),
+      f.join("Guest", capabilities = setOf(input)), f.join("Other", capabilities = setOf(input)))
+    runCurrent()
+    f.host.begin()
+    runCurrent()
+    phones.forEach { it.ready(true) }
+    f.host.startNow()
+    runCurrent()
+    assertIs<Stage.Briefing>(f.stage)
+    phones.forEach { it.sensors(0, setOf(input)) }
+    runCurrent()
+    phones.forEach { it.ready(true) }
+    runCurrent()
+    assertIs<Stage.Playing>(f.stage)
+    phones[1].sensors(0, emptySet())
+    runCurrent()
+    assertIs<Stage.Playing>(f.stage, "a status from the previous round must be ignored")
+    phones[1].sensors(1, emptySet())
+    runCurrent()
+    assertIs<Stage.Lost>(f.stage)
+    phones.forEach { it.play(tap()) }
+    runCurrent()
+    assertIs<Stage.Lost>(f.stage)
+  }
+
 }

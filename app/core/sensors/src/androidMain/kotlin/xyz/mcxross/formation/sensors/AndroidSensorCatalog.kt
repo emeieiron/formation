@@ -28,6 +28,12 @@ internal class AndroidSensorCatalog(manager: SensorManager?) {
     state.value = state.value + (kind to state.value.getValue(kind).copy(
       availability = Availability.Unavailable(UnavailableReason.SYSTEM_RESTRICTION, RecoveryAction.OPEN_SETTINGS)))
   }
+
+  fun refresh() {
+    state.value = state.value.mapValues { (kind, descriptor) ->
+      if (sensors[kind] != null) descriptor.copy(availability = Availability.Available(SensorSource.PLATFORM)) else descriptor
+    }
+  }
 }
 
 private val SensorKind.androidType: Int get() = when (this) {

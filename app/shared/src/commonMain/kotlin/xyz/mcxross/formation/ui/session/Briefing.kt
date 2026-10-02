@@ -16,6 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import org.jetbrains.compose.resources.stringResource
 import xyz.mcxross.formation.challenge.rememberHostNow
 import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.components.BottomActions
@@ -31,6 +32,8 @@ import xyz.mcxross.formation.design.foundation.Text
 import xyz.mcxross.formation.design.icons.Icons
 import xyz.mcxross.formation.design.tokens.Space
 import xyz.mcxross.formation.model.PlayerId
+import xyz.mcxross.formation.resources.Res
+import xyz.mcxross.formation.resources.sensor_waiting
 import xyz.mcxross.formation.session.SessionSnapshot
 import xyz.mcxross.formation.session.Stage
 import xyz.mcxross.formation.state.ActiveSession
@@ -91,6 +94,7 @@ internal fun Briefing(
       Spacer(Modifier.height(Space.xl))
     }
     BottomActions {
+      SensorStatus(session, Modifier.fillMaxWidth())
       Column(
         Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(Space.s),
@@ -99,6 +103,7 @@ internal fun Briefing(
         Text(
           when {
             snapshot.players.any { !it.connected } -> "Waiting for the group to reconnect"
+            snapshot.players.any { !it.sensorReady } -> stringResource(Res.string.sensor_waiting)
             snapshot.players.any { !it.clockReady } -> "Synchronizing phones…"
             else -> "$readyCount of ${snapshot.players.size} ready · starts in ${left}s"
           },
@@ -112,12 +117,14 @@ internal fun Briefing(
         { session.ready(!ready) },
         style = if (ready) ButtonStyle.Secondary else ButtonStyle.Primary,
         leadingIcon = if (ready) Icons.Check else null,
+        enabled = snapshot.player(me)?.sensorReady == true,
       )
       if (session.isHost)
         TextButton(
           "Start now",
           { session.startNow() },
           Modifier.align(Alignment.CenterHorizontally),
+          enabled = snapshot.players.all { it.sensorReady },
         )
     }
   }

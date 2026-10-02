@@ -64,6 +64,13 @@ class SensorRuntimeTest {
     runCurrent()
     val interrupted = assertIs<PreparationState.Interrupted>(prepared.readiness.value)
     assertEquals(Acquisition.Failed(FailureReason.REGISTRATION), interrupted.acquisition)
+    backend.rejectRegistration = false
+    hub.retry()
+    runCurrent()
+    assertEquals(PreparationState.Starting, prepared.readiness.value)
+    backend.emit(SensorKind.PROXIMITY, 0f)
+    runCurrent()
+    assertEquals(PreparationState.Ready, prepared.readiness.value)
     prepared.close()
   }
 

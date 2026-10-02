@@ -10,7 +10,7 @@ import xyz.mcxross.formation.model.PlayerId
 import xyz.mcxross.formation.model.Skr
 
 // Bump whenever phones and Seekers on different versions could misunderstand each other.
-const val PROTOCOL_VERSION = 3
+const val PROTOCOL_VERSION = 4
 
 val FormationJson = Json {
   ignoreUnknownKeys = true
@@ -40,6 +40,8 @@ data class Player(
   val latencyMs: Int? = null,
   val device: String? = null,
   val clockReady: Boolean = false,
+  val capabilities: Set<String> = emptySet(),
+  val sensorReady: Boolean = true,
 )
 
 @Serializable
@@ -151,6 +153,8 @@ sealed interface ToHost {
   @Serializable @SerialName("ping") data class Ping(val sent: Long, val rtt: Int? = null, val synced: Boolean = false) : ToHost
 
   @Serializable @SerialName("ready") data class Ready(val ready: Boolean) : ToHost
+
+  @Serializable @SerialName("sensors") data class Sensors(val round: Int, val available: Set<String>) : ToHost
 
   @Serializable @SerialName("play") data class Play(val round: Int, val input: JsonElement) : ToHost
 

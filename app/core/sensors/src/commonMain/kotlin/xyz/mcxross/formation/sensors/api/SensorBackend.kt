@@ -13,5 +13,6 @@ fun interface SensorRegistration { fun close() }
 
 interface SensorBackend {
   val catalog: StateFlow<Map<SensorKind, SensorDescriptor>>
+  fun refresh() {}
   fun register(kind: SensorKind, request: SamplingRequest, receive: (BackendUpdate) -> Unit): SensorRegistration
 }

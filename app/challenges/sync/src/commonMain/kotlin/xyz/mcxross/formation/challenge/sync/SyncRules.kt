@@ -9,6 +9,7 @@ import xyz.mcxross.formation.session.ChallengeGame
 import xyz.mcxross.formation.session.ChallengeSetup
 import xyz.mcxross.formation.session.GameStatus
 import xyz.mcxross.formation.session.Stat
+import xyz.mcxross.formation.sensors.capabilities.InputCapability
 
 // Widens the window for moves the sensors detect late.
 enum class SyncTask(val verb: String, val hint: String, val extraMs: Int, val motion: Boolean) {
@@ -19,7 +20,14 @@ enum class SyncTask(val verb: String, val hint: String, val extraMs: Int, val mo
   SHAKE("Shake", "Shake your phone on the beat", 220, true),
   FLIP("Flip", "Lay it face down on the beat", 260, true),
   TURN("Turn", "Turn it on its side on the beat", 240, true),
-  COVER("Cover", "Cover the top of your phone on the beat", 160, true),
+  COVER("Cover", "Cover the top of your phone on the beat", 160, true);
+
+  val capability: String? get() = when (this) {
+    SHAKE -> InputCapability.JOLT.id
+    FLIP, TURN -> InputCapability.TILT.id
+    COVER -> InputCapability.COVER.id
+    else -> null
+  }
 }
 
 @Serializable
@@ -144,7 +152,14 @@ internal class SyncGame(private val setup: ChallengeSetup) : ChallengeGame<SyncS
     // The second half of the rounds hide the final beats: the group counts them out loud.
     val blind = state.done >= (state.rounds + 1) / 2
     val pool = SyncTask.entries.filter { state.done > 0 || !it.motion }.shuffled(random)
-    val tasks = setup.players.mapIndexed { i, p -> p.value to pool[i % pool.size] }.toMap()
+    val used = mutableSetOf<SyncTask>()
+    val tasks = setup.players.associate { player ->
+      val supported = setup.capabilities[player].orEmpty()
+      val options = pool.filter { it.capability == null || it.capability in supported }
+      val task = options.firstOrNull { it !in used } ?: options.first()
+      used += task
+      player.value to task
+    }
     state =
       state.copy(
         round =

@@ -9,6 +9,8 @@ import xyz.mcxross.formation.model.PlayerId
 interface ChallengeRules<S : Any, I : Any> {
   val formatVersion: Int get() = 1
   fun requiredCapabilities(players: Int): Set<String> = emptySet()
+  fun optionalCapabilities(players: Int): Set<String> = emptySet()
+  fun activeCapabilities(state: S, player: PlayerId, players: Int): Set<String> = requiredCapabilities(players)
   val id: ChallengeId
   val stateSerializer: KSerializer<S>
   val inputSerializer: KSerializer<I>
@@ -23,6 +25,7 @@ data class ChallengeSetup(
   val difficulty: Difficulty,
   val seed: Long,
   val startAt: Long,
+  val capabilities: Map<PlayerId, Set<String>> = emptyMap(),
 )
 
 // Called only from the Seeker's session, one call at a time.

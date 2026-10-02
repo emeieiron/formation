@@ -23,6 +23,8 @@ internal class HostedGame<S : Any, I : Any>(
 
   fun state(): JsonElement = json.encodeToJsonElement(rules.stateSerializer, game.state)
 
+  fun activeCapabilities(player: PlayerId, players: Int) = rules.activeCapabilities(game.state, player, players)
+
   companion object {
     fun <S : Any, I : Any> start(rules: ChallengeRules<S, I>, setup: ChallengeSetup, json: Json) =
       HostedGame(rules, rules.newGame(setup), json)

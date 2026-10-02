@@ -37,7 +37,12 @@ internal constructor(
   private val onSound: (SoundCue) -> Unit,
   private val scope: CoroutineScope,
   private val onCompletion: (SessionSnapshot) -> Unit = {},
+  sensorHub: xyz.mcxross.formation.sensors.SensorHub? = null,
+  allowSimulatedSensors: Boolean = false,
 ) {
+  val sensors = sensorHub?.let {
+    xyz.mcxross.formation.state.sensors.SessionSensors(client, it, scope, allowSimulatedSensors)
+  }
   val isHost: Boolean
     get() = host != null
 
