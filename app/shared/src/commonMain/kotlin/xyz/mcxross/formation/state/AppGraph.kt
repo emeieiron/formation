@@ -22,6 +22,9 @@ import xyz.mcxross.formation.platform.HotspotInfo
 import xyz.mcxross.formation.platform.PlatformServices
 import xyz.mcxross.formation.platform.WalletResult
 import xyz.mcxross.formation.sensors.MotionSense
+import xyz.mcxross.formation.sensors.MotionSimulator
+import xyz.mcxross.formation.sensors.SensorHub
+import xyz.mcxross.formation.sensors.capabilities.InputCapability
 import xyz.mcxross.formation.session.FormationClient
 import xyz.mcxross.formation.session.FormationHost
 import xyz.mcxross.formation.session.FormationInfo
@@ -44,7 +47,17 @@ class AppGraph(
   val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
   val navigator = Navigator()
   val diagnostics = LocalDiagnostics(platform.store, ::now)
-  val identity = Identity(platform)
+  val simulator = if (platform.config.debug && platform.device.emulator) MotionSimulator(scope) else null
+  val sensors = SensorHub(simulator ?: platform.sensorBackend, scope, MonotonicClock::now)
+  val motion = MotionSense(sensors, scope, simulator)
+  val identity = Identity(platform) {
+    buildSet {
+      val supported = sensors.capabilities.value.supported(allowSimulated = simulator != null)
+      if (InputCapability.TILT.id in supported && InputCapability.JOLT.id in supported) add("ACCELEROMETER")
+      if (InputCapability.COVER.id in supported) add("PROXIMITY")
+      if (InputCapability.ROTATION.id in supported) add("GYROSCOPE")
+    }
+  }
   val sounds = SoundEffects(platform.store, platform.sound, scope)
   val seeker =
     SeekerState(
@@ -116,7 +129,6 @@ class AppGraph(
       }
     }
 
-  val motion = MotionSense(platform.motion, scope, MonotonicClock::now)
   val nearby = NearbyScanner(platform.network.finder, BeaconProbe(platform.network.http)::fetch)
 
   private val _session = MutableStateFlow<ActiveSession?>(null)

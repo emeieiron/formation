@@ -23,7 +23,7 @@ import xyz.mcxross.formation.link.NsdAdvertiser
 import xyz.mcxross.formation.link.NsdHostFinder
 import xyz.mcxross.formation.link.linkHttpClient
 import xyz.mcxross.formation.sensors.AndroidHaptics
-import xyz.mcxross.formation.sensors.AndroidMotion
+import xyz.mcxross.formation.sensors.AndroidSensorBackend
 import xyz.mcxross.formation.wallet.MwaWallet
 
 interface ActivityBridge {
@@ -72,7 +72,7 @@ class AndroidPlatform(private val context: Context) : PlatformServices {
           Build.MANUFACTURER.contains("Solana", ignoreCase = true),
     )
 
-  override val motion = AndroidMotion(context)
+  override val sensorBackend = AndroidSensorBackend(context)
 
   override val haptics = AndroidHaptics(context)
 

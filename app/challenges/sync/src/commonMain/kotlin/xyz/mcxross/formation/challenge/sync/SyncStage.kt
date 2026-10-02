@@ -235,9 +235,9 @@ private fun TaskInput(
     }
     SyncTask.TURN -> {
       val pose by rememberPose(scope.motion)
-      val start = remember(round.attempt) { pose.sideways }
+      val start = remember(round.attempt) { (pose?.sideways ?: false) }
       LaunchedEffect(pose) {
-        if (pose != Pose.TILTED && pose.sideways != start) act(scope.clock.hostNow())
+        if (pose != null && pose != Pose.TILTED && (pose?.sideways ?: false) != start) act(scope.clock.hostNow())
       }
     }
     else -> TouchCatcher(scope, task, act)

@@ -47,9 +47,11 @@ class MainActivity : ComponentActivity(), ActivityBridge {
     super.onResume()
     app.platform.bridge = this
     app.platform.setAudioActive(true)
+    app.graph.sensors.setForeground(true)
   }
 
   override fun onPause() {
+    app.graph.sensors.setForeground(false)
     app.platform.setAudioActive(false)
     super.onPause()
   }

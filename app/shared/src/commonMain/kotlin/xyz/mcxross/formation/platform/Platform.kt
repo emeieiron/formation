@@ -5,14 +5,14 @@ import xyz.mcxross.formation.link.Advertiser
 import xyz.mcxross.formation.link.HostFinder
 import xyz.mcxross.formation.link.LinkServer
 import xyz.mcxross.formation.sensors.Haptics
-import xyz.mcxross.formation.sensors.Motion
+import xyz.mcxross.formation.sensors.api.SensorBackend
 
 interface PlatformServices {
   val config: AppConfig
   val store: KeyValueStore
   val secrets: SecretStore
   val device: DeviceInfo
-  val motion: Motion
+  val sensorBackend: SensorBackend
   val haptics: Haptics
   val sound: SoundPlayer
   val network: LocalNetwork

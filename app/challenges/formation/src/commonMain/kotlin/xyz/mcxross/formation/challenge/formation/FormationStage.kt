@@ -56,7 +56,7 @@ internal fun FormationStage(scope: StageScope<FormationState, FormationInput>) {
   val flash = rememberFlash()
 
   // Report every change of pose; the Seeker decides whether the figure holds.
-  LaunchedEffect(pose, state.figure?.attempt) { scope.send(FormationInput(pose)) }
+  LaunchedEffect(pose, state.figure?.attempt) { pose?.let { scope.send(FormationInput(it)) } }
   LaunchedEffect(state.event) {
     when (state.event) {
       is FigureEvent.Locked -> {
@@ -178,7 +178,7 @@ private fun Blueprint(scope: StageScope<FormationState, FormationInput>, state: 
 private fun Builder(
   scope: StageScope<FormationState, FormationInput>,
   state: FormationState,
-  pose: Pose,
+  pose: Pose?,
 ) {
   val c = Theme.colors
   val me = scope.player(scope.me)
@@ -228,10 +228,10 @@ private fun Builder(
           .padding(horizontal = Space.l, vertical = Space.s),
         verticalAlignment = Alignment.CenterVertically,
       ) {
-        PoseGlyph(pose, c.content, Modifier.size(28.dp))
+        pose?.let { PoseGlyph(it, c.content, Modifier.size(28.dp)) }
         Spacer(Modifier.width(Space.s))
         Text(
-          "Your phone: ${pose.label.lowercase()}",
+          pose?.let { "Your phone: ${it.label.lowercase()}" } ?: "Waiting for motion",
           style = Theme.type.subheadStrong,
           color = c.content,
         )

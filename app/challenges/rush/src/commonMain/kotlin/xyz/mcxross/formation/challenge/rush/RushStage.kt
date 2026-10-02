@@ -326,11 +326,13 @@ private fun Balance(scope: StageScope<RushState, RushInput>, gauge: Gauge, color
   var dragLean by remember { mutableStateOf<Float?>(null) }
   val tilt by scope.motion.tilt.collectAsState()
   // Tipping the right edge down rolls the core right, which is up the reading.
-  val lean = dragLean ?: (-tilt.roll / 25f).coerceIn(-1f, 1f)
+  val lean = dragLean ?: (-(tilt?.roll ?: 0f) / 25f).coerceIn(-1f, 1f)
   LaunchedEffect(Unit) {
     var sent = Float.NaN
     while (true) {
-      val now = dragLean ?: (-scope.motion.tilt.value.roll / 25f).coerceIn(-1f, 1f)
+      val current = scope.motion.tilt.value
+      if (dragLean == null && current == null) { delay(90); continue }
+      val now = dragLean ?: (-current!!.roll / 25f).coerceIn(-1f, 1f)
       if (sent.isNaN() || abs(now - sent) > 0.04f) {
         scope.send(RushInput.Tilt(now))
         sent = now

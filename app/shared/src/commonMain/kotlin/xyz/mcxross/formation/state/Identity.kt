@@ -14,7 +14,7 @@ import xyz.mcxross.formation.state.recovery.ClaimIdentity
 
 @Serializable data class Profile(val name: String, val light: Int)
 
-class Identity(private val platform: PlatformServices) {
+class Identity(private val platform: PlatformServices, private val capabilities: () -> Set<String>) {
   private val _profile = MutableStateFlow(load())
   val profile: StateFlow<Profile?> = _profile.asStateFlow()
 
@@ -45,7 +45,7 @@ class Identity(private val platform: PlatformServices) {
     val p = profile.value ?: Profile("Player", 0)
     return PlayerIdentity(device, p.name, p.light, claimKey, wallet.value,
       ChallengeCatalog.all.associate { it.id.value to it.formatVersion },
-      platform.motion.available.map { it.name }.toSet())
+      capabilities())
   }
 
   private fun load(): Profile? =

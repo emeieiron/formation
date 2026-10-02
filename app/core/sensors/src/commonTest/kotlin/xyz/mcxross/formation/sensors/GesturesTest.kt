@@ -4,11 +4,9 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.advanceTimeBy
-import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
+import xyz.mcxross.formation.sensors.api.SensorKind
 import kotlinx.coroutines.test.runTest
 
 class GesturesTest {
@@ -32,9 +30,8 @@ class GesturesTest {
 
   @Test
   fun tiltFollowsTheRightEdge() {
-    val sim = MotionSimulator()
-    sim.lean(30f)
-    val tilt = Tilt.of(sim.gravity.value!!)
+    val radians = kotlin.math.PI.toFloat() / 6f
+    val tilt = Tilt.of(Vec3(kotlin.math.sin(radians) * STANDARD_GRAVITY, 0f, kotlin.math.cos(radians) * STANDARD_GRAVITY))
     assertEquals(30f, tilt.roll, 0.01f)
     assertEquals(0f, Tilt.of(Pose.FACE_UP.gravity()).roll, 0.01f)
   }
@@ -71,24 +68,21 @@ class GesturesTest {
 
   @OptIn(ExperimentalCoroutinesApi::class)
   @Test
-  fun theSimulatorDrivesPoseAndGestures() =
-    runTest(UnconfinedTestDispatcher()) {
-      val sense = MotionSense(NoMotion, backgroundScope) { testScheduler.currentTime }
-      val gestures = mutableListOf<Gesture>()
-      backgroundScope.launch { sense.gestures.collect { gestures += it } }
-      backgroundScope.launch { sense.pose.collect {} }
-
-      sense.simulator.hold(Pose.FACE_DOWN)
-      advanceTimeBy(400)
-      assertEquals(Pose.FACE_DOWN, sense.pose.value)
-
-      sense.simulator.hold(Pose.SIDEWAYS_LEFT)
-      advanceTimeBy(400)
-      assertEquals(Pose.SIDEWAYS_LEFT, sense.pose.value)
-
-      sense.simulator.perform(Gesture.SHAKE)
-      advanceUntilIdle()
-      assertEquals(listOf(Gesture.SHAKE), gestures)
-      assertEquals(Pose.SIDEWAYS_LEFT.gravity(), sense.simulator.gravity.first())
-    }
+  fun poseUsesMeasurementTimeAndClearsOnSuspension() = runTest {
+    val backend = FakeSensorBackend(SensorKind.GRAVITY)
+    val hub = SensorHub(backend, backgroundScope) { testScheduler.currentTime }
+    val sense = MotionSense(hub, backgroundScope)
+    hub.setForeground(true)
+    backgroundScope.launch { sense.pose.collect {} }
+    runCurrent()
+    val kind = SensorKind.GRAVITY
+    backend.emit(kind, 0f, 0f, -9.8f, timestampNanos = 10_000_000)
+    runCurrent()
+    backend.emit(kind, 0f, 0f, -9.8f, timestampNanos = 170_000_000)
+    runCurrent()
+    assertEquals(Pose.FACE_DOWN, sense.pose.value)
+    hub.setForeground(false)
+    runCurrent()
+    assertEquals(null, sense.pose.value)
+  }
 }

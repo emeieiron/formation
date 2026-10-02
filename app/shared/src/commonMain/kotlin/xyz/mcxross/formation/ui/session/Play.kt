@@ -141,9 +141,9 @@ internal fun Play(
         }
       }
     }
-    if (debug) {
+    if (debug && graph.simulator != null) {
       MotionPad(
-        graph.motion.simulator,
+        graph.simulator,
         autoplay = autoplay,
         onAutoplay = { graph.autoplay.value = it },
         modifier = Modifier.align(Alignment.BottomStart),

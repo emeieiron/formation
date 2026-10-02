@@ -75,7 +75,7 @@ fun OnGesture(motion: MotionSense, enabled: Boolean = true, onGesture: (Gesture)
 }
 
 @Composable
-fun rememberPose(motion: MotionSense): State<Pose> {
+fun rememberPose(motion: MotionSense): State<Pose?> {
   val pose = remember { androidx.compose.runtime.mutableStateOf(motion.pose.value) }
   LaunchedEffect(motion) { motion.pose.collect { pose.value = it } }
   return pose

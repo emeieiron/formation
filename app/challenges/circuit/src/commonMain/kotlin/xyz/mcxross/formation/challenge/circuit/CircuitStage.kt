@@ -149,8 +149,8 @@ private fun Move(scope: StageScope<CircuitState, CircuitInput>, pulse: Pulse, no
     }
     Action.TURN -> {
       val pose by rememberPose(scope.motion)
-      val start = remember { pose.sideways }
-      LaunchedEffect(pose) { if (pose != Pose.TILTED && pose.sideways != start) done() }
+      val start = remember { (pose?.sideways ?: false) }
+      LaunchedEffect(pose) { if (pose != null && pose != Pose.TILTED && (pose?.sideways ?: false) != start) done() }
       ActionPrompt(
         Icons.Rotate,
         "Turn",

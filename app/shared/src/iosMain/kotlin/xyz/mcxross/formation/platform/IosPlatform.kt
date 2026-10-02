@@ -14,8 +14,7 @@ import xyz.mcxross.formation.link.FixedHostFinder
 import xyz.mcxross.formation.link.HostFinder
 import xyz.mcxross.formation.link.linkHttpClient
 import xyz.mcxross.formation.sensors.Haptics
-import xyz.mcxross.formation.sensors.Motion
-import xyz.mcxross.formation.sensors.NoMotion
+import xyz.mcxross.formation.sensors.UnsupportedSensorBackend
 
 class IosPlatform : PlatformServices {
   private val defaults = NSUserDefaults.standardUserDefaults
@@ -53,7 +52,7 @@ class IosPlatform : PlatformServices {
       emulator = UIDevice.currentDevice.name.contains("Simulator"),
     )
 
-  override val motion: Motion = NoMotion
+  override val sensorBackend = UnsupportedSensorBackend()
 
   override val sound: SoundPlayer = IosSoundPlayer()
 
