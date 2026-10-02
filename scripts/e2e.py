@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # End-to-end test across two running emulators: one plays a simulated Seeker, the other a guest.
 #
-#   scripts/e2e.py [--chain simulated|localnet|testnet] [--format sync] [--wallet none|connect|ADDRESS]
+#   scripts/e2e.py --title GAME_TITLE --code GAME_CODE [--chain simulated|localnet|testnet] [--wallet none|connect|ADDRESS]
 #                  [--seeker SERIAL] [--guest SERIAL] [--no-build] [--approve]
 #
 # --wallet connect taps Connect in the guest's lobby and waits for the wallet app's approval; with
@@ -15,7 +15,10 @@ import subprocess
 import sys
 import time
 import urllib.request
+import uuid
 import xml.etree.ElementTree as ET
+from xml.sax.saxutils import escape, unescape
+from reward_fixtures import SKR, load_rewards
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ADB = os.path.join(os.environ.get("ANDROID_HOME", os.path.expanduser("~/Library/Android/sdk")), "platform-tools", "adb")
@@ -25,7 +28,6 @@ PROGRAM = "3AzZbKhGFcnaBRRenDDdNSdVumjKoXSkNHsPVeo5q6GW"
 TOKEN = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
 RPC = {"localnet": "http://127.0.0.1:8899", "testnet": "https://api.testnet.solana.com"}
 APP_RPC = {"localnet": ("http://10.0.2.2:8899", "localnet"), "testnet": ("https://api.testnet.solana.com", "testnet")}
-FORMATS = {"rally": ("Rally", 1), "circuit": ("Circuit", 2), "sync": ("Sync", 3), "formation": ("Formation", 4), "rush": ("Rush", 5)}
 WALLET_APPS = ("com.solflare.mobile", "app.phantom")
 
 
@@ -100,7 +102,7 @@ class Phone:
 
     def pref(self, key):
         match = re.search(rf'<string name="{re.escape(key)}">([^<]*)</string>', self.prefs())
-        return match and match.group(1).replace("&quot;", '"')
+        return match and unescape(match.group(1), {"&quot;": '"', "&apos;": "'"})
 
     def set_prefs(self, **values):
         self.shell(f"am force-stop {APP}")
@@ -108,7 +110,7 @@ class Phone:
         for key, value in values.items():
             xml = re.sub(rf'\s*<string name="{re.escape(key)}">[^<]*</string>', "", xml)
             if value is not None:
-                xml = xml.replace("</map>", f'    <string name="{key}">{value}</string>\n</map>')
+                xml = xml.replace("</map>", f'    <string name="{key}">{escape(value)}</string>\n</map>')
         self.adb("shell", f"run-as {APP} sh -c 'cat > shared_prefs/formation.xml'", stdin=xml)
 
     def launch(self):
@@ -251,7 +253,8 @@ def approve_wallet(guest, auto, timeout=180):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--chain", choices=["simulated", "localnet", "testnet"], default="simulated")
-    parser.add_argument("--format", choices=sorted(FORMATS), default="sync")
+    parser.add_argument("--title", required=True, help="registered game's visible title")
+    parser.add_argument("--code", type=int, required=True, help="registered game's vault code")
     parser.add_argument("--wallet", default="none")
     parser.add_argument("--seeker")
     parser.add_argument("--guest")
@@ -260,13 +263,18 @@ def main():
     parser.add_argument("--keep-chain", action="store_true", help="leave the local validator running afterwards")
     parser.add_argument("--offline", action="store_true", help="the Seeker loses its connection at unlock and recovers after a restart")
     args = parser.parse_args()
+    if not args.title.strip() or not 6 <= args.code <= 65535:
+        parser.error("Use a nonempty game title and a vault code within 6..65535")
+    fixtures = load_rewards()
+    if args.chain in ("simulated", "localnet") and not any(f.code == args.code and f.players == 2 for f in fixtures):
+        parser.error("FORMATION_REWARDS must provide a duo reward for this registered game")
 
     running = re.findall(r"^(emulator-\d+)\s+device$", subprocess.run([ADB, "devices"], capture_output=True, text=True).stdout, re.M)
     if len(running) < 2 and not (args.seeker and args.guest):
         sys.exit("Start two emulators first")
     seeker = Phone(args.seeker or running[0], "seeker")
     guest = Phone(args.guest or running[1], "guest")
-    title, code = FORMATS[args.format]
+    title, code = args.title, args.code
     validator = None
     saved = None
     try:
@@ -277,10 +285,20 @@ def main():
             phone.adb("install", "-r", apk)
             phone.adb("forward", f"tcp:{47000 + i}", "tcp:47000")
         # The test changes these; put back whatever the person had, such as a connected wallet.
-        saved = {phone: {k: phone.pref(k) for k in ("ledger", "wallet")} for phone in (seeker, guest)}
+        saved = {phone: {k: phone.pref(k) for k in ("ledger", "wallet", "sim.opportunities")} for phone in (seeker, guest)}
         ledger = "SIMULATED" if args.chain == "simulated" else "SOLANA"
         wallet = None if args.wallet in ("none", "connect") else args.wallet
         seeker.set_prefs(ledger=ledger)
+        if args.chain == "simulated":
+            rewards = [
+                {"id": str(uuid.uuid4()), "challenge": f.challenge, "reward": f.amount * SKR,
+                 "players": f.players, "ownerBps": f.owner_bps,
+                 "difficulty": ("EASY", "NORMAL", "HARD", "EXTREME")[f.difficulty],
+                 "expiresAt": int(time.time() * 1000) + f.days * 86_400_000,
+                 "sponsor": "Test", "title": f.title or None}
+                for f in fixtures
+            ]
+            seeker.set_prefs(**{"sim.opportunities": json.dumps(rewards)})
         guest.set_prefs(ledger=ledger, wallet=wallet)
         for phone, name, light in ((seeker, "Aaron", "Nova"), (guest, "Maya", "Jade")):
             phone.launch()

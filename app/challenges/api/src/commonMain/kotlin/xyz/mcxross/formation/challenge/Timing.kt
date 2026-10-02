@@ -15,4 +15,3 @@ fun rememberHostNow(clock: ClockSync): State<Long> {
   LaunchedEffect(clock) { while (true) withFrameMillis { now.longValue = clock.hostNow() } }
   return now
 }
-

@@ -4,6 +4,10 @@ Formation is a local multiplayer Android app for unlocking shared SKR rewards on
 
 Play runs over a local network. Funding, unlocks and claims use Solana. Guests can connect a wallet before play or keep their entitlement on the phone and claim later.
 
+The current build contains the app framework and an empty game catalog. Prototype games have been removed. New formats integrate through the [game API](app/challenges/api/README.md).
+
+Saved claims and reward history remain available. An incomplete result from a removed format cannot resume sealing without that game installed; its saved record is retained.
+
 ## Architecture
 
 ![Formation architecture: guest phones exchange inputs, seals, state and clock samples with the Seeker over a local network. The Seeker submits recoverable unlock and payout transactions to the Solana vault. Guests retain a proof and claim key for deferred claims. Sponsors fund the vault, which pays the owner and helpers.](docs/images/architecture.png)
@@ -24,7 +28,7 @@ The application saves completed results separately from settlement. This allows 
 
 An unlock and all helper payments may require several transactions. The app distinguishes a recorded unlock from complete settlement and reconciles uncertain submissions against chain state before requesting another signature. A confirmation timeout is not treated as proof of failure.
 
-Current formats are Rally, Circuit, Sync, Formation and Rush. Their rules and presentation live in separate modules, so changing a challenge does not require replacing the surrounding session and reward flow.
+Each game supplies its rules and stage UI in a separate module. Registration connects it to the existing session and reward flow without game-specific branches in those systems.
 
 ## Recovery and connectivity
 
@@ -46,9 +50,9 @@ Diagnostics stay on the device. The app records a bounded set of session, discov
 | `app/core/model` | Opportunities, SKR amounts and reward splits |
 | `app/core/crypto` | Ed25519, SHA-2, Base58/64 and the roster Merkle tree |
 | `app/core/link` | WebSocket transport, mDNS discovery, beacons and the emulator bridge |
-| `app/core/sensors` | Motion, pose, gestures, haptics and emulator input simulation |
+| `app/core/sensors` | Typed availability, shared acquisition, motion processing, haptics and emulator simulation |
 | `app/core/session` | Host/client protocol, signed admission, clock synchronization and sealing |
-| `app/challenges/*` | Shared challenge API and one module per format |
+| `app/challenges/api` | Game contracts, validated registration, and focused input/time helpers |
 | `app/solana/vault` | Kotlin vault instructions, account decoding, RPC and SGT lookup |
 | `app/shared` | Compose screens, app coordination, settlement, saved completion and recovery |
 | `app/androidApp` | Android entry point, Mobile Wallet Adapter, Keystore storage and hotspot lifecycle |
@@ -84,7 +88,7 @@ scripts/emulators.sh link
 
 In Profile → Developer, enable **Pretend to be a Seeker** on the host. This option is limited to debug builds. Turn off **Solana ledger** and restart the app to use simulated rewards. A debug Seeker and a simulated ledger are separate settings: the former supplies a test host identity; the latter avoids chain transactions.
 
-Host a reward from Home and join it from another emulator's Nearby list. During play, the motion pad simulates sensor inputs. Its Autoplay option lets one tester exercise the group flow.
+After registering a game and configuring its development reward fixtures, host it from Home and join from another emulator's Nearby list. During play, the motion pad supplies debug input simulation. An optional game autopilot lets one tester exercise the group flow.
 
 ### Verification
 
@@ -103,15 +107,16 @@ cargo test -p formation-vault
 
 After changing the program, copy `program/target/idl/formation_vault.json` to `program/formation-vault/idl/`. The Kotlin `IdlContractTest` checks the client against that interface.
 
-Two-emulator journeys run from the repository root:
+Two-emulator journeys require a registered game with duo support and an autopilot, plus explicit reward fixtures. From the repository root:
 
 ```sh
-scripts/e2e.py --chain simulated
-scripts/e2e.py --chain localnet --wallet GUEST_WALLET
-scripts/e2e.py --chain testnet --wallet connect --approve
+export FORMATION_REWARDS=/absolute/path/rewards.json
+scripts/e2e.py --title "My game" --code 6 --chain simulated
+scripts/e2e.py --title "My game" --code 6 --chain localnet --wallet GUEST_WALLET
+scripts/e2e.py --title "My game" --code 6 --chain testnet --wallet connect --approve
 ```
 
-The journey hosts a duo, joins, plays through Autoplay, seals and unlocks. Chain runs can check the guest's token balance. `--format` selects a challenge; Sync is the default. `--offline` interrupts the host's network at unlock and checks recovery after relaunch.
+The journey hosts a duo, joins, plays through Autoplay, seals and unlocks. `--title` and `--code` identify the registered game; there is no default format. Simulated runs seed only the supplied fixtures. Chain runs can check the guest's token balance. `--offline` interrupts the host's network at unlock and checks recovery after relaunch.
 
 `--wallet connect` opens the guest's wallet flow. `--approve` taps its connection approval; otherwise the script waits for manual approval. It never enters a wallet password. The harness uses UI Automator and may fail to inspect animated screens; the current verification notes describe the layout adapter used for the completed emulator checks.
 
@@ -130,7 +135,7 @@ solana program deploy program/target/deploy/formation_vault.so \
 
 scripts/testnet.py setup
 scripts/testnet.py seeker SEEKER_WALLET
-scripts/testnet.py drops SEEKER_WALLET
+FORMATION_REWARDS=/absolute/path/rewards.json scripts/testnet.py drops SEEKER_WALLET
 ```
 
 The provisioning script stores addresses in `program/testnet.json`. `FORMATION_RPC` overrides its endpoint. The program ID is `3AzZbKhGFcnaBRRenDDdNSdVumjKoXSkNHsPVeo5q6GW`; preserve the deployment keypair and upgrade authority when maintaining a deployment.
@@ -139,11 +144,11 @@ The provisioning script stores addresses in `program/testnet.json`. `FORMATION_R
 
 The owner explicitly links a Seeker through the app's wallet flow. Formation checks the wallet's Seeker Genesis Token on mainnet and rechecks the stored address on later launches. Remembered wallet authorization supports subsequent requests; new signing requests still go through the wallet.
 
-For testnet rewards, provision the linked wallet with `scripts/testnet.py seeker SEED_VAULT_ADDRESS`, then `scripts/testnet.py drops SEED_VAULT_ADDRESS`. This creates a token in the test SGT group and funds the wallet with testnet SOL for fees.
+For testnet rewards, provision the linked wallet with `scripts/testnet.py seeker SEED_VAULT_ADDRESS`, then `FORMATION_REWARDS=/absolute/path/rewards.json scripts/testnet.py drops SEED_VAULT_ADDRESS`. This creates a token in the test SGT group and funds the wallet with testnet SOL for fees.
 
 ### Local validator
 
-`scripts/localnet.py SEEKER_CLAIM_KEY GUEST_CLAIM_KEY` starts a validator with the program and test state preloaded, then funds the given keys. Build the app with the localnet properties above.
+`scripts/localnet.py SEEKER_CLAIM_KEY GUEST_CLAIM_KEY` starts a validator with the program and test state preloaded, then funds the given keys. It creates no game rewards by default. Set `FORMATION_REWARDS` to seed rewards for registered formats, and build the app with the localnet properties above.
 
 ### Vault instructions
 

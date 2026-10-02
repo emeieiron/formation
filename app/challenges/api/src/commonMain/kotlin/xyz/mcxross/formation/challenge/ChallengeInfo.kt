@@ -30,4 +30,3 @@ enum class Sense(val label: String) {
   Pose("Pose"),
   Voice("Talk it out"),
 }
-

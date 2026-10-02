@@ -64,16 +64,16 @@ A continuous sensor that stops delivering readings fails after two seconds. Prox
 
 ## Session behavior
 
-Required inputs must be ready before play starts. The host freezes each phone's available inputs into the challenge setup. Optional Sync moves are selected from that phone's supported inputs; a phone without proximity is not assigned a cover move.
+Required inputs must be ready before play starts. Games declare typed sensor requirements through the game API. The host freezes each phone's available inputs into the challenge setup. A game selects optional tasks from that phone's frozen capabilities and declares the inputs needed by the current task.
 
 Readiness reports are scoped to the current round and intersected with the capabilities negotiated during joining. Losing an input required by the active task interrupts the attempt without producing a win. A new briefing requires another readiness report.
 
-The wire protocol is version 4 and the Sync format is version 2. Older builds must update before joining these sessions.
+The wire protocol is version 4. Each registered game declares its own format version. Admission rejects incompatible builds before play.
 
 ## Verification and limits
 
 Focused tests cover shared registration, sampling changes, suspension and resume, acquisition failure and retry, missing hardware, source acceptance, gesture-history resets, capability-aware task selection, start gating, and stale readiness reports.
 
-The Android build, common tests on the Android host, and iOS simulator compilation pass. The existing two-emulator Sync journey passes through joining, play, and simulated settlement. iOS currently reports unsupported sensors rather than providing placeholder measurements.
+The Android build, common tests on the Android host, and iOS simulator compilation pass. The prototype integration previously passed a two-emulator journey through joining, play, and simulated settlement. The prototype games are now removed; new games use the [integration API](../app/challenges/api/README.md). iOS currently reports unsupported sensors rather than providing placeholder measurements.
 
 Physical-device verification remains necessary for timing, sensor quality, and operating-system behavior. Check a Seeker and a phone without proximity, then background an active session and interrupt sensor access. Emulator simulation does not establish hardware support or attest gameplay. Camera, microphone, location, NFC, and Bluetooth remain separate integrations with their own permission and privacy requirements.

@@ -39,4 +39,3 @@ fun Modifier.onTouchDown(
     pointerInput(clock) {
       detectTapGestures(onPress = { offset -> onDown(clock.hostNow(), offset) })
     }
-

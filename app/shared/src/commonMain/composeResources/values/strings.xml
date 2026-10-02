@@ -72,6 +72,8 @@
         <item quantity="other">%1$d rewards ready</item>
     </plurals>
     <string name="state_no_games">No games available</string>
+    <string name="state_saved_game_unavailable">This saved result needs a game that is no longer installed.</string>
+    <string name="label_saved_result">Saved result</string>
     <string name="sensor_ready">Inputs ready</string>
     <string name="sensor_checking">Checking inputs</string>
     <string name="sensor_paused">Inputs paused</string>

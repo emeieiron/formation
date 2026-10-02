@@ -7,7 +7,7 @@
 #
 #   scripts/testnet.py setup            test SKR mint, test Seeker Genesis Token group, vault config
 #   scripts/testnet.py seeker WALLET    give WALLET a test Seeker Genesis Token and SOL for fees
-#   scripts/testnet.py drops WALLET     lock the standard set of rewards for WALLET's token
+#   scripts/testnet.py drops WALLET     lock rewards from $FORMATION_REWARDS for WALLET's token
 #   scripts/testnet.py fund WALLET [SOL]
 #
 # Signs with $FORMATION_KEYPAIR (default ~/.config/solana/seekers-testnet.json), which must be the
@@ -30,7 +30,7 @@ from solders.pubkey import Pubkey
 from solders.transaction import Transaction
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from localnet import DROPS, SKR  # noqa: E402
+from reward_fixtures import SKR, load_rewards
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STATE = os.environ.get("FORMATION_STATE", os.path.join(ROOT, "program", "testnet.json"))
@@ -151,19 +151,22 @@ def fund(admin, wallet, sol):
 
 
 def drops(admin, config, state, wallet):
+    fixtures = load_rewards()
+    if not fixtures:
+        raise SystemExit("Set FORMATION_REWARDS to a JSON fixture file for a registered game")
     sgt = state["seekers"].get(wallet) or sys.exit(f"Run `seeker {wallet}` first")
     skr = Pubkey.from_string(state["skr"])
-    total = sum(d[1] for d in DROPS)
+    total = sum(f.amount for f in fixtures)
     spl(config, "create-account", str(skr)) if rpc("getAccountInfo", [str(ata(admin.pubkey(), skr)), {"encoding": "base64"}])["value"] is None else None
     spl(config, "mint", str(skr), str(total))
     config_pda = Pubkey.find_program_address([b"config"], PROGRAM)[0]
     now = int(time.time())
-    for code, amount, players, owner_bps, difficulty, days, title in DROPS:
+    for fixture in fixtures:
         oid = uuid.uuid4().bytes
         opportunity = Pubkey.find_program_address([b"opportunity", oid], PROGRAM)[0]
         data = (
-            discriminator("create") + oid + (amount * SKR).to_bytes(8, "little") + bytes([players]) + owner_bps.to_bytes(2, "little")
-            + code.to_bytes(2, "little") + bytes([difficulty]) + title.encode()[:32].ljust(32, b"\0") + (now + days * 86_400).to_bytes(8, "little")
+            discriminator("create") + oid + (fixture.amount * SKR).to_bytes(8, "little") + bytes([fixture.players]) + fixture.owner_bps.to_bytes(2, "little")
+            + fixture.code.to_bytes(2, "little") + bytes([fixture.difficulty]) + fixture.title.encode().ljust(32, b"\0") + (now + fixture.days * 86_400).to_bytes(8, "little")
         )
         ix = Instruction(PROGRAM, data, [
             AccountMeta(admin.pubkey(), True, True),
@@ -179,7 +182,7 @@ def drops(admin, config, state, wallet):
             AccountMeta(ATA_PROGRAM, False, False),
             AccountMeta(SYSTEM, False, False),
         ])
-        print(f"locked {amount} SKR ({players} players) as {opportunity}", send(admin, ix))
+        print(f"locked {fixture.amount} SKR ({fixture.players} players) as {opportunity}", send(admin, ix))
 
 
 def main():

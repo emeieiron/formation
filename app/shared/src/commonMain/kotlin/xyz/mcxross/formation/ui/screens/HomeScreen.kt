@@ -59,6 +59,8 @@ import xyz.mcxross.formation.resources.ready_reward_count
 import xyz.mcxross.formation.resources.state_full
 import xyz.mcxross.formation.resources.state_no_locked_rewards
 import xyz.mcxross.formation.resources.state_no_games
+import xyz.mcxross.formation.resources.state_saved_game_unavailable
+import xyz.mcxross.formation.resources.label_saved_result
 import xyz.mcxross.formation.resources.state_playing
 import xyz.mcxross.formation.resources.state_searching
 import xyz.mcxross.formation.design.Theme
@@ -194,9 +196,11 @@ fun HomeScreen() {
         won != null && !won.seal.complete
       }
       items(unfinished, key = { "completion-" + it.snapshot.formation.session }) { record ->
-        Notice("Reconnect the group to finish saving this win.",
-          Modifier.padding(horizontal = Space.gutter, vertical = Space.s), title = "Finish saving your win",
-          action = "Resume", onAction = { scope.launch { graph.resumeCompletion(record).onFailure {
+        val resumable = ChallengeCatalog.supports(record.snapshot.formation.opportunity)
+        Notice(if (resumable) "Reconnect the group to finish saving this win." else stringResource(Res.string.state_saved_game_unavailable),
+          Modifier.padding(horizontal = Space.gutter, vertical = Space.s),
+          title = if (resumable) "Finish saving your win" else stringResource(Res.string.label_saved_result),
+          action = if (resumable) "Resume" else null, onAction = { scope.launch { graph.resumeCompletion(record).onFailure {
             toaster.show(it.message ?: "Couldn't resume", Tone.Warning)
           } } })
       }
