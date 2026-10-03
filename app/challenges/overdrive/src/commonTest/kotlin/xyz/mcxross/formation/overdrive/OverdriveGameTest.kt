@@ -137,25 +137,33 @@ class OverdriveGameTest {
   }
 
   @Test
-  fun lessRemainingTimeMakesPulsesFasterAtEveryDifficulty() {
+  fun eachCorrectShapeMatchMakesTheNextPulseFasterAtEveryDifficulty() {
     Difficulty.entries.forEach { difficulty ->
       val pacing = Pacing(difficulty)
-      val flights = listOf(0L, 15_000L, 30_000L, 45_000L, 60_000L).map(pacing::flight)
+      val flights = (0..13).map(pacing::flight)
       flights.zipWithNext().forEach { (earlier, later) ->
-        assertTrue(later.duration < earlier.duration)
+        assertTrue(later < earlier)
       }
-      assertTrue(flights.last().duration > flights.first().duration / 2 - 50)
+      assertEquals(flights.first() / 2, flights[11])
     }
   }
 
   @Test
-  fun visiblePulsesAccelerateAndArriveAtTheAuthoritativeDeadline() {
+  fun onlyTheMatchingPlayersNextPulseSpeedsUpAndDeadlinesRemainConsistent() {
     val game = game()
+    val initial = game.state.dials.first().let { it.catchAt - it.launchAt }
+    val partnerDeadline = game.state.dials.last().catchAt
+    align(game, players.first())
+    game.tick(game.state.dials.first().catchAt)
+    assertEquals(1, game.state.dials.first().matches)
+    assertEquals(0, game.state.dials.last().matches)
+    assertEquals(partnerDeadline, game.state.dials.last().catchAt)
+    game.tick(partnerDeadline)
+    game.tick(game.state.nextWaveAt)
+    assertEquals(1, game.state.misses)
+    assertEquals(initial * 11 / 12, game.state.dials.first().let { it.catchAt - it.launchAt })
+    assertEquals(initial, game.state.dials.last().let { it.catchAt - it.launchAt })
     game.state.dials.forEach { dial ->
-      val quarter = (dial.catchAt - dial.launchAt) / 4
-      val firstDistance = dial.progress(dial.launchAt + quarter)
-      val lastDistance = 1f - dial.progress(dial.catchAt - quarter)
-      assertTrue(lastDistance > firstDistance)
       assertEquals(0f, dial.progress(dial.launchAt - 1))
       assertEquals(1f, dial.progress(dial.catchAt))
       assertTrue(dial.progress(dial.catchAt - 1) < 1f)

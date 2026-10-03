@@ -19,18 +19,17 @@ data class Dial(
   val player: PlayerId,
   val edges: List<Symbol>,
   val turns: Int = 0,
+  val matches: Int = 0,
   val clue: Symbol? = null,
   val nextClue: Symbol? = null,
   val launchAt: Long,
   val catchAt: Long,
-  val acceleration: Float = 0f,
   val result: Catch = Catch.Pending,
 ) {
   fun facing(turns: Int = this.turns): Symbol = edges[(-turns).mod(edges.size)]
 
   fun progress(now: Long): Float {
-    val fraction = ((now - launchAt).toDouble() / (catchAt - launchAt)).coerceIn(0.0, 1.0).toFloat()
-    return fraction * (1f - acceleration + acceleration * fraction)
+    return ((now - launchAt).toDouble() / (catchAt - launchAt)).coerceIn(0.0, 1.0).toFloat()
   }
 }
 
