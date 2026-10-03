@@ -59,4 +59,4 @@ data class OverdriveState(
 }
 
 @Serializable
-data class Rotate(val wave: Int, val turn: Int)
+data class Rotate(val wave: Int, val turn: Int, val at: Long = Long.MAX_VALUE)

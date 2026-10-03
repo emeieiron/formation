@@ -26,12 +26,14 @@ class OverdriveGameTest {
   private fun play(difficulty: Difficulty, failed: Set<Int>): OverdriveGame {
     val game = game(difficulty)
     while (game.status == GameStatus.Running) {
-      if (game.state.wave in failed) {
+      val wave = game.state.wave
+      if (wave in failed) {
         val dial = game.state.dials.first()
-        if (dial.facing() == dial.clue) game.input(dial.player, Rotate(game.state.wave, dial.turns + 1), game.state.waveAt)
+        if (dial.facing() == dial.clue) game.input(dial.player, Rotate(wave, dial.turns + 1), game.state.waveAt)
       } else players.forEach { align(game, it) }
-      game.tick(game.state.dials.maxOf { it.catchAt })
+      game.tick(game.state.dials.maxOf { it.catchAt } + OverdriveGame.LATE_INPUT_MS)
       game.tick(game.state.nextWaveAt)
+      if (game.state.wave == wave) game.tick(game.state.endsAt + OverdriveGame.LATE_INPUT_MS)
     }
     return game
   }
@@ -40,10 +42,10 @@ class OverdriveGameTest {
   fun bothPlayersMustCatchBeforeAWaveCounts() {
     val game = game()
     players.forEach { align(game, it) }
-    game.tick(game.state.dials.first().catchAt)
+    game.tick(game.state.dials.first().catchAt + OverdriveGame.LATE_INPUT_MS)
     assertEquals(Catch.Caught, game.state.dials.first().result)
     assertEquals(0, game.state.clears)
-    game.tick(game.state.dials.last().catchAt)
+    game.tick(game.state.dials.last().catchAt + OverdriveGame.LATE_INPUT_MS)
     assertEquals(1, game.state.clears)
     assertEquals(0, game.state.misses)
   }
@@ -53,7 +55,7 @@ class OverdriveGameTest {
     val game = game()
     repeat(3) { index ->
       if (index > 0) game.tick(game.state.nextWaveAt)
-      game.tick(game.state.dials.maxOf { it.catchAt })
+      game.tick(game.state.dials.maxOf { it.catchAt } + OverdriveGame.LATE_INPUT_MS)
       assertEquals(index + 1, game.state.misses)
       assertEquals(0, game.state.clears)
     }
@@ -89,12 +91,37 @@ class OverdriveGameTest {
     val game = game()
     val dial = game.state.dials.first()
     game.input(dial.player, Rotate(1, 1), dial.catchAt)
+    game.tick(dial.catchAt + OverdriveGame.LATE_INPUT_MS)
     assertEquals(Catch.Missed, game.state.dials.first().result)
     assertEquals(0, game.state.dials.first().turns)
     val timely = game()
     align(timely, players.first(), timely.state.dials.first().catchAt - 1)
-    timely.tick(timely.state.dials.first().catchAt)
+    timely.tick(timely.state.dials.first().catchAt + OverdriveGame.LATE_INPUT_MS)
     assertEquals(Catch.Caught, timely.state.dials.first().result)
+  }
+
+  @Test
+  fun aTapTouchedBeforeTheDeadlineCountsIfItArrivesWithinTheLateWindow() {
+    val player = players.first()
+    val game = game()
+    val deadline = game.state.dial(player).catchAt
+    while (game.state.dial(player).facing() != game.state.dial(player).clue) {
+      game.input(player, Rotate(1, game.state.dial(player).turns + 1, at = deadline - 5), deadline + OverdriveGame.LATE_INPUT_MS - 1)
+    }
+    assertEquals(Catch.Pending, game.state.dial(player).result)
+    game.tick(deadline + OverdriveGame.LATE_INPUT_MS)
+    assertEquals(Catch.Caught, game.state.dial(player).result)
+  }
+
+  @Test
+  fun tapsArrivingAfterTheLateWindowOrTouchedAfterTheDeadlineAreRejected() {
+    val player = players.first()
+    listOf(-5L to OverdriveGame.LATE_INPUT_MS, 5L to 20L, -5_000L to OverdriveGame.LATE_INPUT_MS).forEach { (touched, arrived) ->
+      val game = game()
+      val deadline = game.state.dial(player).catchAt
+      game.input(player, Rotate(1, 1, at = deadline + touched), deadline + arrived)
+      assertEquals(0, game.state.dial(player).turns)
+    }
   }
 
   @Test
@@ -123,7 +150,7 @@ class OverdriveGameTest {
           assertNotEquals(game.state.dial(player).facing(), game.state.dial(player).clue)
           align(game, player)
         }
-        game.tick(game.state.dials.maxOf { it.catchAt })
+        game.tick(game.state.dials.maxOf { it.catchAt } + OverdriveGame.LATE_INPUT_MS)
       }
       assertIs<GameStatus.Won>(game.status)
       assertEquals(12, game.state.clears)
@@ -140,12 +167,12 @@ class OverdriveGameTest {
       if (index > 0) listOf(first, second).forEach { it.tick(it.state.nextWaveAt) }
       listOf(first, second).forEach { game ->
         players.forEach { align(game, it) }
-        game.tick(game.state.dials.maxOf { it.catchAt })
+        game.tick(game.state.dials.maxOf { it.catchAt } + OverdriveGame.LATE_INPUT_MS)
       }
       assertEquals(first.state, second.state)
     }
     val unattended = game()
-    unattended.tick(unattended.state.endsAt)
+    unattended.tick(unattended.state.endsAt + OverdriveGame.LATE_INPUT_MS)
     assertIs<GameStatus.Lost>(unattended.status)
     assertEquals(0, unattended.state.clears)
   }
@@ -193,11 +220,11 @@ class OverdriveGameTest {
     val initial = game.state.dials.first().let { it.catchAt - it.launchAt }
     val partnerDeadline = game.state.dials.last().catchAt
     align(game, players.first())
-    game.tick(game.state.dials.first().catchAt)
+    game.tick(game.state.dials.first().catchAt + OverdriveGame.LATE_INPUT_MS)
     assertEquals(1, game.state.dials.first().matches)
     assertEquals(0, game.state.dials.last().matches)
     assertEquals(partnerDeadline, game.state.dials.last().catchAt)
-    game.tick(partnerDeadline)
+    game.tick(partnerDeadline + OverdriveGame.LATE_INPUT_MS)
     game.tick(game.state.nextWaveAt)
     assertEquals(1, game.state.misses)
     assertEquals(Pacing(Difficulty.NORMAL).flight(1), game.state.dials.first().let { it.catchAt - it.launchAt })

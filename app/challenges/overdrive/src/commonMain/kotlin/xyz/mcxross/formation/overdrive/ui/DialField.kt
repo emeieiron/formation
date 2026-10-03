@@ -88,10 +88,15 @@ internal fun DialField(dial: Dial, wave: Int, turns: Int, now: State<Long>, fx: 
             }
             drawCircle(Color.White, 7.dp.toPx(), pulse)
           }
+          // The ring starts the moment the pulse lands and takes its colour once the host settles the catch.
           val elapsed = time - dial.catchAt
-          if (dial.result != Catch.Pending && elapsed in 0..450) {
+          if (elapsed in 0..450) {
             val progress = elapsed / 450f
-            val color = (if (dial.result == Catch.Caught) Color.White else Symbol.Triangle.color).copy(alpha = 1f - progress)
+            val color = when (dial.result) {
+              Catch.Pending -> Color.White.copy(alpha = 0.6f)
+              Catch.Caught -> Color.White
+              Catch.Missed -> Symbol.Triangle.color
+            }.let { it.copy(alpha = it.alpha * (1f - progress)) }
             val radius = 10.dp.toPx() + progress * 34.dp.toPx()
             drawCircle(color, radius, Offset(at.x, hitY), style = Stroke(3.dp.toPx()))
             repeat(4) { index ->

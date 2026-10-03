@@ -44,7 +44,7 @@ internal fun OverdriveStage(scope: StageScope<OverdriveState, Rotate>) {
   }
   val ending by remember { derivedStateOf { ending(scope.state, now.value) } }
   var predicted by remember(scope.round, state.wave) { mutableIntStateOf(dial.turns) }
-  val turns = maxOf(dial.turns, predicted)
+  val turns = if (dial.result == Catch.Pending) maxOf(dial.turns, predicted) else dial.turns
 
   // A catch and the wave it completes can land in one frame; feel the wave, not both.
   OnChange(Progress(state.wave, dial.result, state.lastWave?.wave)) { old, new ->
@@ -92,7 +92,7 @@ internal fun OverdriveStage(scope: StageScope<OverdriveState, Rotate>) {
       val time = scope.clock.hostNow()
       if (time >= state.waveAt && time < dial.catchAt && dial.result == Catch.Pending) {
         predicted = maxOf(dial.turns, predicted) + 1
-        scope.send(Rotate(state.wave, predicted))
+        scope.send(Rotate(state.wave, predicted, time))
         scope.haptics.tick()
       }
     }, modifier = Modifier.fillMaxWidth().weight(1f))
