@@ -20,8 +20,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -30,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.components.BackHandler
 import xyz.mcxross.formation.design.components.BottomActions
@@ -153,21 +156,42 @@ private fun Phases(
   onLeave: () -> Unit,
   onDone: () -> Unit,
 ) {
+  val shown = rememberFinale(snapshot)
   AnimatedContent(
-    targetState = snapshot.stage::class.simpleName + snapshot.round,
+    targetState = shown.stage::class.simpleName + shown.round,
     transitionSpec = { (fadeIn(Motion.standard()) + slideInVertically(Motion.standard()) { it / 32 }) togetherWith fadeOut(Motion.exit()) },
     label = "phase",
   ) { _ ->
-    when (val stage = snapshot.stage) {
-      Stage.Lobby -> Lobby(session, snapshot, me, onLeave)
-      is Stage.Briefing -> Briefing(session, snapshot, stage, me, onLeave)
-      is Stage.Playing -> Play(session, snapshot, stage, me, onLeave)
-      is Stage.Won -> Won(session, snapshot, stage, me, onDone)
-      is Stage.Lost -> Lost(session, snapshot, stage, me, onLeave)
+    when (val stage = shown.stage) {
+      Stage.Lobby -> Lobby(session, shown, me, onLeave)
+      is Stage.Briefing -> Briefing(session, shown, stage, me, onLeave)
+      is Stage.Playing -> Play(session, shown, stage, me, onLeave)
+      is Stage.Won -> Won(session, shown, stage, me, onDone)
+      is Stage.Lost -> Lost(session, shown, stage, me, onLeave)
       is Stage.Closed -> Problem("The Formation ended", stage.reason, onBack = onDone)
     }
   }
 }
+
+// A round that just ended stays on its stage briefly so the game can play out its final moment.
+@Composable
+private fun rememberFinale(snapshot: SessionSnapshot): SessionSnapshot {
+  var playing by remember { mutableStateOf<SessionSnapshot?>(null) }
+  var released by remember { mutableIntStateOf(-1) }
+  val last = playing
+  val ending = last != null && last.round == snapshot.round && released != snapshot.round &&
+    (snapshot.stage is Stage.Won || snapshot.stage is Stage.Lost)
+  SideEffect { if (snapshot.stage is Stage.Playing) playing = snapshot }
+  if (ending) {
+    LaunchedEffect(snapshot.round) {
+      delay(FINALE_MS)
+      released = snapshot.round
+    }
+  }
+  return if (ending) last!! else snapshot
+}
+
+private const val FINALE_MS = 1_200L
 
 @Composable
 private fun Connecting(status: FormationClient.Status, onCancel: () -> Unit) {

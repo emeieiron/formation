@@ -1,6 +1,8 @@
 package xyz.mcxross.formation.ui.session
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
@@ -22,6 +24,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -30,6 +33,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
@@ -48,6 +53,7 @@ import xyz.mcxross.formation.design.foundation.Icon
 import xyz.mcxross.formation.design.foundation.Text
 import xyz.mcxross.formation.design.icons.Icons
 import xyz.mcxross.formation.design.tokens.Colors
+import xyz.mcxross.formation.design.tokens.Motion
 import xyz.mcxross.formation.design.tokens.Shapes
 import xyz.mcxross.formation.design.tokens.Space
 import xyz.mcxross.formation.design.tokens.Tone
@@ -78,7 +84,9 @@ internal fun Play(
   val c = Theme.colors
   val challenge = session.challenge
   val frame by session.client.frame.collectAsState()
-  val now by rememberHostNow(session.client.sync)
+  val now = rememberHostNow(session.client.sync)
+  val counting by remember(stage.goAt) { derivedStateOf { now.value < stage.goAt } }
+  val announcing by remember(stage.goAt) { derivedStateOf { now.value < stage.goAt + GO_MS } }
   val debug = graph.platform.config.debug
   val autoplay by graph.autoplay.collectAsState()
   if (challenge == null) {
@@ -116,19 +124,23 @@ internal fun Play(
         }
       }
     }
-    AnimatedVisibility(now < stage.goAt + 500, enter = fadeIn(), exit = fadeOut()) {
+    // The veil lifts at go so the first wave is visible from its launch; "Go" stays over the live stage.
+    AnimatedVisibility(announcing, enter = fadeIn(), exit = fadeOut(tween(Motion.FAST))) {
+      val veil by animateFloatAsState(if (counting) 1f else 0f, tween(Motion.FAST), label = "veil")
       Box(
-        Modifier.fillMaxSize().background(c.background.copy(alpha = 0.96f)),
+        Modifier.fillMaxSize().drawBehind { drawRect(c.background.copy(alpha = 0.96f * veil)) },
         contentAlignment = Alignment.Center,
       ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-          Text(
-            challenge.info.title.uppercase(),
-            style = Theme.type.overline,
-            color = c.light(challenge.info.light).color,
-          )
-          Spacer(Modifier.height(Space.s))
-          Text("Get ready", style = Theme.type.title2, color = c.contentSecondary)
+          Column(Modifier.graphicsLayer { alpha = veil }, horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+              challenge.info.title.uppercase(),
+              style = Theme.type.overline,
+              color = c.light(challenge.info.light).color,
+            )
+            Spacer(Modifier.height(Space.s))
+            Text("Get ready", style = Theme.type.title2, color = c.contentSecondary)
+          }
           Spacer(Modifier.height(Space.xl))
           Countdown(
             stage.goAt,
@@ -261,6 +273,7 @@ private fun <S : Any, I : Any> StageHost(
 }
 
 private const val AUTOPILOT_MS = 40L
+private const val GO_MS = 400L
 
 @Stable
 private class LiveStage<S : Any, I : Any>(

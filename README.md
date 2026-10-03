@@ -4,7 +4,11 @@ Formation is a local multiplayer Android app for unlocking shared SKR rewards on
 
 Play runs over a local network. Funding, unlocks and claims use Solana. Guests can connect a wallet before play or keep their entitlement on the phone and claim later.
 
-The current build contains the app framework and an empty game catalog. Prototype games have been removed. New formats integrate through the [game API](app/challenges/api/README.md).
+The first game is **Overdrive**, a cooperative reflex challenge for two phones. Each player sees their partner's target symbol and calls it out while rotating their own square to catch a pulse. Both catches complete a shared wave. The group needs 12 successful waves before the clock runs out (36 seconds on Easy down to 25 on Extreme); three failed waves end the attempt.
+
+Each successful wave makes both pulses fall 8% faster, so by the final wave they move about two and a half times as fast as the first. A failed wave keeps the pace. The pause between cleared waves shrinks as the group progresses.
+
+Prototype games remain removed. Overdrive uses the same [game API](app/challenges/api/README.md) available to future formats; its rules and stage are isolated from the app's session and reward flow.
 
 Saved claims and reward history remain available. An incomplete result from a removed format cannot resume sealing without that game installed; its saved record is retained.
 
@@ -53,6 +57,7 @@ Diagnostics stay on the device. The app records a bounded set of session, discov
 | `app/core/sensors` | Typed availability, shared acquisition, motion processing, haptics and emulator simulation |
 | `app/core/session` | Host/client protocol, signed admission, clock synchronization and sealing |
 | `app/challenges/api` | Game contracts, validated registration, and focused input/time helpers |
+| `app/challenges/overdrive` | Two-player rules, private clues, pacing and custom Compose stage |
 | `app/solana/vault` | Kotlin vault instructions, account decoding, RPC and SGT lookup |
 | `app/shared` | Compose screens, app coordination, settlement, saved completion and recovery |
 | `app/androidApp` | Android entry point, Mobile Wallet Adapter, Keystore storage and hotspot lifecycle |
@@ -88,7 +93,7 @@ scripts/emulators.sh link
 
 In Profile → Developer, enable **Pretend to be a Seeker** on the host. This option is limited to debug builds. Turn off **Solana ledger** and restart the app to use simulated rewards. A debug Seeker and a simulated ledger are separate settings: the former supplies a test host identity; the latter avoids chain transactions.
 
-After registering a game and configuring its development reward fixtures, host it from Home and join from another emulator's Nearby list. During play, the motion pad supplies debug input simulation. An optional game autopilot lets one tester exercise the group flow.
+Configure explicit development reward fixtures, host a game from Home and join from another emulator's Nearby list. The motion pad supplies debug sensor simulation when a game needs it. Overdrive uses touch; its test driver supplies the partner communication that normally comes from a second person.
 
 ### Verification
 
@@ -107,7 +112,17 @@ cargo test -p formation-vault
 
 After changing the program, copy `program/target/idl/formation_vault.json` to `program/formation-vault/idl/`. The Kotlin `IdlContractTest` checks the client against that interface.
 
-Two-emulator journeys require a registered game with duo support and an autopilot, plus explicit reward fixtures. From the repository root:
+Run Overdrive's two-emulator journey with the Android CLI, a JDK and two running emulators:
+
+```sh
+FORMATION_REWARDS="$PWD/scripts/fixtures/overdrive.json" \
+  scripts/e2e.py --title Overdrive --code 6 --chain simulated \
+  --layout android --driver overdrive
+```
+
+The driver reads each phone's visible partner clue and taps the other phone's dial. It exercises the actual game through sealing and simulated unlock. The fixture creates a 120 SKR test reward split equally between the two players; it does not fund an on-chain reward.
+
+Other duo games can use their optional autopilot with explicit reward fixtures:
 
 ```sh
 export FORMATION_REWARDS=/absolute/path/rewards.json
@@ -116,11 +131,11 @@ scripts/e2e.py --title "My game" --code 6 --chain localnet --wallet GUEST_WALLET
 scripts/e2e.py --title "My game" --code 6 --chain testnet --wallet connect --approve
 ```
 
-The journey hosts a duo, joins, plays through Autoplay, seals and unlocks. `--title` and `--code` identify the registered game; there is no default format. Simulated runs seed only the supplied fixtures. Chain runs can check the guest's token balance. `--offline` interrupts the host's network at unlock and checks recovery after relaunch.
+The journey hosts a duo, joins, plays, seals and unlocks. `--title` and `--code` identify the registered game; there is no default format. Simulated runs seed only the supplied fixtures. Chain runs can check the guest's token balance. `--offline` interrupts the host's network at unlock and checks recovery after relaunch.
 
-`--wallet connect` opens the guest's wallet flow. `--approve` taps its connection approval; otherwise the script waits for manual approval. It never enters a wallet password. The harness uses UI Automator and may fail to inspect animated screens; the current verification notes describe the layout adapter used for the completed emulator checks.
+`--wallet connect` opens the guest's wallet flow. `--approve` taps its connection approval; otherwise the script waits for manual approval. It never enters a wallet password. The default layout reader uses UI Automator. `--layout android` starts the Android CLI's instrumentation server and reuses its bundled protocol and serializer for fast, non-idle reads. Set `ANDROID_CLI_JAR` if its `main.jar` is installed outside `~/.android/cli/bundles`.
 
-See [verification results](docs/session-hardening-verification.md) for executed checks and remaining physical-device work. Emulator Autoplay verifies the session flow; it does not establish the quality of human play or physical-network reliability.
+See [session verification](docs/session-hardening-verification.md), [Overdrive verification](docs/overdrive-verification.md), and the [Overdrive plan](docs/overdrive-plan.md). Emulator automation verifies rules and the session flow; it does not establish the quality of human communication or physical-network reliability.
 
 ## Rewards and deployment
 

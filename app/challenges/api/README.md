@@ -1,6 +1,6 @@
 # Game integration
 
-Games supply rules, serializable state and inputs, metadata, and a Compose stage. The app owns discovery, admission, readiness, clocks, session lifecycle, sealing, and rewards. The catalog currently contains no games.
+Games supply rules, serializable state and inputs, metadata, and a Compose stage. The app owns discovery, admission, readiness, clocks, session lifecycle, sealing, and rewards. Overdrive is the first registered game; its rules and stage live in `challenges/overdrive`.
 
 ## Add a module
 
@@ -33,6 +33,8 @@ Rules run sequentially on the host. Use `setup.seed` for randomness and the supp
 The stage reads `scope.state` and sends `I` through `scope.send()`. Use `scope.sensors` for typed channels, `scope.motion` for processed pose and gestures, and `scope.clock` for host time. `rememberHostNow`, `rememberPose`, `OnGesture`, and `onTouchDown` are focused helpers; stage presentation remains under the game's control.
 
 Return `GameStatus.Won` or `GameStatus.Lost` to finish an attempt. The framework then handles the shared result, signatures, persistence, and settlement. A game does not construct reward transactions or manage claim keys.
+
+For asymmetric information, override `ChallengeGame.stateFor(player)` to remove that player's hidden answers. The host evaluates the full `state` but serializes each player's projected view separately, including the opening frame. The default shares the full state for games with no private information. Do not publish random seeds or future answers that reconstruct a hidden target.
 
 ## Declare sensor requirements
 
@@ -79,11 +81,13 @@ For the emulator journey or chain provisioning scripts, set `FORMATION_REWARDS` 
 
 `amount` is whole SKR; difficulty `0..3` corresponds to Easy, Normal, Hard, and Extreme. Use the ID and code assigned to the actual game. Local validator setup creates no rewards without a fixture file. Testnet reward creation requires one.
 
-After implementing duo support and an autopilot, run the existing journey with the game's visible title and code:
+After implementing duo support and an optional autopilot, run the journey with the game's visible title and code:
 
 ```sh
 FORMATION_REWARDS=/absolute/path/rewards.json \
   scripts/e2e.py --title "My game" --code 6 --chain simulated
 ```
 
-The journey explicitly seeds simulated rewards and restores prior emulator preferences afterward. Localnet uses the same fixture file. Testnet can use existing rewards or provision the configured fixtures. Human play, physical sensor quality, and network interruptions still need device testing.
+For asymmetric games, use an external driver that coordinates visible clues across the phones. Overdrive provides `--driver overdrive --layout android` and a fixture in `scripts/fixtures/overdrive.json`. A local autopilot should not receive hidden answers just to make a journey pass.
+
+The journey explicitly seeds simulated rewards and restores the ledger, wallet and reward-fixture preferences afterward. Localnet uses the same fixture file. Testnet can use existing rewards or provision the configured fixtures. Human play, physical sensor quality, and network interruptions still need device testing.

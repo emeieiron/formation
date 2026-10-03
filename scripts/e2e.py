@@ -3,6 +3,7 @@
 #
 #   scripts/e2e.py --title GAME_TITLE --code GAME_CODE [--chain simulated|localnet|testnet] [--wallet none|connect|ADDRESS]
 #                  [--seeker SERIAL] [--guest SERIAL] [--no-build] [--approve]
+#                  [--layout uiautomator|android] [--driver autoplay|overdrive]
 #
 # --wallet connect taps Connect in the guest's lobby and waits for the wallet app's approval; with
 # --approve it taps the wallet's own Connect button too (it never types a password). On chains, the
@@ -19,6 +20,8 @@ import uuid
 import xml.etree.ElementTree as ET
 from xml.sax.saxutils import escape, unescape
 from reward_fixtures import SKR, load_rewards
+from overdrive_driver import OverdriveFailed, play_overdrive
+from android_layout import LayoutUnavailable
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ADB = os.path.join(os.environ.get("ANDROID_HOME", os.path.expanduser("~/Library/Android/sdk")), "platform-tools", "adb")
@@ -40,8 +43,9 @@ def log(message):
 
 
 class Phone:
-    def __init__(self, serial, role):
+    def __init__(self, serial, role, layout="uiautomator"):
         self.serial, self.role = serial, role
+        self.layout = layout
 
     def adb(self, *args, check=True, text=True, stdin=None):
         out = subprocess.run([ADB, "-s", self.serial, *args], capture_output=True, text=text, input=stdin)
@@ -53,6 +57,9 @@ class Phone:
         return self.adb("shell", command)
 
     def nodes(self):
+        if self.layout == "android":
+            from android_layout import nodes
+            return nodes(self.serial)
         for _ in range(5):
             self.shell("rm -f /sdcard/formation-ui.xml; uiautomator dump /sdcard/formation-ui.xml >/dev/null 2>&1; true")
             xml = self.adb("shell", "cat /sdcard/formation-ui.xml", check=False)
@@ -88,6 +95,21 @@ class Phone:
 
     def visible(self, text, prefix=False):
         return self.find(text, prefix=prefix) is not None
+
+    def scroll_to(self, text):
+        for _ in range(6):
+            root = self.nodes()
+            node = self.find(text, root=root)
+            if node is not None:
+                return node
+            area = next((node for node in root.iter("node") if node.get("scrollable") == "true"), None)
+            if area is None:
+                break
+            left, top, right, bottom = bounds(area)
+            x, height = (left + right) // 2, bottom - top
+            self.shell(f"input swipe {x} {top + height * 3 // 4} {x} {top + height // 4} 400")
+            time.sleep(0.2)
+        return self.wait(text, timeout=10)
 
     def screenshot(self, name):
         os.makedirs(OUT, exist_ok=True)
@@ -262,6 +284,8 @@ def main():
     parser.add_argument("--approve", action="store_true")
     parser.add_argument("--keep-chain", action="store_true", help="leave the local validator running afterwards")
     parser.add_argument("--offline", action="store_true", help="the Seeker loses its connection at unlock and recovers after a restart")
+    parser.add_argument("--layout", choices=["uiautomator", "android"], default="uiautomator")
+    parser.add_argument("--driver", choices=["autoplay", "overdrive"], default="autoplay")
     args = parser.parse_args()
     if not args.title.strip() or not 6 <= args.code <= 65535:
         parser.error("Use a nonempty game title and a vault code within 6..65535")
@@ -272,8 +296,8 @@ def main():
     running = re.findall(r"^(emulator-\d+)\s+device$", subprocess.run([ADB, "devices"], capture_output=True, text=True).stdout, re.M)
     if len(running) < 2 and not (args.seeker and args.guest):
         sys.exit("Start two emulators first")
-    seeker = Phone(args.seeker or running[0], "seeker")
-    guest = Phone(args.guest or running[1], "guest")
+    seeker = Phone(args.seeker or running[0], "seeker", args.layout)
+    guest = Phone(args.guest or running[1], "guest", args.layout)
     title, code = args.title, args.code
     validator = None
     saved = None
@@ -335,7 +359,8 @@ def main():
         log("guest: looking for the Formation nearby")
         guest.wait(host_name, timeout=60)
         guest.tap_text("Join")
-        guest.wait("YOUR SHARE IF YOU UNLOCK IT", timeout=20)
+        guest.wait("Waiting for host", timeout=20)
+        guest.scroll_to("YOUR SHARE IF YOU UNLOCK IT")
         if args.wallet == "connect":
             guest.tap_text("Connect")
             approve_wallet(guest, args.approve)
@@ -348,10 +373,13 @@ def main():
         seeker.tap_text("Begin", timeout=30)
         for phone in (seeker, guest):
             phone.tap_text("I'm ready", timeout=20)
-        for phone in (seeker, guest):
-            phone.tap(phone.wait(desc="Motion pad", timeout=20))
-            phone.tap_text("Autoplay", timeout=10)
-        log("playing on autoplay")
+        if args.driver == "overdrive":
+            play_overdrive(seeker, guest, log)
+        else:
+            for phone in (seeker, guest):
+                phone.tap(phone.wait(desc="Motion pad", timeout=20))
+                phone.tap_text("Autoplay", timeout=10)
+            log("playing on autoplay")
         unlock = seeker.wait(r"Unlock [\d,.]+ SKR", prefix="regex", timeout=240)
         if args.offline:
             offline_unlock(seeker, guest, unlock)
@@ -363,9 +391,9 @@ def main():
         if chain_wallet:
             guest.wait("It's in your wallet", prefix=True, timeout=60)
         else:
-            guest.wait("YOU EARNED", timeout=60)
+            guest.scroll_to("YOU EARNED")
         finish(args, seeker, guest, chain_wallet, before)
-    except Failed as e:
+    except (Failed, OverdriveFailed, LayoutUnavailable) as e:
         for phone in (seeker, guest):
             phone.screenshot("failed")
         log(f"FAIL: {e} (screens in {os.path.relpath(OUT, ROOT)})")

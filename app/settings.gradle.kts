@@ -44,6 +44,8 @@ include(":core:session")
 
 include(":challenges:api")
 
+include(":challenges:overdrive")
+
 include(":solana:vault")
 
 include(":shared")

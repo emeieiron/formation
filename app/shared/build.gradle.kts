@@ -23,6 +23,7 @@ kotlin {
       implementation(projects.core.link)
 
       api(projects.challenges.api)
+      implementation(projects.challenges.overdrive)
 
       implementation(projects.solana.vault)
 
