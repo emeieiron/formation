@@ -59,7 +59,7 @@ internal class OverdriveGame(setup: ChallengeSetup) : ChallengeGame<OverdriveSta
     val dials = state.dials.mapIndexed { index, dial ->
       val launch = at + index * pacing.stagger(wave)
       dial.copy(clue = targets[index], nextClue = next[index], launchAt = launch,
-        catchAt = launch + pacing.flight(dial.matches), result = Catch.Pending)
+        catchAt = launch + pacing.flight(state.clears), result = Catch.Pending)
     }
     state = state.copy(dials = dials, wave = wave, waveAt = at,
       nextWaveAt = dials.maxOf { it.catchAt } + pacing.reset(true, state.clears), preview = wave > 8)
@@ -75,9 +75,7 @@ internal class OverdriveGame(setup: ChallengeSetup) : ChallengeGame<OverdriveSta
     while (status == GameStatus.Running) {
       state = state.copy(dials = state.dials.map { dial ->
         if (dial.result == Catch.Pending && settled >= dial.catchAt && dial.catchAt <= state.endsAt) {
-          val matched = dial.facing() == dial.clue
-          dial.copy(result = if (matched) Catch.Caught else Catch.Missed,
-            matches = dial.matches + if (matched) 1 else 0)
+          dial.copy(result = if (dial.facing() == dial.clue) Catch.Caught else Catch.Missed)
         } else dial
       })
       if (state.dials.all { it.result != Catch.Pending } && state.lastWave?.wave != state.wave) {

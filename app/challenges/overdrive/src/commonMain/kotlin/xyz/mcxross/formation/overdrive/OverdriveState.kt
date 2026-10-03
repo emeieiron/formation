@@ -19,7 +19,6 @@ data class Dial(
   val player: PlayerId,
   val edges: List<Symbol>,
   val turns: Int = 0,
-  val matches: Int = 0,
   val clue: Symbol? = null,
   val nextClue: Symbol? = null,
   val launchAt: Long,

@@ -4,9 +4,9 @@ Formation is a local multiplayer Android app for unlocking shared SKR rewards on
 
 Play runs over a local network. Funding, unlocks and claims use Solana. Guests can connect a wallet before play or keep their entitlement on the phone and claim later.
 
-The first game is **Overdrive**, a cooperative reflex challenge for two phones. Each player sees their partner's target symbol and calls it out while rotating their own square to catch a pulse. Both catches complete a shared wave. The group needs 12 successful waves before the clock runs out (46 seconds on Easy down to 31 on Extreme); three failed waves end the attempt.
+The first game is **Overdrive**, a cooperative reflex challenge for two phones. Each player sees their partner's target symbol and calls it out while rotating their own square to catch a pulse. Both catches complete a shared wave. The group needs 12 successful waves before the clock runs out (36 seconds on Easy down to 25 on Extreme); three failed waves end the attempt.
 
-Each correct shape catch makes that player's next pulse faster, with the largest steps near the finish. An incorrect catch leaves their speed unchanged, and the partner keeps their own pace. The pause between cleared waves shrinks as the group progresses.
+Each successful wave makes both pulses fall 8% faster, so by the final wave they move about two and a half times as fast as the first. A failed wave keeps the pace. The pause between cleared waves shrinks as the group progresses.
 
 Prototype games remain removed. Overdrive uses the same [game API](app/challenges/api/README.md) available to future formats; its rules and stage are isolated from the app's session and reward flow.
 

@@ -29,7 +29,7 @@ object Overdrive : Challenge<OverdriveState, Rotate>() {
     senses = listOf(Sense.Touch, Sense.Timing, Sense.Voice),
     players = 2..2,
   )
-  override val formatVersion = 2
+  override val formatVersion = 3
   override val stateSerializer = OverdriveState.serializer()
   override val inputSerializer = Rotate.serializer()
   override fun newGame(setup: ChallengeSetup): ChallengeGame<OverdriveState, Rotate> = OverdriveGame(setup)

@@ -178,16 +178,11 @@ class OverdriveGameTest {
   }
 
   @Test
-  fun eachCorrectShapeMatchSpeedsUpTheNextPulseMostTowardTheFinish() {
+  fun everyClearedWaveSpeedsUpTheNextPulse() {
     Difficulty.entries.forEach { difficulty ->
-      val pacing = Pacing(difficulty)
-      val flights = (0..13).map(pacing::flight)
-      val ramp = flights.take(12)
-      ramp.zipWithNext().forEach { (earlier, later) -> assertTrue(later < earlier) }
-      ramp.zipWithNext { earlier, later -> (earlier - later).toDouble() / earlier }.zipWithNext()
-        .forEach { (sooner, later) -> assertTrue(later > sooner) }
-      assertEquals(flights.first() / 2, flights[11])
-      assertEquals(flights[11], flights[13])
+      val flights = (0..11).map(Pacing(difficulty)::flight)
+      flights.zipWithNext().forEach { (earlier, later) -> assertTrue(later <= earlier * 0.92) }
+      assertTrue(flights.first().toDouble() / flights.last() >= 2.5)
     }
   }
 
@@ -215,20 +210,24 @@ class OverdriveGameTest {
   }
 
   @Test
-  fun onlyTheMatchingPlayersNextPulseSpeedsUpAndDeadlinesRemainConsistent() {
+  fun aClearedWaveSpeedsUpBothPulsesAndAFailedWaveKeepsThePace() {
+    val pacing = Pacing(Difficulty.NORMAL)
     val game = game()
-    val initial = game.state.dials.first().let { it.catchAt - it.launchAt }
+    fun falls() = game.state.dials.map { it.catchAt - it.launchAt }
+    assertEquals(List(2) { pacing.flight(0) }, falls())
     val partnerDeadline = game.state.dials.last().catchAt
     align(game, players.first())
     game.tick(game.state.dials.first().catchAt + OverdriveGame.LATE_INPUT_MS)
-    assertEquals(1, game.state.dials.first().matches)
-    assertEquals(0, game.state.dials.last().matches)
     assertEquals(partnerDeadline, game.state.dials.last().catchAt)
     game.tick(partnerDeadline + OverdriveGame.LATE_INPUT_MS)
     game.tick(game.state.nextWaveAt)
     assertEquals(1, game.state.misses)
-    assertEquals(Pacing(Difficulty.NORMAL).flight(1), game.state.dials.first().let { it.catchAt - it.launchAt })
-    assertEquals(initial, game.state.dials.last().let { it.catchAt - it.launchAt })
+    assertEquals(List(2) { pacing.flight(0) }, falls())
+    players.forEach { align(game, it) }
+    game.tick(game.state.dials.maxOf { it.catchAt } + OverdriveGame.LATE_INPUT_MS)
+    game.tick(game.state.nextWaveAt)
+    assertEquals(1, game.state.clears)
+    assertEquals(List(2) { pacing.flight(1) }, falls())
     game.state.dials.forEach { dial ->
       assertEquals(0f, dial.progress(dial.launchAt - 1))
       assertEquals(1f, dial.progress(dial.catchAt))

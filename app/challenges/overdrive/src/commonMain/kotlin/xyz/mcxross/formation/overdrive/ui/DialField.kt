@@ -94,12 +94,12 @@ internal fun DialField(dial: Dial, wave: Int, turns: Int, now: State<Long>, fx: 
 
           val time = now.value
           if (time in dial.launchAt until dial.catchAt) {
-            val pulse = Offset(at.x, startY + (hitY - startY) * dial.progress(time))
-            repeat(5) { index ->
-              drawCircle(Color.White.copy(alpha = 0.10f * (5 - index)),
-                (5 - index).dp.toPx(), pulse - Offset(0f, (index + 1) * 5.dp.toPx()))
+            // The trail traces where the ball was moments ago, so it stretches as every cleared wave speeds it up.
+            repeat(TRAIL) { index ->
+              val past = startY + (hitY - startY) * dial.progress(time - (index + 1) * TRAIL_STEP_MS)
+              drawCircle(Color.White.copy(alpha = 0.34f * (TRAIL - index) / TRAIL), (6f - index * 0.7f).dp.toPx(), Offset(at.x, past))
             }
-            drawCircle(Color.White, 7.dp.toPx(), pulse)
+            drawCircle(Color.White, 7.dp.toPx(), Offset(at.x, startY + (hitY - startY) * dial.progress(time)))
           }
           // The ring starts the moment the pulse lands and takes its colour once the host settles the catch.
           val elapsed = time - dial.catchAt
@@ -122,3 +122,6 @@ internal fun DialField(dial: Dial, wave: Int, turns: Int, now: State<Long>, fx: 
     ParticleLayer(fx.particles, Modifier.fillMaxSize())
   }
 }
+
+private const val TRAIL = 6
+private const val TRAIL_STEP_MS = 28L
