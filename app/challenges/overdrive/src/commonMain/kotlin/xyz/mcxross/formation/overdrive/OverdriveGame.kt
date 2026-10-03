@@ -29,7 +29,7 @@ internal class OverdriveGame(setup: ChallengeSetup) : ChallengeGame<OverdriveSta
         launchAt = setup.startAt, catchAt = setup.startAt)
     }
     state = OverdriveState(dials, 1, setup.startAt, setup.startAt,
-      setup.startAt + OverdriveState.LIMIT_MS)
+      startAt = setup.startAt, endsAt = setup.startAt + pacing.limit)
     schedule(1, setup.startAt, dials.map { it.clue!! }, dials.map { it.nextClue!! })
   }
 
@@ -60,7 +60,7 @@ internal class OverdriveGame(setup: ChallengeSetup) : ChallengeGame<OverdriveSta
         catchAt = launch + pacing.flight(dial.matches), result = Catch.Pending)
     }
     state = state.copy(dials = dials, wave = wave, waveAt = at,
-      nextWaveAt = dials.maxOf { it.catchAt } + pacing.reset(true), preview = wave > 8)
+      nextWaveAt = dials.maxOf { it.catchAt } + pacing.reset(true, state.clears), preview = wave > 8)
   }
 
   private fun advance(now: Long) {
@@ -78,16 +78,15 @@ internal class OverdriveGame(setup: ChallengeSetup) : ChallengeGame<OverdriveSta
       if (state.dials.all { it.result != Catch.Pending } && state.lastWave?.wave != state.wave) {
         val cleared = state.dials.all { it.result == Catch.Caught }
         val at = state.dials.maxOf { it.catchAt }
-        state = state.copy(clears = state.clears + if (cleared) 1 else 0,
-          misses = state.misses + if (cleared) 0 else 1,
-          nextWaveAt = at + pacing.reset(cleared), lastWave = WaveResult(state.wave, at, cleared))
+        val clears = state.clears + if (cleared) 1 else 0
+        state = state.copy(clears = clears, misses = state.misses + if (cleared) 0 else 1,
+          nextWaveAt = at + pacing.reset(cleared, clears), lastWave = WaveResult(state.wave, at, cleared))
         if (state.clears == OverdriveState.REQUIRED_WAVES) {
-          status = GameStatus.Won("Overdrive complete", listOf(
-            Stat("Waves", "${state.clears}"), Stat("Misses", "${state.misses}")))
+          status = GameStatus.Won("Overdrive complete", stats(finishedAt = at))
           return
         }
         if (state.misses == OverdriveState.MAX_MISSES) {
-          status = GameStatus.Lost("The formation missed three waves.")
+          status = GameStatus.Lost("The formation missed three waves.", stats = stats())
           return
         }
       }
@@ -95,6 +94,12 @@ internal class OverdriveGame(setup: ChallengeSetup) : ChallengeGame<OverdriveSta
       val targets = state.dials.map { it.nextClue!! }
       schedule(state.wave + 1, state.nextWaveAt, targets, targets.map(::nextSymbol))
     }
-    if (now >= state.endsAt) status = GameStatus.Lost("The formation ran out of time.")
+    if (now >= state.endsAt) status = GameStatus.Lost("The formation ran out of time.", stats = stats())
+  }
+
+  private fun stats(finishedAt: Long? = null): List<Stat> {
+    val stats = listOf(Stat("Waves", "${state.clears}/${OverdriveState.REQUIRED_WAVES}"), Stat("Misses", "${state.misses}"))
+    val left = finishedAt?.let { state.endsAt - it } ?: return stats
+    return stats + Stat("Time left", "${left / 1_000}.${left % 1_000 / 100}s")
   }
 }

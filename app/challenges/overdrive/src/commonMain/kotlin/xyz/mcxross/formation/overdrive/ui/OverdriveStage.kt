@@ -31,7 +31,7 @@ internal fun OverdriveStage(scope: StageScope<OverdriveState, Rotate>) {
   val player = scope.player(partner.player) ?: return
   val now = rememberHostNow(scope.clock)
   val seconds by remember(state.endsAt, now) {
-    derivedStateOf { ((state.endsAt - now.value + 999).coerceAtLeast(0) / 1_000).toInt().coerceAtMost(60) }
+    derivedStateOf { ((state.endsAt - maxOf(now.value, state.startAt) + 999).coerceAtLeast(0) / 1_000).toInt() }
   }
   var predicted by remember(scope.round, state.wave) { mutableIntStateOf(dial.turns) }
   val turns = maxOf(dial.turns, predicted)

@@ -10,6 +10,7 @@ import xyz.mcxross.formation.model.Difficulty
 import xyz.mcxross.formation.model.PlayerId
 import xyz.mcxross.formation.session.ChallengeSetup
 import xyz.mcxross.formation.session.GameStatus
+import xyz.mcxross.formation.session.Stat
 
 class OverdriveGameTest {
   private val players = listOf(PlayerId("a"), PlayerId("b"))
@@ -20,6 +21,19 @@ class OverdriveGameTest {
     while (game.state.dial(player).facing() != game.state.dial(player).clue) {
       game.input(player, Rotate(game.state.wave, game.state.dial(player).turns + 1), now)
     }
+  }
+
+  private fun play(difficulty: Difficulty, failed: Set<Int>): OverdriveGame {
+    val game = game(difficulty)
+    while (game.status == GameStatus.Running) {
+      if (game.state.wave in failed) {
+        val dial = game.state.dials.first()
+        if (dial.facing() == dial.clue) game.input(dial.player, Rotate(game.state.wave, dial.turns + 1), game.state.waveAt)
+      } else players.forEach { align(game, it) }
+      game.tick(game.state.dials.maxOf { it.catchAt })
+      game.tick(game.state.nextWaveAt)
+    }
+    return game
   }
 
   @Test
@@ -43,7 +57,7 @@ class OverdriveGameTest {
       assertEquals(index + 1, game.state.misses)
       assertEquals(0, game.state.clears)
     }
-    assertIs<GameStatus.Lost>(game.status)
+    assertEquals(listOf(Stat("Waves", "0/12"), Stat("Misses", "3")), assertIs<GameStatus.Lost>(game.status).stats)
     val terminal = game.state
     game.input(players.first(), Rotate(game.state.wave, game.state.dials.first().turns + 1), game.state.nextWaveAt)
     game.tick(Long.MAX_VALUE)
@@ -137,14 +151,39 @@ class OverdriveGameTest {
   }
 
   @Test
-  fun eachCorrectShapeMatchMakesTheNextPulseFasterAtEveryDifficulty() {
+  fun eachCorrectShapeMatchSpeedsUpTheNextPulseMostTowardTheFinish() {
     Difficulty.entries.forEach { difficulty ->
       val pacing = Pacing(difficulty)
       val flights = (0..13).map(pacing::flight)
-      flights.zipWithNext().forEach { (earlier, later) ->
-        assertTrue(later < earlier)
-      }
+      val ramp = flights.take(12)
+      ramp.zipWithNext().forEach { (earlier, later) -> assertTrue(later < earlier) }
+      ramp.zipWithNext { earlier, later -> (earlier - later).toDouble() / earlier }.zipWithNext()
+        .forEach { (sooner, later) -> assertTrue(later > sooner) }
       assertEquals(flights.first() / 2, flights[11])
+      assertEquals(flights[11], flights[13])
+    }
+  }
+
+  @Test
+  fun gapsAfterClearedWavesShrinkAsTheGroupProgresses() {
+    val pacing = Pacing(Difficulty.NORMAL)
+    val gaps = (0..11).map { pacing.reset(true, it) }
+    gaps.zipWithNext().forEach { (earlier, later) -> assertTrue(later <= earlier) }
+    assertEquals(650, gaps.first())
+    assertEquals(350, gaps.last())
+    assertEquals(900, pacing.reset(false, 6))
+  }
+
+  @Test
+  fun theClockAllowsOneEarlyFailedWaveButNotTwo() {
+    Difficulty.entries.forEach { difficulty ->
+      val clean = assertIs<GameStatus.Won>(play(difficulty, failed = emptySet()).status)
+      assertEquals(listOf("Waves", "Misses", "Time left"), clean.stats.map { it.label })
+      assertEquals(Stat("Waves", "12/12"), clean.stats.first())
+      assertIs<GameStatus.Won>(play(difficulty, failed = setOf(1)).status)
+      val late = assertIs<GameStatus.Lost>(play(difficulty, failed = setOf(1, 2)).status)
+      assertEquals("The formation ran out of time.", late.reason)
+      assertEquals(Stat("Misses", "2"), late.stats.last())
     }
   }
 
@@ -161,7 +200,7 @@ class OverdriveGameTest {
     game.tick(partnerDeadline)
     game.tick(game.state.nextWaveAt)
     assertEquals(1, game.state.misses)
-    assertEquals(initial * 11 / 12, game.state.dials.first().let { it.catchAt - it.launchAt })
+    assertEquals(Pacing(Difficulty.NORMAL).flight(1), game.state.dials.first().let { it.catchAt - it.launchAt })
     assertEquals(initial, game.state.dials.last().let { it.catchAt - it.launchAt })
     game.state.dials.forEach { dial ->
       assertEquals(0f, dial.progress(dial.launchAt - 1))

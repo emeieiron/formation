@@ -5,10 +5,10 @@ Overdrive is a cooperative reflex game for exactly two phones. Each player calls
 ## Rules and presentation
 
 - Register `overdrive` with vault code `6` and format version `1`. Retired games remain retired.
-- Complete 12 successful waves within 60 seconds. Three failed waves end the attempt. A failed pair consumes one shared miss, even if both players miss.
+- Complete 12 successful waves within the difficulty's limit: 46, 41, 36, or 31 seconds from Easy to Extreme. A clean run keeps about five seconds spare; two early failed waves run out the clock. Three failed waves end the attempt. A failed pair consumes one shared miss, even if both players miss.
 - Each dial has triangle, circle, cross, and diamond edges. Colour reinforces each symbol rather than replacing it. Each phone's edge order is fixed for the attempt.
 - The first four waves stagger arrivals. Later waves overlap arrivals; after eight waves, the partner's next clue is also previewed.
-- Every correct shape catch increases that player's next pulse speed, including a catch whose partner missed. Eleven correct catches double that phone's starting speed. An incorrect shape and elapsed time do not increase speed. Both catches are still required to score a shared wave. Catch deadlines stay fixed during each fall, and the stage renders progress against those deadlines.
+- Every correct shape catch increases that player's next pulse speed, including a catch whose partner missed. Eleven correct catches halve the opening fall in equal steps, so the relative speed-up grows toward the finish. The pause after a cleared wave shrinks from 650 to 350 ms. An incorrect shape and elapsed time do not increase speed. Both catches are still required to score a shared wave. Catch deadlines stay fixed during each fall, and the stage renders progress against those deadlines.
 - The host owns seeded targets, catch deadlines, rotation acceptance, results, and the clock. Typed rotation commands carry a wave and sequence; stale, duplicate, early, late, and unknown-player inputs cannot alter a catch.
 - A player receives their own dial and timing, but only the other player's target. Hidden answers are omitted from that player's transmitted state. This protects asymmetric information from ordinary client inspection; it does not attest gameplay or hardware.
 - Prediction animates a local quarter-turn immediately. Host acknowledgement reconciles the dial. A failed wave has a short reset, and the shared outcome has no individual blame.

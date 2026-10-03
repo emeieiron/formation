@@ -42,6 +42,7 @@ data class OverdriveState(
   val wave: Int,
   val waveAt: Long,
   val nextWaveAt: Long,
+  val startAt: Long,
   val endsAt: Long,
   val clears: Int = 0,
   val misses: Int = 0,
@@ -54,7 +55,6 @@ data class OverdriveState(
   companion object {
     const val REQUIRED_WAVES = 12
     const val MAX_MISSES = 3
-    const val LIMIT_MS = 60_000L
   }
 }
 
