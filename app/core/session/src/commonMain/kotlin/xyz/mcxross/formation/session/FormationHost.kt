@@ -48,7 +48,7 @@ class FormationHost(
   private var game: HostedGame<*, *>? = null
   private var frameSeq = 0L
   private var lastState: String? = null
-  private var lastFrame: String? = null
+  private val lastFrames = mutableMapOf<PlayerId, String>()
   private var latencyDirty = false
   private var latencyPublishedAt = 0L
   private var reportedStage: DiagnosticCode? = null
@@ -289,7 +289,7 @@ class FormationHost(
   private fun welcome(conn: HostConnection, seat: Seat) {
     conn.send(encode(ToPlayer.Welcome(seat.id)))
     publish()
-    lastFrame?.takeIf { stage is Stage.Playing }?.let(conn::send)
+    lastFrames[seat.id]?.takeIf { stage is Stage.Playing }?.let(conn::send)
   }
 
   private fun reject(conn: HostConnection, reason: Rejection) {
@@ -368,7 +368,7 @@ class FormationHost(
     game = HostedGame.start(rules, setup, json)
     frameSeq = 0
     lastState = null
-    lastFrame = null
+    lastFrames.clear()
     stage = Stage.Playing(goAt, roster)
     publish()
     pushFrame()
@@ -463,9 +463,12 @@ class FormationHost(
     val text = state.toString()
     if (text == lastState) return
     lastState = text
-    val frame = encode(ToPlayer.Frame(round, ++frameSeq, state))
-    lastFrame = frame
-    broadcast(frame)
+    val sequence = ++frameSeq
+    seats.forEach { seat ->
+      val frame = encode(ToPlayer.Frame(round, sequence, running.stateFor(seat.id)))
+      lastFrames[seat.id] = frame
+      seat.conn?.send(frame)
+    }
   }
 
   private fun publish() {

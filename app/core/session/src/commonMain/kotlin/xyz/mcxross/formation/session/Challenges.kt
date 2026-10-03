@@ -33,6 +33,8 @@ interface ChallengeGame<S : Any, I : Any> {
   val state: S
   val status: GameStatus
 
+  fun stateFor(player: PlayerId): S = state
+
   fun input(from: PlayerId, input: I, now: Long)
 
   fun tick(now: Long)

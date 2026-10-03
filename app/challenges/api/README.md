@@ -34,6 +34,8 @@ The stage reads `scope.state` and sends `I` through `scope.send()`. Use `scope.s
 
 Return `GameStatus.Won` or `GameStatus.Lost` to finish an attempt. The framework then handles the shared result, signatures, persistence, and settlement. A game does not construct reward transactions or manage claim keys.
 
+For asymmetric information, override `ChallengeGame.stateFor(player)` to remove that player's hidden answers. The host evaluates the full `state` but serializes each player's projected view separately, including the opening frame. The default shares the full state for games with no private information. Do not publish random seeds or future answers that reconstruct a hidden target.
+
 ## Declare sensor requirements
 
 `requiredSensors(players)` returns typed `SensorRequirement` values. The framework prepares them and gates play on usable readings. For example:

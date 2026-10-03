@@ -86,6 +86,41 @@ class FormationSessionTest {
   private fun tap(wrong: Boolean = false) = buildJsonObject { put("wrong", JsonPrimitive(wrong)) }
 
   @Test
+  fun openingAndUpdatedFramesUseEachPlayersView() = runTest {
+    val privateRules = object : ChallengeRules<TapChallenge.State, TapChallenge.Tap> by TapChallenge {
+      override fun newGame(setup: ChallengeSetup): ChallengeGame<TapChallenge.State, TapChallenge.Tap> {
+        val game = TapChallenge.newGame(setup)
+        return object : ChallengeGame<TapChallenge.State, TapChallenge.Tap> by game {
+          override fun stateFor(player: xyz.mcxross.formation.model.PlayerId) =
+            game.state.copy(taps = game.state.taps.filterKeys { it != player.value })
+        }
+      }
+    }
+    val f = Formation(this, privateRules)
+    val phones = listOf(f.join("Aaron", seeker = true), f.join("Maya"), f.join("Kofi"))
+    runCurrent()
+    f.host.begin()
+    runCurrent()
+    phones.forEach { it.ready(true) }
+    runCurrent()
+
+    fun checkFrames(expected: Int) {
+      phones.forEach { phone ->
+        val state = FormationJson.decodeFromJsonElement(TapChallenge.stateSerializer, phone.frame.value!!.state)
+        assertEquals(2, state.taps.size)
+        assertTrue(phone.me.value!!.value !in state.taps)
+        assertTrue(state.taps.values.all { it == expected })
+      }
+    }
+    checkFrames(0)
+    val playing = assertIs<Stage.Playing>(f.stage)
+    advanceTimeBy(playing.goAt - testScheduler.currentTime + 1)
+    phones.forEach { it.play(tap()) }
+    runCurrent()
+    checkFrames(1)
+  }
+
+  @Test
   fun aFullFormationPlaysWinsSealsAndUnlocks() = runTest {
     val f = Formation(this)
     val aaron = f.join("Aaron", seeker = true)

@@ -23,6 +23,9 @@ internal class HostedGame<S : Any, I : Any>(
 
   fun state(): JsonElement = json.encodeToJsonElement(rules.stateSerializer, game.state)
 
+  fun stateFor(player: PlayerId): JsonElement =
+    json.encodeToJsonElement(rules.stateSerializer, game.stateFor(player))
+
   fun activeCapabilities(player: PlayerId, players: Int) = rules.activeCapabilities(game.state, player, players)
 
   companion object {
