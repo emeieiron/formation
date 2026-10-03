@@ -1,9 +1,7 @@
 package xyz.mcxross.formation.overdrive
 
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,6 +18,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.input.pointer.changedToDown
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -37,9 +36,23 @@ import xyz.mcxross.formation.design.effects.ParticleLayer
 internal fun DialField(dial: Dial, wave: Int, turns: Int, now: State<Long>, fx: StageFx,
   onRotate: () -> Unit, modifier: Modifier = Modifier) {
   val handler by rememberUpdatedState(onRotate)
-  val rotation = animateFloatAsState(turns * 90f, tween(130, easing = FastOutSlowInEasing), label = "dial")
+  // A stiff spring keeps its momentum when quick taps retarget it, so the dial never lags behind.
+  val rotation = animateFloatAsState(turns * 90f, spring(dampingRatio = 0.75f, stiffness = 2_200f), label = "dial")
   Box(modifier) {
-    Spacer(Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures(onPress = { handler() }) }
+    // Every finger that lands is a turn, so players can drum with two fingers.
+    Spacer(Modifier.fillMaxSize()
+      .pointerInput(Unit) {
+        awaitPointerEventScope {
+          while (true) {
+            awaitPointerEvent().changes.forEach { change ->
+              if (change.changedToDown()) {
+                change.consume()
+                handler()
+              }
+            }
+          }
+        }
+      }
       .semantics {
         role = Role.Button
         contentDescription = "Rotate clockwise. Top: ${dial.facing(turns).label}. Clockwise edges: ${dial.edges.joinToString { it.label }}"
