@@ -99,7 +99,7 @@ internal class OverdriveGame(setup: ChallengeSetup) : ChallengeGame<OverdriveSta
 
   private fun stats(finishedAt: Long? = null): List<Stat> {
     val stats = listOf(Stat("Waves", "${state.clears}/${OverdriveState.REQUIRED_WAVES}"), Stat("Misses", "${state.misses}"))
-    val left = finishedAt?.let { state.endsAt - it } ?: return stats
-    return stats + Stat("Time left", "${left / 1_000}.${left % 1_000 / 100}s")
+    val tenths = finishedAt?.let { (state.endsAt - it + 99) / 100 } ?: return stats
+    return stats + Stat("Time left", "${tenths / 10}.${tenths % 10}s")
   }
 }

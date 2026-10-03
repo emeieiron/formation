@@ -9,6 +9,10 @@ interface Haptics {
 
   fun heavy()
 
+  fun success() = confirm()
+
+  fun heartbeat() = tick()
+
   companion object {
     val None: Haptics =
       object : Haptics {

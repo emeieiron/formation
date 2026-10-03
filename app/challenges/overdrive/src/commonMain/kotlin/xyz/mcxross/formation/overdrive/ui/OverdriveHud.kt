@@ -1,5 +1,8 @@
 package xyz.mcxross.formation.overdrive
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -8,12 +11,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -21,8 +27,26 @@ import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.foundation.Text
 
 @Composable
-internal fun OverdriveHud(state: OverdriveState, seconds: Int) {
+internal fun OverdriveHud(state: OverdriveState, tenths: Int) {
   val colors = Theme.colors
+  val lost = remember { Animatable(1f) }
+  val glow = remember { Animatable(0f) }
+  val beat = remember { Animatable(1f) }
+  val urgent = tenths <= URGENT_TENTHS
+  OnChange(state.misses) { _, _ ->
+    lost.snapTo(0f)
+    lost.animateTo(1f, tween(500))
+  }
+  OnChange(state.clears) { _, _ ->
+    glow.snapTo(1f)
+    glow.animateTo(0f, tween(500))
+  }
+  OnChange((tenths + 9) / 10) { _, seconds ->
+    if (seconds in 1..URGENT_TENTHS / 10) {
+      beat.snapTo(1.22f)
+      beat.animateTo(1f, spring(dampingRatio = 0.5f, stiffness = 600f))
+    }
+  }
   Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
       horizontalArrangement = Arrangement.SpaceBetween) {
@@ -30,13 +54,21 @@ internal fun OverdriveHud(state: OverdriveState, seconds: Int) {
       Canvas(Modifier.size(58.dp, 18.dp).semantics {
         contentDescription = "${OverdriveState.MAX_MISSES - state.misses} shared misses remaining"
       }) {
+        val left = OverdriveState.MAX_MISSES - state.misses
         repeat(3) { index ->
           val at = Offset(size.width * (index + 0.5f) / 3f, center.y)
-          if (index < OverdriveState.MAX_MISSES - state.misses) drawCircle(colors.content, 4.dp.toPx(), at)
+          if (index < left) drawCircle(colors.content, 4.dp.toPx(), at)
           else drawCircle(colors.lineStrong, 4.dp.toPx(), at, style = Stroke(1.dp.toPx()))
+          if (index == left && lost.value < 1f) {
+            drawCircle(colors.negative.copy(alpha = 1f - lost.value), (4f + 8f * lost.value).dp.toPx(), at)
+          }
         }
       }
-      Text("${(seconds / 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}", style = Theme.type.numeral)
+      Text(clock(tenths), style = Theme.type.numeral, color = if (urgent) colors.negative else colors.content,
+        modifier = Modifier.graphicsLayer {
+          scaleX = beat.value
+          scaleY = beat.value
+        })
     }
     Canvas(Modifier.fillMaxWidth().height(5.dp).semantics {
       contentDescription = "${state.clears} of 12 waves complete"
@@ -44,9 +76,21 @@ internal fun OverdriveHud(state: OverdriveState, seconds: Int) {
       val gap = 3.dp.toPx()
       val width = (size.width - gap * 11) / 12
       repeat(12) { index ->
-        drawRoundRect(if (index < state.clears) colors.accent else colors.line,
-          Offset(index * (width + gap), 0f), Size(width, size.height), CornerRadius(1.dp.toPx()))
+        val at = Offset(index * (width + gap), 0f)
+        drawRoundRect(if (index < state.clears) colors.accent else colors.line, at, Size(width, size.height),
+          CornerRadius(1.dp.toPx()))
+        if (index == state.clears - 1 && glow.value > 0f) {
+          drawRoundRect(Color.White.copy(alpha = glow.value), at, Size(width, size.height), CornerRadius(1.dp.toPx()))
+        }
       }
     }
   }
 }
+
+private fun clock(tenths: Int): String {
+  if (tenths <= URGENT_TENTHS) return "${tenths / 10}.${tenths % 10}"
+  val seconds = (tenths + 9) / 10
+  return "${(seconds / 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}"
+}
+
+internal const val URGENT_TENTHS = 100

@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 
@@ -26,25 +27,29 @@ internal fun SymbolGlyph(symbol: Symbol, modifier: Modifier = Modifier) {
   }
 }
 
-internal fun DrawScope.drawSymbol(symbol: Symbol, at: Offset, radius: Float, color: Color) {
-  when (symbol) {
-    Symbol.Circle -> drawCircle(color, radius, at)
-    Symbol.Cross -> {
-      val inset = radius * 0.7f
-      drawLine(color, at + Offset(-inset, -inset), at + Offset(inset, inset),
-        radius * 0.45f, StrokeCap.Square)
-      drawLine(color, at + Offset(-inset, inset), at + Offset(inset, -inset),
-        radius * 0.45f, StrokeCap.Square)
+internal fun DrawScope.drawSymbol(symbol: Symbol, at: Offset, radius: Float, color: Color) =
+  with(SymbolShapes(radius)) { draw(symbol, at, color) }
+
+internal class SymbolShapes(private val radius: Float) {
+  private val triangle = outline(listOf(Offset(0f, -radius), Offset(radius, radius * 0.8f), Offset(-radius, radius * 0.8f)))
+  private val diamond = outline(listOf(Offset(0f, -radius), Offset(radius, 0f), Offset(0f, radius), Offset(-radius, 0f)))
+
+  fun DrawScope.draw(symbol: Symbol, at: Offset, color: Color) {
+    when (symbol) {
+      Symbol.Circle -> drawCircle(color, radius, at)
+      Symbol.Cross -> {
+        val inset = radius * 0.7f
+        drawLine(color, at + Offset(-inset, -inset), at + Offset(inset, inset), radius * 0.45f, StrokeCap.Square)
+        drawLine(color, at + Offset(-inset, inset), at + Offset(inset, -inset), radius * 0.45f, StrokeCap.Square)
+      }
+      Symbol.Triangle -> translate(at.x, at.y) { drawPath(triangle, color) }
+      Symbol.Diamond -> translate(at.x, at.y) { drawPath(diamond, color) }
     }
-    Symbol.Triangle, Symbol.Diamond -> {
-      val points = if (symbol == Symbol.Triangle) listOf(
-        Offset(0f, -radius), Offset(radius, radius * 0.8f), Offset(-radius, radius * 0.8f),
-      ) else listOf(Offset(0f, -radius), Offset(radius, 0f), Offset(0f, radius), Offset(-radius, 0f))
-      drawPath(Path().apply {
-        moveTo(at.x + points.first().x, at.y + points.first().y)
-        points.drop(1).forEach { lineTo(at.x + it.x, at.y + it.y) }
-        close()
-      }, color)
-    }
+  }
+
+  private fun outline(points: List<Offset>) = Path().apply {
+    moveTo(points.first().x, points.first().y)
+    points.drop(1).forEach { lineTo(it.x, it.y) }
+    close()
   }
 }
