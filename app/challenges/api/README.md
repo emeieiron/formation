@@ -81,11 +81,13 @@ For the emulator journey or chain provisioning scripts, set `FORMATION_REWARDS` 
 
 `amount` is whole SKR; difficulty `0..3` corresponds to Easy, Normal, Hard, and Extreme. Use the ID and code assigned to the actual game. Local validator setup creates no rewards without a fixture file. Testnet reward creation requires one.
 
-After implementing duo support and an autopilot, run the existing journey with the game's visible title and code:
+After implementing duo support and an optional autopilot, run the journey with the game's visible title and code:
 
 ```sh
 FORMATION_REWARDS=/absolute/path/rewards.json \
   scripts/e2e.py --title "My game" --code 6 --chain simulated
 ```
 
-The journey explicitly seeds simulated rewards and restores prior emulator preferences afterward. Localnet uses the same fixture file. Testnet can use existing rewards or provision the configured fixtures. Human play, physical sensor quality, and network interruptions still need device testing.
+For asymmetric games, use an external driver that coordinates visible clues across the phones. Overdrive provides `--driver overdrive --layout android` and a fixture in `scripts/fixtures/overdrive.json`. A local autopilot should not receive hidden answers just to make a journey pass.
+
+The journey explicitly seeds simulated rewards and restores the ledger, wallet and reward-fixture preferences afterward. Localnet uses the same fixture file. Testnet can use existing rewards or provision the configured fixtures. Human play, physical sensor quality, and network interruptions still need device testing.
