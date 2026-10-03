@@ -27,7 +27,8 @@ internal fun PartnerClue(player: PlayerView, dial: Dial, wave: Int, preview: Boo
   val colors = Theme.colors
   Row(Modifier.fillMaxWidth().border(1.dp, colors.lineStrong, RoundedCornerShape(8.dp))
     .clearAndSetSemantics {
-      contentDescription = "Wave $wave. Clue for ${player.name}: ${symbol.label}"
+      contentDescription = "Wave $wave. Clue for ${player.name}: ${symbol.label}" +
+        if (preview && dial.nextClue != null) ". Next: ${dial.nextClue.label}" else ""
     }.padding(16.dp), verticalAlignment = Alignment.CenterVertically,
     horizontalArrangement = Arrangement.spacedBy(12.dp)) {
     PlayerLight(player.name, player.light, size = 40.dp)

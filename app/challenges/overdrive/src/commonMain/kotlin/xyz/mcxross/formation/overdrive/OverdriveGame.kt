@@ -56,8 +56,9 @@ internal class OverdriveGame(setup: ChallengeSetup) : ChallengeGame<OverdriveSta
   private fun schedule(wave: Int, at: Long, targets: List<Symbol>, next: List<Symbol>) {
     val dials = state.dials.mapIndexed { index, dial ->
       val launch = at + index * pacing.stagger(wave)
+      val flight = pacing.flight(launch - (state.endsAt - OverdriveState.LIMIT_MS))
       dial.copy(clue = targets[index], nextClue = next[index], launchAt = launch,
-        catchAt = launch + pacing.flight(wave), result = Catch.Pending)
+        catchAt = launch + flight.duration, acceleration = flight.acceleration, result = Catch.Pending)
     }
     state = state.copy(dials = dials, wave = wave, waveAt = at,
       nextWaveAt = dials.maxOf { it.catchAt } + pacing.reset(true), preview = wave > 8)

@@ -35,8 +35,8 @@ internal fun DialField(dial: Dial, wave: Int, turns: Int, now: State<Long>,
   Canvas(modifier.pointerInput(Unit) { detectTapGestures(onPress = { handler() }) }
     .semantics {
       role = Role.Button
-      contentDescription = "Rotate clockwise"
-      stateDescription = "Wave $wave. Top: ${dial.facing(turns).label}. Turns: $turns. Edges: ${dial.edges.joinToString { it.label }}"
+      contentDescription = "Rotate clockwise. Top: ${dial.facing(turns).label}. Clockwise edges: ${dial.edges.joinToString { it.label }}"
+      stateDescription = "Wave $wave"
       onClick("Rotate clockwise") { handler(); true }
     }) {
     val half = minOf(size.width * 0.39f, size.height * 0.33f)
@@ -64,7 +64,7 @@ internal fun DialField(dial: Dial, wave: Int, turns: Int, now: State<Long>,
     val time = now.value
     val startY = 16.dp.toPx()
     val hitY = at.y - half - 8.dp.toPx()
-    val fraction = ((time - dial.launchAt).toFloat() / (dial.catchAt - dial.launchAt)).coerceIn(0f, 1f)
+    val fraction = dial.progress(time)
     if (time in dial.launchAt until dial.catchAt) {
       val pulse = Offset(at.x, startY + (hitY - startY) * fraction)
       repeat(5) { index ->

@@ -135,4 +135,31 @@ class OverdriveGameTest {
     assertIs<GameStatus.Lost>(unattended.status)
     assertEquals(0, unattended.state.clears)
   }
+
+  @Test
+  fun lessRemainingTimeMakesPulsesFasterAtEveryDifficulty() {
+    Difficulty.entries.forEach { difficulty ->
+      val pacing = Pacing(difficulty)
+      val flights = listOf(0L, 15_000L, 30_000L, 45_000L, 60_000L).map(pacing::flight)
+      flights.zipWithNext().forEach { (earlier, later) ->
+        assertTrue(later.duration < earlier.duration)
+      }
+      assertTrue(flights.last().duration > flights.first().duration / 2 - 50)
+    }
+  }
+
+  @Test
+  fun visiblePulsesAccelerateAndArriveAtTheAuthoritativeDeadline() {
+    val game = game()
+    game.state.dials.forEach { dial ->
+      val quarter = (dial.catchAt - dial.launchAt) / 4
+      val firstDistance = dial.progress(dial.launchAt + quarter)
+      val lastDistance = 1f - dial.progress(dial.catchAt - quarter)
+      assertTrue(lastDistance > firstDistance)
+      assertEquals(0f, dial.progress(dial.launchAt - 1))
+      assertEquals(1f, dial.progress(dial.catchAt))
+      assertTrue(dial.progress(dial.catchAt - 1) < 1f)
+      assertEquals(1f, dial.progress(dial.catchAt + 1_000))
+    }
+  }
 }

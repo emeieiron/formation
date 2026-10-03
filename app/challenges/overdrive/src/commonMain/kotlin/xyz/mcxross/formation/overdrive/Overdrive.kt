@@ -21,10 +21,10 @@ object Overdrive : Challenge<OverdriveState, Rotate>() {
     summary = "Your phone shows your partner's symbol. Call it out while they guide your catch.",
     steps = listOf(
       Step(Icons.Target, "Call the symbol beside your partner's name."),
-      Step(Icons.Rotate, "Tap to rotate your square. Catch with the symbol they call."),
+      Step(Icons.Refresh, "Tap to rotate your square. Catch with the symbol they call."),
       Step(Icons.Bolt, "Complete 12 waves together. Three missed waves end the attempt."),
     ),
-    icon = Icons.Rotate,
+    icon = Icons.Refresh,
     light = 0,
     senses = listOf(Sense.Touch, Sense.Timing, Sense.Voice),
     players = 2..2,

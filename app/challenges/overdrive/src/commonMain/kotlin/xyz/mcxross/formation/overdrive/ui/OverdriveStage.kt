@@ -57,7 +57,7 @@ internal fun OverdriveStage(scope: StageScope<OverdriveState, Rotate>) {
     }, modifier = Modifier.fillMaxWidth().weight(1f))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally)) {
       Icon(Icons.Tap, "Tap the playfield", tint = Theme.colors.contentSecondary, size = 28.dp)
-      Icon(Icons.Rotate, "Rotate clockwise", tint = Theme.colors.contentSecondary, size = 28.dp)
+      Icon(Icons.Refresh, "Rotate clockwise", tint = Theme.colors.contentSecondary, size = 28.dp)
     }
   }
 }
