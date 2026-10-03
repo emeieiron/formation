@@ -1,6 +1,6 @@
 # Game integration
 
-Games supply rules, serializable state and inputs, metadata, and a Compose stage. The app owns discovery, admission, readiness, clocks, session lifecycle, sealing, and rewards. The catalog currently contains no games.
+Games supply rules, serializable state and inputs, metadata, and a Compose stage. The app owns discovery, admission, readiness, clocks, session lifecycle, sealing, and rewards. Overdrive is the first registered game; its rules and stage live in `challenges/overdrive`.
 
 ## Add a module
 
