@@ -28,6 +28,8 @@ Registration supplies ID lookup, vault-code lookup, player-count checks, and adv
 
 Implement `newGame(setup)`, `stateSerializer`, `inputSerializer`, `goal(players, difficulty)`, and `Stage(scope)` on the entry point. Role descriptions and debug `autopilot()` are optional.
 
+Override `introduction: (@Composable () -> Unit)?` for a brief interactive explanation in the existing briefing. Its default is `null`, which retains the metadata's normal instructions. Keep preview state local: it must not submit gameplay inputs, score a result, or add a readiness step. Ricochet uses this slot to demonstrate paddle aiming with its shared reflection rules.
+
 Rules run sequentially on the host. Use `setup.seed` for randomness and the supplied `now` for timing. Keep sensor access, UI, networking, and wall-clock reads outside the rules. This makes outcomes reproducible in focused rule tests.
 
 The stage reads `scope.state` and sends `I` through `scope.send()`. Use `scope.sensors` for typed channels, `scope.motion` for processed pose and gestures, and `scope.clock` for host time. `rememberHostNow`, `rememberPose`, `OnGesture`, and `onTouchDown` are focused helpers; stage presentation remains under the game's control.
@@ -94,4 +96,4 @@ For asymmetric games, use an external driver that coordinates visible clues acro
 
 Ricochet provides public-state debug assistance and `scripts/fixtures/ricochet.json`, registered with code `7`. Use `--driver manual` to prepare a duo and operate its controls yourself. The default autoplay driver closes the debug control panel before capturing the playfields; assisted play retains its visible tag.
 
-The journey explicitly seeds simulated rewards and restores the ledger, wallet and reward-fixture preferences afterward. Localnet uses the same fixture file. Testnet can use existing rewards or provision the configured fixtures. Human play, physical sensor quality, and network interruptions still need device testing.
+The journey defaults to testnet; `--chain simulated` explicitly selects an isolated simulation. Localnet and simulation use the supplied fixture file. Testnet uses an open reward or provisions the configured fixtures through the existing test authority. Chain runs verify the configured mint, committed roster, confirmed signatures, and exact token changes for paid shares. Test tokens do not represent mainnet SKR value. The journey restores ledger, wallet, and reward-fixture preferences afterward. Human play, physical sensor quality, and network interruptions still need device testing.

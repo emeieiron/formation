@@ -33,3 +33,7 @@ Inspect the deployed vault/configuration and test funding before making changes.
 - Aiming can be explored in the briefing without a new readiness or network protocol step. Existing games keep their briefing instructions.
 - Both emulator halves remain readable and complete through ordinary commands. Chain verification records the network, mint, vault, confirmed transactions, and payout amounts.
 - Automated completion establishes reachability. Human pacing, physical Wi-Fi, and speaker/haptic feel remain separate checks.
+
+## Completion
+
+The rules, presentation, introduction slot, release ledger guard, and chain verification are implemented in separate logical commits. The [verification record](ricochet-escalation-verification.md) contains executed checks, emulator observations, exact confirmed testnet payouts, and remaining physical-device work. The [game roadmap](ricochet-plan.md#roadmap) tracks the current follow-up work.

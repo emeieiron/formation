@@ -39,11 +39,15 @@ Ricochet is a cooperative game for two phones. Each phone renders one half of a 
 - [x] Repeatable two-emulator demo and documented verification.
 - [x] Capped rally acceleration and close-call events in format version 2.
 - [x] Impact audio, momentum readout, and last-life feedback using the shared playback policy.
+- [x] Stronger difficulty curve in format version 3: 12% acceleration, a 1.9× cap, faster serves, and difficulty-specific deadlines.
+- [x] Cooperative charge that pierces one target, with visible and audible arming and impact cues.
+- [x] Interactive aiming introduction in the existing briefing, through the optional game API slot.
+- [x] Testnet demo and exact chain payout verification; simulation requires explicit debug selection.
 - [ ] Physical-device playtest: controls, reaction windows, bezel continuity, and differently sized screens.
 - [ ] Measure Wi-Fi latency and interruption behaviour; tune prediction and contact tolerances from observations.
 - [ ] Tune target layouts and difficulty from human play rather than autopilot success alone.
-- [ ] Playtest the 8% acceleration and 1.5× cap with two people; assess sound/haptic feel on physical phones.
-- [ ] Evaluate a charged pulse, armoured targets, or one predictable moving target as separate experiments.
+- [ ] Playtest the 12% acceleration, 1.9× cap, and charged return with two people; assess sound/haptic feel on physical phones.
+- [ ] Evaluate armoured targets or one predictable moving target as separate experiments.
 - [ ] Consider optional tilt controls with a touch fallback through the sensor module.
 
 Additional players, multiple pulses, and competitive modes are outside the first implementation. They change attention, arena layout, or reward semantics and need separate design work.
@@ -56,4 +60,6 @@ Thirteen focused tests cover rules, presentation boundaries, 32 seeded completio
 
 The [implementation guide](ricochet.md) records shipped behaviour and module boundaries. The [verification record](ricochet-verification.md) distinguishes executed checks from the physical-device work still on the roadmap.
 
-The [pressure pass](ricochet-pressure-plan.md) upgrades Ricochet to format version 2 with deterministic rally acceleration and modular impact/danger feedback. Its [verification record](ricochet-pressure-verification.md) covers the current build. The original scope and first verification above describe format version 1.
+The [pressure pass](ricochet-pressure-plan.md) upgraded Ricochet to format version 2 with deterministic rally acceleration and modular impact/danger feedback. Its [verification record](ricochet-pressure-verification.md) describes that version. The original scope and first verification above describe format version 1.
+
+The [escalation pass](ricochet-escalation-plan.md) upgrades Ricochet to format version 3 with stronger pacing, a cooperative charged pulse, an interactive aiming introduction, and testnet settlement verification. Its [verification record](ricochet-escalation-verification.md) covers the current build.

@@ -11,7 +11,9 @@ The [project overview](../README.md) explains the app, architecture, builds, and
 | [Ricochet plan and roadmap](ricochet-plan.md) | Scope, commit phases, acceptance criteria, and remaining work |
 | [Ricochet verification](ricochet-verification.md) | Executed checks, screenshots, and verification limits |
 | [Ricochet pressure pass](ricochet-pressure-plan.md) | Rally acceleration, feedback scope, and logical commits |
-| [Ricochet pressure verification](ricochet-pressure-verification.md) | Current format 2 checks, playback observations, and compact layout |
+| [Ricochet pressure verification](ricochet-pressure-verification.md) | Format 2 checks, playback observations, and compact layout |
+| [Ricochet escalation plan](ricochet-escalation-plan.md) | Format 3 pacing, charged return, aiming introduction, and testnet scope |
+| [Ricochet escalation verification](ricochet-escalation-verification.md) | Current checks, screenshots, and exact confirmed testnet payouts |
 | [Overdrive plan](overdrive-plan.md) | Cooperative symbol-calling rules and implementation phases |
 | [Overdrive verification](overdrive-verification.md) | Rule checks and two-phone execution |
 

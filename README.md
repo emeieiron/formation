@@ -7,7 +7,7 @@ Play runs over a local network. Funding, unlocks and claims use Solana. Guests c
 The app includes two cooperative games:
 
 - **Overdrive:** each player sees their partner's target symbol and calls it out while rotating their own square to catch a pulse. Both catches complete a shared wave. The group needs 12 successful waves before the clock runs out (36 seconds on Easy down to 25 on Extreme); three failed waves end the attempt.
-- **Ricochet:** two phones show halves of one arena. Each player moves an outer paddle to keep a shared pulse in play and aim it at six targets. Alternating catches build speed up to 1.5×; a miss resets momentum. Clear the arena within 60 seconds; three missed returns end the attempt. Touch controls work on emulators without sensors. See [the implementation and demo](docs/ricochet.md).
+- **Ricochet:** two phones show halves of one arena. Each player moves an outer paddle to keep a shared pulse in play and aim it at six targets. Alternating catches build speed up to 1.9×; two exchanges charge a return that pierces one target. Deadlines range from 60 seconds on Easy to 40 on Extreme, with three shared misses. An interactive briefing introduces aiming. Touch controls work on emulators without sensors. See [the implementation and demo](docs/ricochet.md).
 
 In Overdrive, each successful wave makes both pulses fall 8% faster, so by the final wave they move about two and a half times as fast as the first. A failed wave keeps the pace. The pause between cleared waves shrinks as the group progresses.
 
@@ -95,7 +95,7 @@ scripts/emulators.sh install
 scripts/emulators.sh link
 ```
 
-In Profile → Developer, enable **Pretend to be a Seeker** on the host. This option is limited to debug builds. Turn off **Solana ledger** and restart the app to use simulated rewards. A debug Seeker and a simulated ledger are separate settings: the former supplies a test host identity; the latter avoids chain transactions.
+In Profile → Developer, enable **Pretend to be a Seeker** on the host. This option is limited to debug builds. A debug Seeker supplies a test host identity and signs with its own claim key; it can still submit real testnet transactions. Solana is the default ledger. Turn off **Solana ledger** explicitly for isolated simulation; release builds ignore a saved simulated-ledger preference.
 
 Configure explicit development reward fixtures, host a game from Home and join from another emulator's Nearby list. The motion pad supplies debug sensor simulation when a game needs it. Overdrive uses touch; its test driver supplies the partner communication that normally comes from a second person.
 
@@ -126,15 +126,17 @@ FORMATION_REWARDS="$PWD/scripts/fixtures/overdrive.json" \
 
 The driver reads each phone's visible partner clue and taps the other phone's dial. It exercises the actual game through sealing and simulated unlock. The fixture creates a 120 SKR test reward split equally between the two players; it does not fund an on-chain reward.
 
-Other duo games can use their optional autopilot with explicit reward fixtures:
+Ricochet's two-emulator journey uses testnet and its optional autopilot:
 
 ```sh
 FORMATION_REWARDS="$PWD/scripts/fixtures/ricochet.json" \
-  python3 scripts/e2e.py --title Ricochet --code 7 --chain simulated \
+  python3 scripts/e2e.py --title Ricochet --code 7 --chain testnet \
   --layout android
 ```
 
-Append `--driver manual` to operate Ricochet's paddles yourself. Its default debug assistance sends normal inputs and is visibly marked **AUTOPLAY**. The [verification record](docs/ricochet-verification.md) includes the actual two-emulator stage and compact-layout screenshots.
+Testnet is the journey's default chain. It uses an open reward or provisions the explicit fixture through the configured test authority. Complete the [testnet setup](#testnet) first. These are real chain transactions with test tokens, which have no mainnet SKR value. Add `--wallet ADDRESS` to bind the guest payout; otherwise its share remains reserved for a later claim. Add `--chain simulated` for an isolated run without transactions.
+
+Append `--driver manual` to operate Ricochet's paddles yourself. Its debug assistance sends normal inputs and is visibly marked **AUTOPLAY**. The [format 3 verification](docs/ricochet-escalation-verification.md) records the aiming introduction, charged pulse, compact display, and confirmed testnet payouts.
 
 For other registered formats and chain configurations:
 
@@ -145,7 +147,7 @@ scripts/e2e.py --title "My game" --code 6 --chain localnet --wallet GUEST_WALLET
 scripts/e2e.py --title "My game" --code 6 --chain testnet --wallet connect --approve
 ```
 
-The journey hosts a duo, joins, plays, seals and unlocks. `--title` and `--code` identify the registered game; there is no default format. Simulated runs seed only the supplied fixtures. Chain runs can check the guest's token balance. `--offline` interrupts the host's network at unlock and checks recovery after relaunch.
+The journey hosts a duo, joins, plays, seals and unlocks. `--title` and `--code` identify the registered game; there is no default format. Simulated runs seed only the supplied fixtures. Chain runs verify the configured mint, unlocked vault, committed roster, confirmed transaction signatures, and exact token changes for paid shares. They save public verification records under `program/target/e2e`. `--offline` interrupts the host's network at unlock and checks recovery after relaunch.
 
 `--wallet connect` opens the guest's wallet flow. `--approve` taps its connection approval; otherwise the script waits for manual approval. It never enters a wallet password. The default layout reader uses UI Automator. `--layout android` starts the Android CLI's instrumentation server and reuses its bundled protocol and serializer for fast, non-idle reads. Set `ANDROID_CLI_JAR` if its `main.jar` is installed outside `~/.android/cli/bundles`.
 
