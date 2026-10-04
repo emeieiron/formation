@@ -55,6 +55,16 @@ jobs:
           ./gradlew
           iosSimulatorArm64Test
           :shared:compileKotlinIosSimulatorArm64
+      # The Xcode project builds the shared framework through Gradle in its own build phase.
+      - name: Build the iOS simulator application
+        run: >-
+          xcodebuild
+          -project iosApp/iosApp.xcodeproj
+          -scheme iosApp
+          -sdk iphonesimulator
+          -configuration Debug
+          CODE_SIGNING_ALLOWED=NO
+          build
 
   program:
     runs-on: ubuntu-latest

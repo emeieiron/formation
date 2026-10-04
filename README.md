@@ -176,9 +176,9 @@ For testnet rewards, provision the linked wallet with `scripts/testnet.py seeker
 
 ## Releasing the Android app
 
-[Verify](.github/workflows/verify.yml) runs on every push to `main` and on pull requests: host tests, release lint and a debug build; shared iOS tests; the vault program build and tests; dependency review; and a secret scan.
+[Verify](.github/workflows/verify.yml) runs on every push to `main` and on pull requests: host tests, release lint and a debug build; shared iOS tests and the Xcode simulator build; the vault program build and tests; dependency review; and a secret scan.
 
-[Release Android](.github/workflows/release-android.yml) runs when a `v1.2.3` tag on `main` is pushed. It tests, builds an APK signed with the release key, checks the certificate, version and that it isn't debuggable, attests its provenance and publishes a GitHub Release with `formation-android.apk`, a versioned copy and `SHA256SUMS`. The tag sets the version: `v1.2.3` builds versionName `1.2.3` and versionCode `10203`.
+[Release Android](.github/workflows/release-android.yml) runs when a `v1.2.3` tag on `main` is pushed. It tests, builds an APK signed with the release key, checks the certificate, version and that it isn't debuggable, attests its provenance and publishes a GitHub Release with `formation-android.apk`, a versioned copy, `SHA256SUMS` and the R8 mapping that turns a release crash's obfuscated stack trace back into source lines (`retrace mapping-1.2.3.txt stacktrace.txt`). Running the workflow by hand rehearses the same build and checks with a throwaway key and uploads the APK as a run artifact, without publishing. The tag sets the version: `v1.2.3` builds versionName `1.2.3` and versionCode `10203`.
 
 One-time setup, in a GitHub environment named `android-release` limited to `v*` tags with a required reviewer:
 
@@ -206,7 +206,7 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
-Locally, `./gradlew :androidApp:assembleRelease` in `app` builds an unsigned release. Signed builds take `-PformationKeystoreFile`, `-PformationKeystorePassword`, `-PformationKeyAlias` and `-PformationKeyPassword`, and refuse a non-HTTPS `formation.rpcUrl` or a local cluster.
+Release builds are shrunk and obfuscated by R8; keep rules for code reached only by reflection go in `app/androidApp/proguard-rules.pro`. Locally, `./gradlew :androidApp:assembleRelease` in `app` builds an unsigned release. Signed builds take `-PformationKeystoreFile`, `-PformationKeystorePassword`, `-PformationKeyAlias` and `-PformationKeyPassword`, and refuse a non-HTTPS `formation.rpcUrl` or a local cluster.
 
 ## Trust boundaries
 

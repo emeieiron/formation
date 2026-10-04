@@ -3,10 +3,14 @@ name: Release Android
 # Push a tag like v1.2.3 from main to build, sign and publish the Android APK for direct download.
 # Signing secrets live in the android-release environment, which only v* tags can use and which
 # waits for approval before each run.
+#
+# Run it by hand (Actions → Release Android → Run workflow) to rehearse the same build and checks
+# with a throwaway signing key. A rehearsal publishes nothing; it uploads the APK as a run artifact.
 
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -17,6 +21,7 @@ concurrency:
 
 jobs:
   release:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     environment: android-release
@@ -69,57 +74,17 @@ jobs:
           echo "Cluster: $FORMATION_CLUSTER"
           echo "RPC: $FORMATION_RPC_URL"
 
-      # The Gradle daemon pins Azul JDK 21 (app/gradle/gradle-daemon-jvm.properties).
-      - uses: actions/setup-java@v4
+      - uses: ./.github/actions/build-release-apk
         with:
-          distribution: zulu
-          java-version: "21"
-      - uses: gradle/actions/setup-gradle@v4
-
-      - name: Test
-        working-directory: app
-        run: ./gradlew testAndroidHostTest :androidApp:lintRelease
-
-      - name: Build the signed APK
-        working-directory: app
-        env:
-          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
-          ORG_GRADLE_PROJECT_formationKeystorePassword: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ORG_GRADLE_PROJECT_formationKeyAlias: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ORG_GRADLE_PROJECT_formationKeyPassword: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: |
-          keystore="$RUNNER_TEMP/formation-release.keystore"
-          echo "$KEYSTORE_B64" | base64 --decode > "$keystore"
-          ./gradlew :androidApp:assembleRelease \
-            -PformationKeystoreFile="$keystore" \
-            -Pformation.cluster="$FORMATION_CLUSTER" \
-            -Pformation.rpcUrl="$FORMATION_RPC_URL" \
-            -PformationVersionName="${{ steps.version.outputs.name }}" \
-            -PformationVersionCode="${{ steps.version.outputs.code }}"
-          rm -f "$keystore"
-
-      - name: Check the APK before it ships
-        run: |
-          apk=app/androidApp/build/outputs/apk/release/androidApp-release.apk
-          tools="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
-          "$tools/apksigner" verify --print-certs "$apk" > signers.txt
-          cert=$(grep -m1 "certificate SHA-256 digest" signers.txt | awk '{print $NF}')
-          if [[ "$cert" != "$EXPECTED_CERT_SHA256" ]]; then
-            echo "::error::Signed with $cert, expected $EXPECTED_CERT_SHA256"; exit 1
-          fi
-          "$tools/aapt2" dump badging "$apk" > badging.txt
-          grep -q "versionName='${{ steps.version.outputs.name }}'" badging.txt \
-            && grep -q "versionCode='${{ steps.version.outputs.code }}'" badging.txt \
-            || { echo "::error::Version mismatch"; exit 1; }
-          if grep -q "application-debuggable" badging.txt; then
-            echo "::error::The release APK is debuggable"; exit 1
-          fi
-          mkdir dist
-          cp "$apk" "dist/formation-${{ steps.version.outputs.name }}.apk"
-          # A stable name, so /releases/latest/download/formation-android.apk always serves the newest.
-          cp "$apk" dist/formation-android.apk
-          (cd dist && sha256sum *.apk > SHA256SUMS)
-          cat dist/SHA256SUMS
+          version-name: ${{ steps.version.outputs.name }}
+          version-code: ${{ steps.version.outputs.code }}
+          cluster: ${{ env.FORMATION_CLUSTER }}
+          rpc-url: ${{ env.FORMATION_RPC_URL }}
+          expected-cert-sha256: ${{ env.EXPECTED_CERT_SHA256 }}
+          keystore-b64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          keystore-password: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          key-alias: ${{ secrets.ANDROID_KEY_ALIAS }}
+          key-password: ${{ secrets.ANDROID_KEY_PASSWORD }}
 
       - name: Attest where the APK came from
         uses: actions/attest-build-provenance@v2
@@ -148,3 +113,40 @@ jobs:
             --notes-file notes.md \
             --generate-notes \
             --verify-tag
+
+  rehearse:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Make a throwaway signing key
+        id: key
+        run: |
+          keystore="$RUNNER_TEMP/rehearsal.keystore"
+          keytool -genkeypair -keystore "$keystore" -storepass rehearsal -keypass rehearsal -alias rehearsal \
+            -keyalg RSA -keysize 2048 -validity 1 -dname "CN=Formation rehearsal" -noprompt
+          cert=$(keytool -list -v -keystore "$keystore" -storepass rehearsal -alias rehearsal \
+            | awk '/SHA256:/ {print $2}' | tr -d ':' | tr 'A-F' 'a-f')
+          echo "cert=$cert" >> "$GITHUB_OUTPUT"
+          echo "keystore=$(base64 -w0 "$keystore")" >> "$GITHUB_OUTPUT"
+          rm -f "$keystore"
+
+      - uses: ./.github/actions/build-release-apk
+        with:
+          version-name: 0.0.${{ github.run_number }}
+          version-code: ${{ github.run_number }}
+          cluster: ${{ vars.FORMATION_CLUSTER || 'testnet' }}
+          rpc-url: ${{ vars.FORMATION_RPC_URL || 'https://api.testnet.solana.com' }}
+          expected-cert-sha256: ${{ steps.key.outputs.cert }}
+          keystore-b64: ${{ steps.key.outputs.keystore }}
+          keystore-password: rehearsal
+          key-alias: rehearsal
+          key-password: rehearsal
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: formation-rehearsal-${{ github.run_number }}
+          path: dist/
+          retention-days: 7
