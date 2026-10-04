@@ -1,13 +1,20 @@
 package xyz.mcxross.formation.link
 
+import java.net.InetAddress
+import java.net.ServerSocket
+import java.net.Socket
+import java.security.MessageDigest
+import java.util.Base64
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 
@@ -44,6 +51,28 @@ class KtorLinkTest {
       link.send("bye")
       assertTrue(served.await().isNotBlank())
     }
+  }
+
+  @Test
+  fun incomingEndsWhenTheServerVanishesWithoutClosing() = runBlocking {
+    withTimeout(20_000) {
+      ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { listener ->
+        launch(Dispatchers.IO) { listener.accept().use { hangUpAfterHello(it) } }
+        val link = WebSocketConnector(client).connect(HostAddress("127.0.0.1", listener.localPort))
+        assertEquals(listOf("hello"), link.incoming.toList())
+      }
+    }
+  }
+
+  private fun hangUpAfterHello(socket: Socket) {
+    val request = socket.getInputStream().bufferedReader().lineSequence().takeWhile { it.isNotEmpty() }.toList()
+    val key = request.first { it.startsWith("Sec-WebSocket-Key:", ignoreCase = true) }.substringAfter(':').trim()
+    val accept = Base64.getEncoder().encodeToString(
+      MessageDigest.getInstance("SHA-1").digest("${key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11".toByteArray()))
+    val upgrade = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n" +
+      "Sec-WebSocket-Accept: $accept\r\n\r\n"
+    // 0x81 opens a final text frame; 5 is its unmasked payload length.
+    socket.getOutputStream().write(upgrade.toByteArray() + byteArrayOf(0x81.toByte(), 5) + "hello".toByteArray())
   }
 
   @Test
