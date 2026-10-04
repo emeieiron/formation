@@ -200,21 +200,32 @@ def onboard(phone, name, light):
 
 
 def host_duo(seeker, title):
-    def open_visible_duo():
-        for card in seeker.nodes().iter("node"):
+    def open_visible_duo(root=None):
+        for card in (root if root is not None else seeker.nodes()).iter("node"):
             texts = [value for n in card.iter("node")
                      for value in (n.get("text"), n.get("content-desc")) if value]
             x1, _, x2, _ = bounds(card)
-            if card.get("clickable") == "true" and title in texts and "2 players" in texts and x2 - x1 > 500:
+            if card.get("clickable") == "true" and title in texts and "2 players" in texts and "Locked reward" in texts and x2 - x1 > 500:
                 seeker.tap(card)
                 seeker.tap_text("Start Formation")
                 return True
         return False
 
-    if open_visible_duo():
-        return
-    row = next((n for n in seeker.nodes().iter("node")
-                if (n.get("content-desc") or n.get("text") or "").endswith(" players")), None)
+    row = None
+    for _ in range(6):
+        root = seeker.nodes()
+        if open_visible_duo(root):
+            return
+        row = seeker.find(desc="Locked reward", root=root)
+        if row is not None:
+            break
+        area = next((n for n in root.iter("node") if n.get("scrollable") == "true"), None)
+        if area is None:
+            break
+        left, top, right, bottom = bounds(area)
+        x, height = (left + right) // 2, bottom - top
+        seeker.shell(f"input swipe {x} {top + height * 3 // 4} {x} {top + height // 4} 400")
+        time.sleep(0.2)
     if row is None:
         raise Failed("seeker: no rewards on the shelf")
     y = (bounds(row)[1] + bounds(row)[3]) // 2

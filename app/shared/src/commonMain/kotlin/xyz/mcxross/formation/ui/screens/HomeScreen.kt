@@ -52,13 +52,14 @@ import xyz.mcxross.formation.resources.label_each_helper
 import xyz.mcxross.formation.resources.label_nearby
 import xyz.mcxross.formation.resources.label_profile
 import xyz.mcxross.formation.resources.label_rewards
-import xyz.mcxross.formation.resources.label_simulated
+import xyz.mcxross.formation.resources.label_funded_rewards
+import xyz.mcxross.formation.resources.label_test_host
 import xyz.mcxross.formation.resources.label_your_share
 import xyz.mcxross.formation.resources.player_count
 import xyz.mcxross.formation.resources.ready_reward_count
 import xyz.mcxross.formation.resources.state_full
 import xyz.mcxross.formation.resources.state_no_locked_rewards
-import xyz.mcxross.formation.resources.state_no_games
+import xyz.mcxross.formation.resources.state_reward_unavailable
 import xyz.mcxross.formation.resources.state_saved_game_unavailable
 import xyz.mcxross.formation.resources.label_saved_result
 import xyz.mcxross.formation.resources.state_playing
@@ -124,6 +125,8 @@ fun HomeScreen() {
   val nearby by
     produceState(emptyList<NearbyFormation>(), scanAttempt) { graph.nearby.scan().collect { value = it } }
   var opened by remember { mutableStateOf<Opportunity?>(null) }
+  var preview by remember { mutableStateOf<xyz.mcxross.formation.challenge.Challenge<*, *>?>(null) }
+  val rewardUnavailable = stringResource(Res.string.state_reward_unavailable)
   var enteringCode by remember { mutableStateOf(false) }
   val status by graph.seeker.status.collectAsState()
   val pendingWins by graph.pending.pending.collectAsState()
@@ -223,20 +226,22 @@ fun HomeScreen() {
           )
         }
       }
+      gameCatalog(ChallengeCatalog.all, onOpen = { preview = it })
+
       if (me != null) {
         item {
           Row(
             Modifier.fillMaxWidth().padding(horizontal = Space.gutter, vertical = Space.l),
             verticalAlignment = Alignment.CenterVertically,
           ) {
-            Overline("Seeker", Modifier.weight(1f))
-            if (me.simulated) Tag(stringResource(Res.string.label_simulated), tone = Tone.Warning)
+            Overline(stringResource(Res.string.label_funded_rewards), Modifier.weight(1f))
+            if (me.simulated) Tag(stringResource(Res.string.label_test_host), tone = Tone.Warning)
           }
         }
         if (opportunities.isEmpty()) {
           item {
             Text(
-              stringResource(if (ChallengeCatalog.all.isEmpty()) Res.string.state_no_games else Res.string.state_no_locked_rewards),
+              stringResource(Res.string.state_no_locked_rewards),
               Modifier.padding(horizontal = Space.gutter),
               style = Theme.type.subhead,
               color = c.contentSecondary,
@@ -301,6 +306,20 @@ fun HomeScreen() {
     }
   }
 
+  preview?.let { game ->
+    GamePreviewSheet(game,
+      rewards = if (seeker != null) ChallengeCatalog.rewardsFor(game.id, rewards, xyz.mcxross.formation.state.now()) else emptyList(),
+      onDismiss = { preview = null },
+      onReward = { reward ->
+        val current = ChallengeCatalog.rewardsFor(game.id, graph.ledger.opportunities.value, xyz.mcxross.formation.state.now())
+          .firstOrNull { it.id == reward.id }
+        if (current != null && graph.seeker.identity.value != null) {
+          preview = null
+          opened = current
+        } else toaster.show(rewardUnavailable, Tone.Warning)
+      },
+    )
+  }
   opened?.let { o ->
     OpportunitySheet(
       o,

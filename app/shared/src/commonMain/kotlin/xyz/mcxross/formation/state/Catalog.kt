@@ -4,6 +4,7 @@ import xyz.mcxross.formation.challenge.Challenge
 import xyz.mcxross.formation.challenge.ChallengeRegistry
 import xyz.mcxross.formation.model.ChallengeId
 import xyz.mcxross.formation.model.Opportunity
+import xyz.mcxross.formation.model.OpportunityState
 import xyz.mcxross.formation.overdrive.Overdrive
 import xyz.mcxross.formation.ricochet.Ricochet
 
@@ -22,4 +23,9 @@ object ChallengeCatalog {
 
   fun supports(opportunity: Opportunity): Boolean =
     registry.supports(opportunity)
+
+  fun rewardsFor(id: ChallengeId, rewards: List<Opportunity>, at: Long): List<Opportunity> =
+    rewards.filter {
+      it.challenge == id && supports(it) && it.state == OpportunityState.LOCKED && it.expiresAt > at
+    }.sortedBy { it.expiresAt }
 }
