@@ -88,7 +88,7 @@ class FormationClient(
     send(ToHost.Ready(ready))
   }
 
-  fun sensors(round: Int, available: Set<String>) { send(ToHost.Sensors(round, available)) }
+  fun sensors(round: Int, available: Set<String>, screen: ScreenProfile? = null) { send(ToHost.Sensors(round, available, screen)) }
 
   fun setProfile(name: String, light: Int) {
     this.name = name

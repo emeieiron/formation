@@ -154,7 +154,9 @@ sealed interface ToHost {
 
   @Serializable @SerialName("ready") data class Ready(val ready: Boolean) : ToHost
 
-  @Serializable @SerialName("sensors") data class Sensors(val round: Int, val available: Set<String>) : ToHost
+  @Serializable
+  @SerialName("sensors")
+  data class Sensors(val round: Int, val available: Set<String>, val screen: ScreenProfile? = null) : ToHost
 
   @Serializable @SerialName("play") data class Play(val round: Int, val input: JsonElement) : ToHost
 
@@ -186,7 +188,7 @@ sealed interface ToPlayer {
 enum class Rejection(val message: String) {
   IDENTITY("This phone could not prove its player identity. Restore its claim key and retry."),
   FORMAT("This phone does not support the Formation's challenge format. Update both phones."),
-  CAPABILITY("This phone is missing a sensor required for this Formation."),
+  CAPABILITY("This phone is missing a sensor or screen measurement required for this Formation."),
   FULL("This Formation is already full."),
   STARTED("This Formation has already started."),
   VERSION("This Formation runs a different version of the app. Update both phones."),

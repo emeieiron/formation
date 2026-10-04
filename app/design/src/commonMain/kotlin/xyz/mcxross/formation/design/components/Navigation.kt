@@ -69,12 +69,14 @@ fun Page(
   background: @Composable BoxScope.() -> Unit = {},
   topBar: @Composable () -> Unit = {},
   bottomBar: @Composable () -> Unit = {},
+  // Content runs under the status bar, which a full-screen game has hidden.
+  edgeToEdge: Boolean = false,
   content: @Composable ColumnScope.() -> Unit,
 ) {
   Box(modifier.fillMaxSize().background(Theme.colors.background)) {
     background()
     Column(Modifier.fillMaxSize().imePadding()) {
-      Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
+      if (!edgeToEdge) Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
       topBar()
       Column(Modifier.weight(1f).fillMaxWidth(), content = content)
       bottomBar()

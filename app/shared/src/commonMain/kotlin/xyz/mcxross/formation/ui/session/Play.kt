@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
@@ -67,9 +68,11 @@ import xyz.mcxross.formation.sensors.Pose
 import xyz.mcxross.formation.session.ClockSync
 import xyz.mcxross.formation.session.FormationClient
 import xyz.mcxross.formation.session.FormationJson
+import xyz.mcxross.formation.session.ScreenProfile
 import xyz.mcxross.formation.session.SessionSnapshot
 import xyz.mcxross.formation.session.Stage
 import xyz.mcxross.formation.session.ToPlayer
+import xyz.mcxross.formation.platform.ScreenMeasurement
 import xyz.mcxross.formation.state.ActiveSession
 import xyz.mcxross.formation.ui.LocalGraph
 
@@ -98,9 +101,16 @@ internal fun Play(
     )
     return
   }
+  if (challenge.fullScreen) {
+    DisposableEffect(Unit) {
+      graph.platform.screen.fullScreen(true)
+      onDispose { graph.platform.screen.fullScreen(false) }
+    }
+  }
   Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
-      SessionBar(
+      // A full-screen stage leaves through the system back gesture instead.
+      if (!challenge.fullScreen) SessionBar(
         challenge.info.title,
         challenge.info.light,
         session.client.sync.rttMs,
@@ -120,6 +130,7 @@ internal fun Play(
             graph.motion,
             graph.platform.haptics,
             graph.challengeAudio,
+            (graph.platform.screen.measurement.value as? ScreenMeasurement.Measured)?.profile,
             c,
             autoplay = autoplay && debug,
           )
@@ -232,12 +243,13 @@ private fun <S : Any, I : Any> StageHost(
   motion: MotionSense,
   haptics: Haptics,
   audio: StageAudio,
+  screen: ScreenProfile?,
   colors: Colors,
   autoplay: Boolean,
 ) {
   val scope =
     remember(challenge, snapshot.round) {
-      LiveStage(challenge, client, me, client.sync, motion, haptics, audio)
+      LiveStage(challenge, client, me, client.sync, motion, haptics, audio, screen)
     }
   val decoded =
     remember(frame) {
@@ -287,6 +299,7 @@ private class LiveStage<S : Any, I : Any>(
   override val motion: MotionSense,
   override val haptics: Haptics,
   override val audio: StageAudio,
+  override val screen: ScreenProfile?,
 ) : StageScope<S, I> {
   var current by mutableStateOf<S?>(null)
   override var players by mutableStateOf(emptyList<PlayerView>())

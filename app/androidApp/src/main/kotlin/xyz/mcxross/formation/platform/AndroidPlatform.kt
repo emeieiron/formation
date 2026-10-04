@@ -152,6 +152,8 @@ class AndroidPlatform(private val context: Context) : PlatformServices {
 
   override val hotspot: HotspotPort = AndroidHotspot(context) { bridge }
 
+  override val screen = AndroidScreen(context) { bridge as? android.app.Activity }
+
   private fun isEmulator(): Boolean =
     Build.HARDWARE in setOf("goldfish", "ranchu") ||
       Build.FINGERPRINT.startsWith("generic") ||

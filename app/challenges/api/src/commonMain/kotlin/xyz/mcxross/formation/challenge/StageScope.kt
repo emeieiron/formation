@@ -8,6 +8,7 @@ import xyz.mcxross.formation.sensors.Haptics
 import xyz.mcxross.formation.sensors.MotionSense
 import xyz.mcxross.formation.sensors.SensorHub
 import xyz.mcxross.formation.session.ClockSync
+import xyz.mcxross.formation.session.ScreenProfile
 
 @Immutable
 data class PlayerView(
@@ -29,6 +30,8 @@ interface StageScope<S : Any, I : Any> {
   val sensors: SensorHub get() = motion.sensors
   val haptics: Haptics
   val audio: StageAudio get() = StageAudio.None
+  // This phone's measured screen, for games with a screen requirement.
+  val screen: ScreenProfile? get() = null
 
   fun send(input: I)
 

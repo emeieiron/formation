@@ -1,11 +1,14 @@
 package xyz.mcxross.formation.platform
 
 import io.ktor.client.HttpClient
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import xyz.mcxross.formation.link.Advertiser
 import xyz.mcxross.formation.link.HostFinder
 import xyz.mcxross.formation.link.LinkServer
 import xyz.mcxross.formation.sensors.Haptics
 import xyz.mcxross.formation.sensors.api.SensorBackend
+import xyz.mcxross.formation.session.ScreenProfile
 
 interface PlatformServices {
   val config: AppConfig
@@ -19,6 +22,41 @@ interface PlatformServices {
   val wallet: WalletPort
   val external: ExternalPort
   val hotspot: HotspotPort?
+  val screen: ScreenPort get() = ScreenPort.Unsupported
+}
+
+sealed interface ScreenMeasurement {
+  data class Measured(val profile: ScreenProfile) : ScreenMeasurement
+
+  // The reported density looks wrong; matching a card once fixes it.
+  data class NeedsCalibration(val estimate: ScreenProfile?) : ScreenMeasurement
+
+  // Split-screen and multi-window modes shrink the window below the display.
+  data object NotFullScreen : ScreenMeasurement
+
+  data object Unsupported : ScreenMeasurement
+}
+
+interface ScreenPort {
+  // The platform can measure its physical screen, given a calibration if needed.
+  val measurable: Boolean
+  val measurement: StateFlow<ScreenMeasurement>
+
+  // Stores pixels per millimetre measured against a card; null returns to the platform's value.
+  fun calibrate(pxPerMm: Double?)
+
+  fun fullScreen(on: Boolean)
+
+  companion object {
+    val Unsupported = object : ScreenPort {
+      override val measurable = false
+      override val measurement: StateFlow<ScreenMeasurement> = MutableStateFlow(ScreenMeasurement.Unsupported)
+
+      override fun calibrate(pxPerMm: Double?) {}
+
+      override fun fullScreen(on: Boolean) {}
+    }
+  }
 }
 
 data class AppConfig(

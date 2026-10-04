@@ -36,6 +36,7 @@ class FormationHost(
   private val observe: (DiagnosticEvent) -> Unit = {},
 ) {
   private val info = formation
+  private val screenRequirement = rules.screenRequirement(info.opportunity.players)
   private val seats = recovery?.players?.map { p ->
     Seat(p.id, p.device ?: p.claimKey, p.name, p.light, p.seeker, p.claimKey, p.wallet, null)
   }?.toMutableList() ?: mutableListOf()
@@ -172,6 +173,7 @@ class FormationHost(
     var capabilities: Set<String> = emptySet(),
     var availableInputs: Set<String> = emptySet(),
     var sensorReady: Boolean = true,
+    var screen: ScreenProfile? = null,
   ) {
     fun toPlayer() =
       Player(id, name, light, seeker, claimKey, wallet, conn != null, ready, latencyMs, device, clockReady, availableInputs, sensorReady)
@@ -232,6 +234,7 @@ class FormationHost(
       if (returning.conn != null && returning.conn !== conn) return reject(conn, Rejection.DUPLICATE)
       returning.capabilities = hello.capabilities
       returning.availableInputs = emptySet()
+      returning.screen = null
       returning.sensorReady = rules.requiredCapabilities(info.opportunity.players).isEmpty()
       returning.conn = conn
       val interruptedPlay = stage is Stage.Playing && returning.disconnectedAt != null
@@ -319,8 +322,12 @@ class FormationHost(
 
   private fun sensors(seat: Seat, message: ToHost.Sensors) {
     if (message.round != round || stage is Stage.Won || stage is Stage.Lost || stage is Stage.Closed) return
+    // A phone that can measure its screen still has to report a measurement this game accepts.
+    val screen = message.screen?.takeIf { screenRequirement?.accepts(it) == true }
     val available = message.available.intersect(seat.capabilities)
+      .filterTo(mutableSetOf()) { it != ScreenRequirement.CAPABILITY || screen != null }
     val sensorReady = available.containsAll(rules.requiredCapabilities(info.opportunity.players))
+    if (stage !is Stage.Playing) seat.screen = screen
     if (seat.availableInputs == available && seat.sensorReady == sensorReady) return
     seat.availableInputs = available
     seat.sensorReady = sensorReady
@@ -341,6 +348,7 @@ class FormationHost(
     seats.forEach {
       it.ready = false
       it.availableInputs = emptySet()
+      it.screen = null
       it.sensorReady = rules.requiredCapabilities(info.opportunity.players).isEmpty()
     }
     stage = Stage.Briefing(clock.now() + timing.briefingMs)
@@ -364,6 +372,8 @@ class FormationHost(
         seed = random.nextLong(),
         startAt = goAt,
         capabilities = seats.associate { it.id to it.availableInputs.toSet() },
+        screens = if (screenRequirement == null) emptyMap()
+          else seats.mapNotNull { seat -> seat.screen?.let { seat.id to it } }.toMap(),
       )
     game = HostedGame.start(rules, setup, json)
     frameSeq = 0

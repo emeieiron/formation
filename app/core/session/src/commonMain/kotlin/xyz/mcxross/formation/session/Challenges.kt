@@ -11,6 +11,8 @@ interface ChallengeRules<S : Any, I : Any> {
   fun requiredCapabilities(players: Int): Set<String> = emptySet()
   fun optionalCapabilities(players: Int): Set<String> = emptySet()
   fun activeCapabilities(state: S, player: PlayerId, players: Int): Set<String> = requiredCapabilities(players)
+  // Games drawn at physical scale need every phone's measured screen before the round starts.
+  fun screenRequirement(players: Int): ScreenRequirement? = null
   val id: ChallengeId
   val stateSerializer: KSerializer<S>
   val inputSerializer: KSerializer<I>
@@ -26,6 +28,8 @@ data class ChallengeSetup(
   val seed: Long,
   val startAt: Long,
   val capabilities: Map<PlayerId, Set<String>> = emptyMap(),
+  // Present only for games with a screen requirement, measured during the briefing.
+  val screens: Map<PlayerId, ScreenProfile> = emptyMap(),
 )
 
 // Called only from the Seeker's session, one call at a time.

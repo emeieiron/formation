@@ -30,6 +30,7 @@ import xyz.mcxross.formation.session.FormationHost
 import xyz.mcxross.formation.session.FormationInfo
 import xyz.mcxross.formation.session.MonotonicClock
 import xyz.mcxross.formation.session.NearbyScanner
+import xyz.mcxross.formation.session.ScreenRequirement
 import xyz.mcxross.formation.solana.SgtFinder
 import xyz.mcxross.formation.solana.SolanaRpc
 import xyz.mcxross.formation.session.DiagnosticCode
@@ -50,7 +51,10 @@ class AppGraph(
   val simulator = if (platform.config.debug && platform.device.emulator) MotionSimulator(scope) else null
   val sensors = SensorHub(simulator ?: platform.sensorBackend, scope, MonotonicClock::now)
   val motion = MotionSense(sensors, scope, simulator)
-  val identity = Identity(platform) { sensors.capabilities.value.supported(allowSimulated = simulator != null) }
+  val identity = Identity(platform) {
+    sensors.capabilities.value.supported(allowSimulated = simulator != null) +
+      listOfNotNull(ScreenRequirement.CAPABILITY.takeIf { platform.screen.measurable })
+  }
   val sounds = SoundEffects(platform.store, platform.sound, scope)
   internal val challengeAudio = ChallengeAudio(sounds)
   val seeker =
@@ -142,6 +146,9 @@ class AppGraph(
       check(sensors.assess(required) == Assessment.Ready) {
         "This phone cannot provide the inputs required by this Formation."
       }
+      check(challenge.screenRequirement(opportunity.players) == null || platform.screen.measurable) {
+        "This phone can't measure its screen for this game."
+      }
     }
     val server = platform.network.server ?: error("This phone can't host Formations")
     val sessionScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -181,6 +188,7 @@ class AppGraph(
         { completed.remember(it) },
         sensors,
         simulator != null,
+        platform.screen,
       )
       .also { _session.value = it }
   }
@@ -211,6 +219,7 @@ class AppGraph(
         { completed.remember(it, address.toString()) },
         sensors,
         simulator != null,
+        platform.screen,
       )
       .also { _session.value = it }
   }

@@ -83,7 +83,8 @@ fun SessionScreen() {
   val ended = status is FormationClient.Status.Ended || status is FormationClient.Status.Rejected
   BackHandler { if (ended) leave() else confirmLeave = true }
 
-  Page {
+  val fullScreen = snapshot?.stage is Stage.Playing && active.challenge?.fullScreen == true
+  Page(edgeToEdge = fullScreen) {
     Box(Modifier.fillMaxSize()) {
       when (val st = status) {
         is FormationClient.Status.Rejected ->

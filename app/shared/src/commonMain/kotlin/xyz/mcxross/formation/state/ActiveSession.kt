@@ -39,9 +39,10 @@ internal constructor(
   private val onCompletion: (SessionSnapshot) -> Unit = {},
   sensorHub: xyz.mcxross.formation.sensors.SensorHub? = null,
   allowSimulatedSensors: Boolean = false,
+  screen: xyz.mcxross.formation.platform.ScreenPort = xyz.mcxross.formation.platform.ScreenPort.Unsupported,
 ) {
   val sensors = sensorHub?.let {
-    xyz.mcxross.formation.state.sensors.SessionSensors(client, it, scope, allowSimulatedSensors)
+    xyz.mcxross.formation.state.sensors.SessionSensors(client, it, screen, scope, allowSimulatedSensors)
   }
   val isHost: Boolean
     get() = host != null

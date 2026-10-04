@@ -7,6 +7,7 @@ import xyz.mcxross.formation.model.PlayerId
 import xyz.mcxross.formation.sensors.capabilities.InputCapability
 import xyz.mcxross.formation.sensors.capabilities.SensorRequirement
 import xyz.mcxross.formation.session.ChallengeRules
+import xyz.mcxross.formation.session.ScreenRequirement
 
 abstract class Challenge<S : Any, I : Any> : ChallengeRules<S, I> {
   abstract val info: ChallengeInfo
@@ -16,7 +17,8 @@ abstract class Challenge<S : Any, I : Any> : ChallengeRules<S, I> {
   open fun activeSensors(state: S, player: PlayerId, players: Int): Set<InputCapability> =
     requiredSensors(players).map { it.capability }.toSet()
 
-  final override fun requiredCapabilities(players: Int) = requiredSensors(players).map { it.capability.id }.toSet()
+  final override fun requiredCapabilities(players: Int) = requiredSensors(players).map { it.capability.id }.toSet() +
+    listOfNotNull(screenRequirement(players)?.let { ScreenRequirement.CAPABILITY })
   final override fun optionalCapabilities(players: Int) = optionalSensors(players).map { it.capability.id }.toSet()
   final override fun activeCapabilities(state: S, player: PlayerId, players: Int) =
     activeSensors(state, player, players).map { it.id }.toSet()
@@ -28,6 +30,9 @@ abstract class Challenge<S : Any, I : Any> : ChallengeRules<S, I> {
   open val introduction: (@Composable () -> Unit)? = null
 
   open val cover: (@Composable () -> Unit)? = null
+
+  // The stage takes the whole display with the system bars hidden.
+  open val fullScreen: Boolean = false
 
   @Composable abstract fun Stage(scope: StageScope<S, I>)
 

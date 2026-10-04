@@ -102,4 +102,16 @@
     <string name="sensor_retry">Retry</string>
     <string name="sensor_waiting">Waiting for inputs</string>
     <string name="sensor_access_restricted">Sensor access restricted</string>
+    <string name="screen_ready">Screen measured</string>
+    <string name="screen_too_small">This screen is too small for this game</string>
+    <string name="screen_calibrate">Measure this screen once to play</string>
+    <string name="screen_full">Use full screen to play</string>
+    <string name="screen_unsupported">This phone can’t measure its screen</string>
+    <string name="screen_measure">Measure</string>
+    <string name="screen_calibration_title">Measure this screen</string>
+    <string name="screen_calibration_body">Lay a bank, transit or ID card on the screen, short edge at the top, against the corner marks. Drag until the outline meets the card’s edges.</string>
+    <string name="screen_calibration_save">Save measurement</string>
+    <string name="screen_calibration_reset">Use the phone’s value</string>
+    <string name="screen_calibration_smaller">Smaller</string>
+    <string name="screen_calibration_larger">Larger</string>
 </resources>

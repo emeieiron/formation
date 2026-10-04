@@ -1,6 +1,7 @@
 package xyz.mcxross.formation
 
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Bundle
 import android.view.WindowManager
@@ -48,6 +49,18 @@ class MainActivity : ComponentActivity(), ActivityBridge {
     app.platform.bridge = this
     app.platform.setAudioActive(true)
     app.graph.sensors.setForeground(true)
+    // Cutout insets arrive once the window is attached.
+    window.decorView.post { app.platform.screen.update(this) }
+  }
+
+  override fun onWindowFocusChanged(hasFocus: Boolean) {
+    super.onWindowFocusChanged(hasFocus)
+    if (hasFocus) app.platform.screen.update(this)
+  }
+
+  override fun onMultiWindowModeChanged(isInMultiWindowMode: Boolean, newConfig: Configuration) {
+    super.onMultiWindowModeChanged(isInMultiWindowMode, newConfig)
+    app.platform.screen.update(this)
   }
 
   override fun onPause() {
