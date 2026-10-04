@@ -14,7 +14,7 @@ The convention plugin provides the shared API, Compose, serialization, and multi
 
 Add `include(":challenges:<game>")` to `app/settings.gradle.kts` and the corresponding dependency to `app/shared/build.gradle.kts`. Import the game's entry point in `app/shared/.../state/Catalog.kt` and add it to the registry's `challenges` list.
 
-Registration supplies ID lookup, vault-code lookup, player-count checks, and advertised format versions. No game-specific switch is needed in the app.
+Registration supplies ID lookup, vault-code lookup, player-count checks, and advertised format versions. It also adds the game to Home's Games section using its metadata and instructions, independently of reward funding. No game-specific switch or separate catalogue registration is needed in the app.
 
 ## Implement the contracts
 
@@ -28,7 +28,7 @@ Registration supplies ID lookup, vault-code lookup, player-count checks, and adv
 
 Implement `newGame(setup)`, `stateSerializer`, `inputSerializer`, `goal(players, difficulty)`, and `Stage(scope)` on the entry point. Role descriptions and debug `autopilot()` are optional.
 
-Override `introduction: (@Composable () -> Unit)?` for a brief interactive explanation in the existing briefing. Its default is `null`, which retains the metadata's normal instructions. Keep preview state local: it must not submit gameplay inputs, score a result, or add a readiness step. Ricochet uses this slot to demonstrate paddle aiming with its shared reflection rules.
+Override `introduction: (@Composable () -> Unit)?` for a brief interactive explanation in the existing briefing and catalogue preview. Its default is `null`, which retains the metadata's normal instructions. Keep preview state local: it must not submit gameplay inputs, score a result, or add a readiness step. Ricochet uses this slot to demonstrate paddle aiming with its shared reflection rules.
 
 Rules run sequentially on the host. Use `setup.seed` for randomness and the supplied `now` for timing. Keep sensor access, UI, networking, and wall-clock reads outside the rules. This makes outcomes reproducible in focused rule tests.
 

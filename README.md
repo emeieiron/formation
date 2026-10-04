@@ -4,6 +4,8 @@ Formation is a local multiplayer Android app for unlocking shared SKR rewards on
 
 Play runs over a local network. Funding, unlocks and claims use Solana. Guests can connect a wallet before play or keep their entitlement on the phone and claim later.
 
+Home's **Games** section lists installed games without requiring a wallet or funded reward. Tap a game to see its controls and supported player count; Ricochet also includes aiming practice. A linked host can select a matching funded reward from the preview, then use the existing Formation flow. Guests join through Nearby, QR or code.
+
 The app includes two cooperative games:
 
 - **Overdrive:** each player sees their partner's target symbol and calls it out while rotating their own square to catch a pulse. Both catches complete a shared wave. The group needs 12 successful waves before the clock runs out (36 seconds on Easy down to 25 on Extreme); three failed waves end the attempt.
@@ -97,7 +99,7 @@ scripts/emulators.sh link
 
 In Profile → Developer, enable **Pretend to be a Seeker** on the host. This option is limited to debug builds. A debug Seeker supplies a test host identity and signs with its own claim key; it can still submit real testnet transactions. Solana is the default ledger. Turn off **Solana ledger** explicitly for isolated simulation; release builds ignore a saved simulated-ledger preference.
 
-Configure explicit development reward fixtures, host a game from Home and join from another emulator's Nearby list. The motion pad supplies debug sensor simulation when a game needs it. Overdrive uses touch; its test driver supplies the partner communication that normally comes from a second person.
+Browse games immediately from Home. Configure explicit development reward fixtures to host: choose a game, select its funded reward and tap **Start Formation**. Join from another emulator's Nearby list. The motion pad supplies debug sensor simulation when a game needs it. Overdrive uses touch; its test driver supplies the partner communication that normally comes from a second person.
 
 ### Verification
 

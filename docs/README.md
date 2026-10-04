@@ -7,6 +7,7 @@ The [project overview](../README.md) explains the app, architecture, builds, and
 | Document | Contents |
 | --- | --- |
 | [Game integration API](../app/challenges/api/README.md) | Rules, stages, registration, sensor requirements, and compatibility |
+| [Game discovery](game-discovery.md) | Home catalogue, previews, funded reward selection, and emulator checks |
 | [Ricochet](ricochet.md) | Shipped mechanics, authority, module boundaries, and emulator demo |
 | [Ricochet plan and roadmap](ricochet-plan.md) | Scope, commit phases, acceptance criteria, and remaining work |
 | [Ricochet verification](ricochet-verification.md) | Executed checks, screenshots, and verification limits |
