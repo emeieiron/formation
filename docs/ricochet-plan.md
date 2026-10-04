@@ -47,8 +47,8 @@ Additional players, multiple pulses, and competitive modes are outside the first
 
 ## Progress
 
-4 October 2026: the standalone rule module passes nine Android host tests. The implementation uses a 2 × 1.7 logical arena, 10 ms simulation steps, swept target and paddle contacts, and sequenced absolute paddle positions. UI, registration, and emulator verification follow in later phases.
+All five implementation phases are complete as of 4 October 2026. The module uses a 2 × 1.7 logical arena, 10 ms simulation steps, swept contacts, and sequenced absolute paddle positions. The custom stage and registration compile for Android and the shared iOS simulator target.
 
-The custom stage and catalog registration now compile for Android and the shared iOS simulator target. Two additional tests verify bounded pulse prediction and touch reconciliation, including unsent drag positions and release. Each phone draws its assigned half at a uniform scale; unused space stays outside the logical arena. Target fragments, paddle compression, seam markers, and haptics derive from host impact events. Completion sound remains part of the shared session flow.
+Thirteen focused tests cover rules, presentation boundaries, 32 seeded completions across all difficulties, and deadline enforcement. Three two-emulator journeys verified the explicit fixture, completion, sealing, and simulated settlement. The final journey also checked tap/drag input with assistance briefly disabled and a compact guest display.
 
-Debug assistance, the explicit fixture, and three two-emulator journeys are verified. The final journey also checked tap/drag input with assistance briefly disabled and a compact guest display. The game now has 13 focused tests, including 32 seeded completions across the difficulty presets. See [executed checks and their limits](ricochet-verification.md).
+The [implementation guide](ricochet.md) records shipped behaviour and module boundaries. The [verification record](ricochet-verification.md) distinguishes executed checks from the physical-device work still on the roadmap.

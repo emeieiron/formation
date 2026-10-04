@@ -1,6 +1,6 @@
 # Game integration
 
-Games supply rules, serializable state and inputs, metadata, and a Compose stage. The app owns discovery, admission, readiness, clocks, session lifecycle, sealing, and rewards. Overdrive is the first registered game; its rules and stage live in `challenges/overdrive`.
+Games supply rules, serializable state and inputs, metadata, and a Compose stage. The app owns discovery, admission, readiness, clocks, session lifecycle, sealing, and rewards. Overdrive and Ricochet are registered games; their rules and stages live in `challenges/overdrive` and `challenges/ricochet`.
 
 ## Add a module
 
@@ -89,5 +89,7 @@ FORMATION_REWARDS=/absolute/path/rewards.json \
 ```
 
 For asymmetric games, use an external driver that coordinates visible clues across the phones. Overdrive provides `--driver overdrive --layout android` and a fixture in `scripts/fixtures/overdrive.json`. A local autopilot should not receive hidden answers just to make a journey pass.
+
+Ricochet provides public-state debug assistance and `scripts/fixtures/ricochet.json`, registered with code `7`. Use `--driver manual` to prepare a duo and operate its controls yourself. The default autoplay driver closes the debug control panel before capturing the playfields; assisted play retains its visible tag.
 
 The journey explicitly seeds simulated rewards and restores the ledger, wallet and reward-fixture preferences afterward. Localnet uses the same fixture file. Testnet can use existing rewards or provision the configured fixtures. Human play, physical sensor quality, and network interruptions still need device testing.

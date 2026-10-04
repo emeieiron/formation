@@ -1,0 +1,25 @@
+# Formation documentation
+
+The [project overview](../README.md) explains the app, architecture, builds, and deployment. These documents record implementation decisions, verification, and follow-up work.
+
+## Games
+
+| Document | Contents |
+| --- | --- |
+| [Game integration API](../app/challenges/api/README.md) | Rules, stages, registration, sensor requirements, and compatibility |
+| [Ricochet](ricochet.md) | Shipped mechanics, authority, module boundaries, and emulator demo |
+| [Ricochet plan and roadmap](ricochet-plan.md) | Scope, commit phases, acceptance criteria, and remaining work |
+| [Ricochet verification](ricochet-verification.md) | Executed checks, screenshots, and verification limits |
+| [Overdrive plan](overdrive-plan.md) | Cooperative symbol-calling rules and implementation phases |
+| [Overdrive verification](overdrive-verification.md) | Rule checks and two-phone execution |
+
+## App and platform
+
+| Document | Contents |
+| --- | --- |
+| [Sensor management](sensor-management.md) | Availability, acquisition, processed inputs, and lifecycle |
+| [Session hardening plan](session-hardening-plan.md) | Recovery, admission, discovery, claims, and diagnostics |
+| [Session verification](session-hardening-verification.md) | Executed interruption and recovery checks |
+| [UI plan](apex-red-plan.md) | Shared visual direction and implementation phases |
+| [UI copy polish](ui-copy-polish.md) | Concise interface language and localization decisions |
+| [Sound feedback](sound-feedback.md) | Shared sound cues and playback behaviour |

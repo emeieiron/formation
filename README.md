@@ -4,11 +4,14 @@ Formation is a local multiplayer Android app for unlocking shared SKR rewards on
 
 Play runs over a local network. Funding, unlocks and claims use Solana. Guests can connect a wallet before play or keep their entitlement on the phone and claim later.
 
-The first game is **Overdrive**, a cooperative reflex challenge for two phones. Each player sees their partner's target symbol and calls it out while rotating their own square to catch a pulse. Both catches complete a shared wave. The group needs 12 successful waves before the clock runs out (36 seconds on Easy down to 25 on Extreme); three failed waves end the attempt.
+The app includes two cooperative games:
 
-Each successful wave makes both pulses fall 8% faster, so by the final wave they move about two and a half times as fast as the first. A failed wave keeps the pace. The pause between cleared waves shrinks as the group progresses.
+- **Overdrive:** each player sees their partner's target symbol and calls it out while rotating their own square to catch a pulse. Both catches complete a shared wave. The group needs 12 successful waves before the clock runs out (36 seconds on Easy down to 25 on Extreme); three failed waves end the attempt.
+- **Ricochet:** two phones show halves of one arena. Each player moves an outer paddle to keep a shared pulse in play and aim it at six targets. Clear the arena within 60 seconds; three missed returns end the attempt. Touch controls work on emulators without sensors. See [the implementation and demo](docs/ricochet.md).
 
-Prototype games remain removed. Overdrive uses the same [game API](app/challenges/api/README.md) available to future formats; its rules and stage are isolated from the app's session and reward flow.
+In Overdrive, each successful wave makes both pulses fall 8% faster, so by the final wave they move about two and a half times as fast as the first. A failed wave keeps the pace. The pause between cleared waves shrinks as the group progresses.
+
+Prototype games remain removed. Both games use the same [game API](app/challenges/api/README.md) available to future formats; their rules and stages are isolated from the app's session and reward flow.
 
 Saved claims and reward history remain available. An incomplete result from a removed format cannot resume sealing without that game installed; its saved record is retained.
 
@@ -58,6 +61,7 @@ Diagnostics stay on the device. The app records a bounded set of session, discov
 | `app/core/session` | Host/client protocol, signed admission, clock synchronization and sealing |
 | `app/challenges/api` | Game contracts, validated registration, and focused input/time helpers |
 | `app/challenges/overdrive` | Two-player rules, private clues, pacing and custom Compose stage |
+| `app/challenges/ricochet` | Shared arena physics, sequenced touch input, and two-screen Compose stage |
 | `app/solana/vault` | Kotlin vault instructions, account decoding, RPC and SGT lookup |
 | `app/shared` | Compose screens, app coordination, settlement, saved completion and recovery |
 | `app/androidApp` | Android entry point, Mobile Wallet Adapter, Keystore storage and hotspot lifecycle |
@@ -125,6 +129,16 @@ The driver reads each phone's visible partner clue and taps the other phone's di
 Other duo games can use their optional autopilot with explicit reward fixtures:
 
 ```sh
+FORMATION_REWARDS="$PWD/scripts/fixtures/ricochet.json" \
+  python3 scripts/e2e.py --title Ricochet --code 7 --chain simulated \
+  --layout android
+```
+
+Append `--driver manual` to operate Ricochet's paddles yourself. Its default debug assistance sends normal inputs and is visibly marked **AUTOPLAY**. The [verification record](docs/ricochet-verification.md) includes the actual two-emulator stage and compact-layout screenshots.
+
+For other registered formats and chain configurations:
+
+```sh
 export FORMATION_REWARDS=/absolute/path/rewards.json
 scripts/e2e.py --title "My game" --code 6 --chain simulated
 scripts/e2e.py --title "My game" --code 6 --chain localnet --wallet GUEST_WALLET
@@ -135,7 +149,7 @@ The journey hosts a duo, joins, plays, seals and unlocks. `--title` and `--code`
 
 `--wallet connect` opens the guest's wallet flow. `--approve` taps its connection approval; otherwise the script waits for manual approval. It never enters a wallet password. The default layout reader uses UI Automator. `--layout android` starts the Android CLI's instrumentation server and reuses its bundled protocol and serializer for fast, non-idle reads. Set `ANDROID_CLI_JAR` if its `main.jar` is installed outside `~/.android/cli/bundles`.
 
-See [session verification](docs/session-hardening-verification.md), [Overdrive verification](docs/overdrive-verification.md), and the [Overdrive plan](docs/overdrive-plan.md). Emulator automation verifies rules and the session flow; it does not establish the quality of human communication or physical-network reliability.
+See the [documentation index](docs/README.md), [session verification](docs/session-hardening-verification.md), [Overdrive verification](docs/overdrive-verification.md), and [Ricochet's plan and roadmap](docs/ricochet-plan.md). Emulator automation verifies rules and the session flow; it does not establish the quality of human play or physical-network reliability.
 
 ## Rewards and deployment
 
