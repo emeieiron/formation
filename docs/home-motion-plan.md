@@ -10,7 +10,7 @@ Give Home a distinct sense of movement while preserving readable game metadata, 
 2. **Swipe depth:** move artwork relative to its card and add a shallow card tilt driven by pager offset. Keep text readable and provide the same selection through existing arrow controls.
 3. **Short instructions:** show the selected game's summary by default, with an accessible Show instructions / Hide instructions control revealing all existing steps. Reset expansion when selecting another game.
 4. **Opening sequence:** assemble the Formation mark, extend its divider, and settle the deck over approximately 520 ms. Remember completion for the current app UI session so ordinary returns Home do not replay it.
-5. **Nearby:** show an abstract signal platform during active discovery, stop its animation on discovery failure, and animate newly discovered cards and occupancy changes using actual beacon state. Do not invent player location or distance.
+5. **Nearby:** discover games automatically in the background without a searching indicator. Animate newly discovered cards and occupancy changes using actual beacon state. Keep QR/code joining and actionable discovery failures available. Do not invent player location or distance.
 6. **Rewards:** use the existing Blender reward pass in the ready-reward banner. Tilt and highlight it once when a newly ready entitlement appears, then rest. Keep amount and claim action in Compose.
 
 ## Motion policy
@@ -36,7 +36,7 @@ All six steps are implemented. Game modules continue to own their cover resource
 
 The card's artwork is a separate visual layer from its text and backing panel. Pager offset shifts it up to 18 dp and rotates it up to 2.5 degrees; the backing card receives a shallow three-degree tilt. This supplies depth without a runtime 3D engine. The mark, divider, and deck share one 520 ms entry animation. UI-session history prevents ordinary navigation returns from replaying it.
 
-Nearby arrivals and reward reveals are tracked by session ID and entitlement identity respectively. Occupancy fills follow beacon changes. Failed discovery displays Discovery paused and a stationary platform. No visual position represents physical location. The ready-reward pass tilts and receives a single highlight sweep before resting.
+Nearby arrivals and reward reveals are tracked by session ID and entitlement identity respectively. Occupancy fills follow beacon changes. Discovery starts automatically when Home is composed and populates nearby cards as beacons arrive. There is no searching artwork, animation, label, or accessibility status on Home. The QR and Code controls remain available even with no nearby results. Failed discovery retains its error notice and Retry action. The ready-reward pass tilts and receives a single highlight sweep before resting.
 
 The Blender [motion source](../assets/covers/formation-covers-motion.blend), [render script](../assets/covers/animate.py), and [packing script](../assets/covers/pack.py) reproduce the shipped sheets without changing the original stills. The two sheets total 1,476,108 bytes compressed. Each is 1944 × 1152 pixels, or 8,957,952 bytes (8.54 MiB) decoded as RGBA. The resource cache may retain both after both games have been selected; only the selected visible cover advances.
 
@@ -76,3 +76,11 @@ The final APK is installed on both emulators. [Twenty-second cover and swipe pre
 ## Verification limits
 
 Physical-device frame pacing, battery cost, and physical-network behavior were not measured. Shared iOS compilation passed; iOS runtime visuals were not exercised. Discovery-failure rendering and occupancy transitions were reviewed in code, but this pass did not force a discovery failure or observe an occupancy change while Home remained visible. Hosting used isolated simulated fixtures and stopped at the lobby; no gameplay settlement or wallet operation was performed.
+
+## Automatic discovery follow-up
+
+The Twin Terminals prototype and the original scanning platform were removed from Home. The existing `NearbyScanner.scan()` collection remains independent of list visibility and motion settings, so discovered games appear automatically without a search action. Search ends when Home leaves composition; this does not introduce an Android background service. The manual code-entry sheet retains its matching feedback.
+
+The onboarding renderer still imports terminal geometry and material helpers from `assets/nearby/render.py`; that source remains available even though Home no longer uses discovery artwork.
+
+Android debug assembly, release lint, shared iOS simulator compilation, and all four existing `ClockAndNearbyTest` cases passed on 5 October 2026. The updated APK was installed on the guest emulator. Its empty Nearby section exposes Scan QR and Code with no searching graphic, text, or accessibility status. A temporary read-only beacon on emulator bridge port 47002 appeared automatically as an Overdrive card with Join, 1/2 occupancy, 120 SKR, and a 60 SKR helper share. No search action, game join, wallet operation, or settlement was performed. The fixture stopped after the check; original app preferences and device settings were preserved.

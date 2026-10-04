@@ -65,8 +65,6 @@ import xyz.mcxross.formation.resources.state_reward_unavailable
 import xyz.mcxross.formation.resources.state_saved_game_unavailable
 import xyz.mcxross.formation.resources.label_saved_result
 import xyz.mcxross.formation.resources.state_playing
-import xyz.mcxross.formation.resources.state_searching
-import xyz.mcxross.formation.resources.state_discovery_paused
 import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.components.Button
 import xyz.mcxross.formation.design.components.ButtonSize
@@ -130,7 +128,7 @@ fun HomeScreen(presentation: HomePresentation) {
   }
   val tickets by graph.ledger.tickets.collectAsState()
   val problem by graph.ledger.problem.collectAsState()
-  // Scans only while Home is on screen.
+  // Discovery starts automatically with Home; only results and failures have UI.
   var scanAttempt by remember { mutableStateOf(0) }
   val discovery by graph.nearby.status.collectAsState(xyz.mcxross.formation.link.DiscoveryStatus.Searching)
   val nearby by
@@ -284,22 +282,16 @@ fun HomeScreen(presentation: HomePresentation) {
         item { Notice(failure.reason.message, Modifier.padding(horizontal = Space.gutter, vertical = Space.s),
           title = "Nearby unavailable", tone = Tone.Warning, action = "Retry", onAction = { scanAttempt++ }) }
       }
-      if (nearby.isEmpty()) {
-        item(key = "discovery") { Scanning(onScan = { scan() }, onCode = { enteringCode = true },
-          searching = discovery !is xyz.mcxross.formation.link.DiscoveryStatus.Failed,
-          active = active && moves && "discovery" in visibleKeys) }
-      } else {
-        items(nearby, key = { it.beacon.session }) { formation ->
-          NearbyCard(formation, onJoin = { join(formation) }, presentation = presentation,
-            active = active && formation.beacon.session in visibleKeys)
-        }
-        item {
-          JoinControls(
-            onScan = { scan() },
-            onCode = { enteringCode = true },
-            modifier = Modifier.padding(horizontal = Space.gutter, vertical = Space.m),
-          )
-        }
+      items(nearby, key = { it.beacon.session }) { formation ->
+        NearbyCard(formation, onJoin = { join(formation) }, presentation = presentation,
+          active = active && formation.beacon.session in visibleKeys)
+      }
+      item {
+        JoinControls(
+          onScan = { scan() },
+          onCode = { enteringCode = true },
+          modifier = Modifier.padding(horizontal = Space.gutter, vertical = Space.m),
+        )
       }
       item {
         Spacer(Modifier.height(Space.xl))
@@ -431,25 +423,6 @@ private fun NearbyCard(formation: NearbyFormation, onJoin: () -> Unit, presentat
         }
       }
     }
-  }
-}
-
-@Composable
-private fun Scanning(onScan: () -> Unit, onCode: () -> Unit, searching: Boolean, active: Boolean) {
-  Column(
-    Modifier.fillMaxWidth().padding(horizontal = Space.gutter),
-  ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-      DiscoveryPlatform(active && searching)
-      Spacer(Modifier.width(Space.m))
-      Text(
-        stringResource(if (searching) Res.string.state_searching else Res.string.state_discovery_paused),
-        style = Theme.type.subheadStrong,
-        modifier = Modifier.weight(1f),
-      )
-    }
-    Spacer(Modifier.height(Space.xl))
-    JoinControls(onScan, onCode)
   }
 }
 
