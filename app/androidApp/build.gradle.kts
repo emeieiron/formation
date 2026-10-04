@@ -1,5 +1,17 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
+val rpcUrl = providers.gradleProperty("formation.rpcUrl").orElse("https://api.testnet.solana.com")
+val cluster = providers.gradleProperty("formation.cluster").orElse("testnet")
+
+// A distributable release is signed with the key CI passes in; without it, release builds stay
+// unsigned for local use. See .github/workflows/release-android.yml.
+val releaseKeystore = providers.gradleProperty("formationKeystoreFile")
+val releaseSigned = releaseKeystore.isPresent
+
+// Release versions come from the tag: v1.2.3 builds versionName 1.2.3 and versionCode 10203.
+val formationVersionName = providers.gradleProperty("formationVersionName").orElse("0.1.0")
+val formationVersionCode = providers.gradleProperty("formationVersionCode").map { it.toInt() }.orElse(1)
+
 plugins {
   alias(libs.plugins.androidApplication)
   alias(libs.plugins.composeCompiler)
@@ -13,22 +25,31 @@ android {
     applicationId = "xyz.mcxross.formation"
     minSdk = libs.versions.android.minSdk.get().toInt()
     targetSdk = libs.versions.android.targetSdk.get().toInt()
-    versionCode = 1
-    versionName = "0.1.0"
-    buildConfigField(
-      "String",
-      "SOLANA_RPC_URL",
-      "\"${project.findProperty("formation.rpcUrl") ?: "https://api.testnet.solana.com"}\"",
-    )
-    buildConfigField(
-      "String",
-      "SOLANA_CLUSTER",
-      "\"${project.findProperty("formation.cluster") ?: "testnet"}\"",
-    )
+    versionCode = formationVersionCode.get()
+    versionName = formationVersionName.get()
+    buildConfigField("String", "SOLANA_RPC_URL", "\"${rpcUrl.get()}\"")
+    buildConfigField("String", "SOLANA_CLUSTER", "\"${cluster.get()}\"")
+  }
+
+  signingConfigs {
+    if (releaseSigned) {
+      create("release") {
+        storeFile = file(releaseKeystore.get())
+        storePassword = providers.gradleProperty("formationKeystorePassword").get()
+        keyAlias = providers.gradleProperty("formationKeyAlias").get()
+        keyPassword = providers.gradleProperty("formationKeyPassword").get()
+      }
+    }
   }
 
   buildTypes {
     release {
+      if (releaseSigned) {
+        signingConfig = signingConfigs.getByName("release")
+        // A signed build is one people install: it must reach a public cluster over HTTPS.
+        check(rpcUrl.get().startsWith("https://")) { "A signed release needs an HTTPS formation.rpcUrl, not ${rpcUrl.get()}" }
+        check(cluster.get() in setOf("devnet", "testnet", "mainnet-beta")) { "A signed release can't target ${cluster.get()}" }
+      }
       isMinifyEnabled = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
     }

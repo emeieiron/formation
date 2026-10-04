@@ -1,0 +1,150 @@
+name: Release Android
+
+# Push a tag like v1.2.3 from main to build, sign and publish the Android APK for direct download.
+# Signing secrets live in the android-release environment, which only v* tags can use and which
+# waits for approval before each run.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-android
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: android-release
+    env:
+      # From the android-release environment's variables, so they change without code: the
+      # cluster the app settles on, its HTTPS RPC endpoint, and the SHA-256 (lowercase hex) of the
+      # certificate every published APK must carry.
+      FORMATION_CLUSTER: ${{ vars.FORMATION_CLUSTER }}
+      FORMATION_RPC_URL: ${{ vars.FORMATION_RPC_URL }}
+      EXPECTED_CERT_SHA256: ${{ vars.ANDROID_CERT_SHA256 }}
+    permissions:
+      contents: write        # create the GitHub Release
+      id-token: write        # sign the build provenance
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read the version from the tag
+        id: version
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          if [[ ! "$tag" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "::error::Tags must look like v1.2.3, got $tag"; exit 1
+          fi
+          major=${BASH_REMATCH[1]} minor=${BASH_REMATCH[2]} patch=${BASH_REMATCH[3]}
+          if (( minor > 99 || patch > 99 )); then
+            echo "::error::Minor and patch must stay below 100 to keep versionCode increasing"; exit 1
+          fi
+          # Only release what is already on main.
+          git fetch origin main --quiet
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$tag is not on main"; exit 1
+          fi
+          echo "name=${major}.${minor}.${patch}" >> "$GITHUB_OUTPUT"
+          echo "code=$(( major * 10000 + minor * 100 + patch ))" >> "$GITHUB_OUTPUT"
+
+      - name: Check the release configuration
+        run: |
+          if [[ ! "$FORMATION_CLUSTER" =~ ^(devnet|testnet|mainnet-beta)$ ]]; then
+            echo "::error::Set FORMATION_CLUSTER (devnet, testnet or mainnet-beta) in the android-release environment"; exit 1
+          fi
+          if [[ ! "$FORMATION_RPC_URL" =~ ^https://[^[:space:]]+$ ]]; then
+            echo "::error::Set FORMATION_RPC_URL (an https:// URL) in the android-release environment"; exit 1
+          fi
+          if [[ ! "$EXPECTED_CERT_SHA256" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "::error::Set ANDROID_CERT_SHA256 (64 lowercase hex digits) in the android-release environment"; exit 1
+          fi
+          echo "Cluster: $FORMATION_CLUSTER"
+          echo "RPC: $FORMATION_RPC_URL"
+
+      # The Gradle daemon pins Azul JDK 21 (app/gradle/gradle-daemon-jvm.properties).
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Test
+        working-directory: app
+        run: ./gradlew testAndroidHostTest :androidApp:lintRelease
+
+      - name: Build the signed APK
+        working-directory: app
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          ORG_GRADLE_PROJECT_formationKeystorePassword: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ORG_GRADLE_PROJECT_formationKeyAlias: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ORG_GRADLE_PROJECT_formationKeyPassword: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          keystore="$RUNNER_TEMP/formation-release.keystore"
+          echo "$KEYSTORE_B64" | base64 --decode > "$keystore"
+          ./gradlew :androidApp:assembleRelease \
+            -PformationKeystoreFile="$keystore" \
+            -Pformation.cluster="$FORMATION_CLUSTER" \
+            -Pformation.rpcUrl="$FORMATION_RPC_URL" \
+            -PformationVersionName="${{ steps.version.outputs.name }}" \
+            -PformationVersionCode="${{ steps.version.outputs.code }}"
+          rm -f "$keystore"
+
+      - name: Check the APK before it ships
+        run: |
+          apk=app/androidApp/build/outputs/apk/release/androidApp-release.apk
+          tools="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          "$tools/apksigner" verify --print-certs "$apk" > signers.txt
+          cert=$(grep -m1 "certificate SHA-256 digest" signers.txt | awk '{print $NF}')
+          if [[ "$cert" != "$EXPECTED_CERT_SHA256" ]]; then
+            echo "::error::Signed with $cert, expected $EXPECTED_CERT_SHA256"; exit 1
+          fi
+          "$tools/aapt2" dump badging "$apk" > badging.txt
+          grep -q "versionName='${{ steps.version.outputs.name }}'" badging.txt \
+            && grep -q "versionCode='${{ steps.version.outputs.code }}'" badging.txt \
+            || { echo "::error::Version mismatch"; exit 1; }
+          if grep -q "application-debuggable" badging.txt; then
+            echo "::error::The release APK is debuggable"; exit 1
+          fi
+          mkdir dist
+          cp "$apk" "dist/formation-${{ steps.version.outputs.name }}.apk"
+          # A stable name, so /releases/latest/download/formation-android.apk always serves the newest.
+          cp "$apk" dist/formation-android.apk
+          (cd dist && sha256sum *.apk > SHA256SUMS)
+          cat dist/SHA256SUMS
+
+      - name: Attest where the APK came from
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/*.apk
+
+      - name: Publish the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > notes.md <<EOF
+          ## Install
+
+          Download \`formation-android.apk\` below and open it on your phone. Android asks once to allow installs from your browser.
+
+          This build settles rewards on Solana ${FORMATION_CLUSTER}.
+
+          ## Verify
+
+          - SHA-256 checksums are in \`SHA256SUMS\`.
+          - Signing certificate SHA-256: \`${EXPECTED_CERT_SHA256}\`
+          - Build provenance: \`gh attestation verify formation-android.apk --repo ${GITHUB_REPOSITORY}\`
+          EOF
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "Formation ${{ steps.version.outputs.name }}" \
+            --notes-file notes.md \
+            --generate-notes \
+            --verify-tag

@@ -174,6 +174,40 @@ For testnet rewards, provision the linked wallet with `scripts/testnet.py seeker
 | `claim` | Each committed helper slot pays once. A wallet-bound slot pays only its recorded wallet; an unbound slot requires the claim key's signature. The transaction payer covers fees and recipient token-account creation. |
 | `close` | Remaining SKR returns to the sponsor after an unopened reward expires, after all helpers claim, or after the 30-day claim window ends. |
 
+## Releasing the Android app
+
+[Verify](.github/workflows/verify.yml) runs on every push to `main` and on pull requests: host tests, release lint and a debug build; shared iOS tests; the vault program build and tests; dependency review; and a secret scan.
+
+[Release Android](.github/workflows/release-android.yml) runs when a `v1.2.3` tag on `main` is pushed. It tests, builds an APK signed with the release key, checks the certificate, version and that it isn't debuggable, attests its provenance and publishes a GitHub Release with `formation-android.apk`, a versioned copy and `SHA256SUMS`. The tag sets the version: `v1.2.3` builds versionName `1.2.3` and versionCode `10203`.
+
+One-time setup, in a GitHub environment named `android-release` limited to `v*` tags with a required reviewer:
+
+| Kind | Name | Value |
+| --- | --- | --- |
+| Secret | `ANDROID_KEYSTORE_B64` | The release keystore, base64-encoded |
+| Secret | `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD` | Its passwords and alias |
+| Variable | `ANDROID_CERT_SHA256` | The signing certificate's SHA-256, lowercase hex without colons |
+| Variable | `FORMATION_CLUSTER` | `testnet`, `devnet` or `mainnet-beta` |
+| Variable | `FORMATION_RPC_URL` | An `https://` RPC endpoint for that cluster |
+
+Create the keystore once and keep it, with its passwords, outside the repository; losing it means existing installs can't update:
+
+```sh
+keytool -genkeypair -keystore formation-release.keystore -alias formation \
+  -keyalg RSA -keysize 4096 -validity 10000
+keytool -list -v -keystore formation-release.keystore -alias formation | grep SHA256
+base64 -i formation-release.keystore | pbcopy
+```
+
+Then release from an up-to-date `main`:
+
+```sh
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+Locally, `./gradlew :androidApp:assembleRelease` in `app` builds an unsigned release. Signed builds take `-PformationKeystoreFile`, `-PformationKeystorePassword`, `-PformationKeyAlias` and `-PformationKeyPassword`, and refuse a non-HTTPS `formation.rpcUrl` or a local cluster.
+
 ## Trust boundaries
 
 Client admission proves control of a claim key, not that each phone belongs to a different person. Local seal verification preserves agreement on a result, but the current vault program does not verify every participant's seal signature or the challenge execution on chain. A modified host can fabricate a roster and result.
