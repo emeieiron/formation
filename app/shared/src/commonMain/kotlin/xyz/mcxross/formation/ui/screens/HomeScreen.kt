@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -36,29 +35,24 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import xyz.mcxross.formation.resources.Res
 import xyz.mcxross.formation.resources.a11y_locked_reward
 import xyz.mcxross.formation.resources.a11y_occupancy
-import xyz.mcxross.formation.resources.a11y_time_left
 import xyz.mcxross.formation.resources.action_code
 import xyz.mcxross.formation.resources.action_join
 import xyz.mcxross.formation.resources.action_scan
 import xyz.mcxross.formation.resources.action_unlock
 import xyz.mcxross.formation.resources.copy_offline_unlock
-import xyz.mcxross.formation.resources.label_each_helper
 import xyz.mcxross.formation.resources.label_nearby
 import xyz.mcxross.formation.resources.label_profile
 import xyz.mcxross.formation.resources.label_rewards
-import xyz.mcxross.formation.resources.label_funded_rewards
-import xyz.mcxross.formation.resources.label_test_host
 import xyz.mcxross.formation.resources.label_your_share
-import xyz.mcxross.formation.resources.player_count
 import xyz.mcxross.formation.resources.ready_reward_count
 import xyz.mcxross.formation.resources.state_full
-import xyz.mcxross.formation.resources.state_no_locked_rewards
 import xyz.mcxross.formation.resources.state_reward_unavailable
 import xyz.mcxross.formation.resources.state_saved_game_unavailable
 import xyz.mcxross.formation.resources.label_saved_result
@@ -73,7 +67,6 @@ import xyz.mcxross.formation.design.components.LiveryRule
 import xyz.mcxross.formation.design.components.LocalToaster
 import xyz.mcxross.formation.design.components.NavigationBarSpacer
 import xyz.mcxross.formation.design.components.Notice
-import xyz.mcxross.formation.design.components.Overline
 import xyz.mcxross.formation.design.components.Page
 import xyz.mcxross.formation.design.components.PlayerLight
 import xyz.mcxross.formation.design.components.SectionHeader
@@ -93,18 +86,16 @@ import xyz.mcxross.formation.design.tokens.Shapes
 import xyz.mcxross.formation.design.tokens.Space
 import xyz.mcxross.formation.design.tokens.Tone
 import xyz.mcxross.formation.model.Opportunity
+import xyz.mcxross.formation.model.OpportunityState
 import xyz.mcxross.formation.model.Skr
 import xyz.mcxross.formation.session.NearbyFormation
 import xyz.mcxross.formation.state.Links
 import xyz.mcxross.formation.state.SeekerStatus
 import xyz.mcxross.formation.state.ChallengeCatalog
 import xyz.mcxross.formation.ui.LocalGraph
-import xyz.mcxross.formation.ui.components.ChallengeGlyph
 import xyz.mcxross.formation.ui.components.Slots
-import xyz.mcxross.formation.ui.components.TierTag
 import xyz.mcxross.formation.ui.components.challengeInfo
 import xyz.mcxross.formation.ui.components.shortAddress
-import xyz.mcxross.formation.ui.components.timeLeft
 import xyz.mcxross.formation.ui.nav.Screen
 
 @Composable
@@ -116,7 +107,18 @@ fun HomeScreen() {
   val profile by graph.identity.profile.collectAsState()
   val seeker by graph.seeker.identity.collectAsState()
   val rewards by graph.ledger.opportunities.collectAsState()
-  val opportunities = rewards.filter { ChallengeCatalog.supports(it) }
+  val rewardTime by produceState(xyz.mcxross.formation.state.now(), rewards) {
+    while (true) {
+      val at = xyz.mcxross.formation.state.now()
+      value = at
+      val expiry = rewards.filter { it.state == OpportunityState.LOCKED && it.expiresAt > at }
+        .minOfOrNull { it.expiresAt } ?: break
+      delay((expiry - at).coerceAtLeast(1))
+    }
+  }
+  val gameRewards = ChallengeCatalog.all.associate { game ->
+    game.id to if (seeker != null) ChallengeCatalog.rewardsFor(game.id, rewards, rewardTime) else emptyList()
+  }
   val tickets by graph.ledger.tickets.collectAsState()
   val problem by graph.ledger.problem.collectAsState()
   // Scans only while Home is on screen.
@@ -226,45 +228,14 @@ fun HomeScreen() {
           )
         }
       }
-      gameCatalog(ChallengeCatalog.all, onOpen = { preview = it })
+      gameCatalog(ChallengeCatalog.all, canHost = me != null,
+        playable = gameRewards.filterValues { it.isNotEmpty() }.keys, testHost = me?.simulated == true,
+        onOpen = { preview = it })
 
       if (me != null) {
-        item {
-          Row(
-            Modifier.fillMaxWidth().padding(horizontal = Space.gutter, vertical = Space.l),
-            verticalAlignment = Alignment.CenterVertically,
-          ) {
-            Overline(stringResource(Res.string.label_funded_rewards), Modifier.weight(1f))
-            if (me.simulated) Tag(stringResource(Res.string.label_test_host), tone = Tone.Warning)
-          }
-        }
-        if (opportunities.isEmpty()) {
-          item {
-            Text(
-              stringResource(Res.string.state_no_locked_rewards),
-              Modifier.padding(horizontal = Space.gutter),
-              style = Theme.type.subhead,
-              color = c.contentSecondary,
-            )
-          }
-        }
-        item {
-          LazyRow(
-            contentPadding = PaddingValues(horizontal = Space.gutter),
-            horizontalArrangement = Arrangement.spacedBy(Space.m),
-          ) {
-            items(opportunities, key = { it.id.value }) { o ->
-              OpportunityCard(o, onOpen = { opened = o })
-            }
-          }
-        }
         problem?.let {
           item {
-            Notice(
-              it,
-              Modifier.padding(horizontal = Space.gutter, vertical = Space.s),
-              tone = Tone.Warning,
-            )
+            Notice(it, Modifier.padding(horizontal = Space.gutter, vertical = Space.s), tone = Tone.Warning)
           }
         }
       } else {
@@ -308,7 +279,7 @@ fun HomeScreen() {
 
   preview?.let { game ->
     GamePreviewSheet(game,
-      rewards = if (seeker != null) ChallengeCatalog.rewardsFor(game.id, rewards, xyz.mcxross.formation.state.now()) else emptyList(),
+      rewards = gameRewards[game.id].orEmpty(),
       onDismiss = { preview = null },
       onReward = { reward ->
         val current = ChallengeCatalog.rewardsFor(game.id, graph.ledger.opportunities.value, xyz.mcxross.formation.state.now())
@@ -350,95 +321,6 @@ fun HomeScreen() {
         join(it)
       },
     )
-  }
-}
-
-@Composable
-private fun OpportunityCard(o: Opportunity, onOpen: () -> Unit) {
-  val c = Theme.colors
-  val info = challengeInfo(o.challenge)
-  val split = o.split()
-  val now = xyz.mcxross.formation.state.now()
-  val playerCount = pluralStringResource(Res.plurals.player_count, o.players, o.players)
-  val remaining = timeLeft(o.expiresAt, now)
-  val expiryLabel = stringResource(Res.string.a11y_time_left, remaining)
-  Panel(
-    Modifier.width(284.dp).pressable(onOpen, shape = Shapes.card, travel = true).liveryCard(),
-  ) {
-    Column(Modifier.padding(Space.l)) {
-      Row(verticalAlignment = Alignment.CenterVertically) {
-        ChallengeGlyph(info, size = 36.dp)
-        Spacer(Modifier.width(Space.m))
-        Text(
-          info?.title ?: o.challenge.value,
-          style = Theme.type.headline,
-          modifier = Modifier.weight(1f),
-          maxLines = 2,
-        )
-      }
-      Spacer(Modifier.height(Space.m))
-      Row(verticalAlignment = Alignment.CenterVertically) {
-        TierTag(o.tier)
-        Spacer(Modifier.width(Space.s))
-        Text(
-          o.title ?: o.sponsor,
-          style = Theme.type.footnote,
-          color = c.contentSecondary,
-          modifier = Modifier.weight(1f),
-          maxLines = 1,
-        )
-      }
-      Spacer(Modifier.height(Space.l))
-      Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Lock, stringResource(Res.string.a11y_locked_reward), tint = c.reward, size = 22.dp)
-        Spacer(Modifier.width(Space.s))
-        SkrAmount(
-          o.reward.format(0),
-          style = Theme.type.numeral,
-          color = c.content,
-          coin = false,
-        )
-      }
-      Spacer(Modifier.height(Space.l))
-      Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Users, null, tint = c.contentSecondary, size = 18.dp)
-        Spacer(Modifier.width(Space.s))
-        Text(
-          o.players.toString(),
-          Modifier.clearAndSetSemantics { contentDescription = playerCount },
-          style = Theme.type.subheadStrong,
-        )
-        Spacer(Modifier.width(Space.l))
-        Icon(Icons.Clock, null, tint = c.contentSecondary, size = 18.dp)
-        Spacer(Modifier.width(Space.s))
-        Text(
-          remaining,
-          Modifier.clearAndSetSemantics { contentDescription = expiryLabel },
-          style = Theme.type.footnote,
-          color = c.contentSecondary,
-        )
-        Spacer(Modifier.weight(1f))
-        Text(o.difficulty.label, style = Theme.type.caption, color = c.contentSecondary)
-      }
-      Spacer(Modifier.height(Space.l))
-      Box(Modifier.fillMaxWidth().height(1.dp).background(c.line))
-      Spacer(Modifier.height(Space.m))
-      Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Space.m)) {
-        Column(Modifier.weight(1f)) {
-          Text(stringResource(Res.string.label_your_share), style = Theme.type.caption, color = c.contentSecondary)
-          SkrAmount(
-            split.owner.format(0),
-            style = Theme.type.numeral,
-            color = c.reward,
-            coin = false,
-          )
-        }
-        Column(Modifier.weight(1f)) {
-          Text(stringResource(Res.string.label_each_helper), style = Theme.type.caption, color = c.contentSecondary)
-          SkrAmount(split.helper.format(0), style = Theme.type.subheadStrong, coin = false)
-        }
-      }
-    }
   }
 }
 

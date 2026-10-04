@@ -28,8 +28,8 @@ import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.components.CardDeck
 import xyz.mcxross.formation.design.components.IconButton
 import xyz.mcxross.formation.design.components.IconButtonStyle
-import xyz.mcxross.formation.design.components.Overline
 import xyz.mcxross.formation.design.components.SectionHeader
+import xyz.mcxross.formation.design.components.Tag
 import xyz.mcxross.formation.design.components.liveryCard
 import xyz.mcxross.formation.design.foundation.Icon
 import xyz.mcxross.formation.design.foundation.Panel
@@ -39,6 +39,8 @@ import xyz.mcxross.formation.design.icons.Icons
 import xyz.mcxross.formation.design.tokens.Motion
 import xyz.mcxross.formation.design.tokens.Shapes
 import xyz.mcxross.formation.design.tokens.Space
+import xyz.mcxross.formation.design.tokens.Tone
+import xyz.mcxross.formation.model.ChallengeId
 import xyz.mcxross.formation.resources.Res
 import xyz.mcxross.formation.resources.action_next_game
 import xyz.mcxross.formation.resources.action_previous_game
@@ -46,22 +48,36 @@ import xyz.mcxross.formation.resources.action_preview_game
 import xyz.mcxross.formation.resources.action_select_game
 import xyz.mcxross.formation.resources.a11y_game_position
 import xyz.mcxross.formation.resources.label_games
+import xyz.mcxross.formation.resources.label_test_host
 import xyz.mcxross.formation.resources.player_count
 import xyz.mcxross.formation.resources.player_range
 import xyz.mcxross.formation.resources.state_no_games
+import xyz.mcxross.formation.resources.state_game_playable
+import xyz.mcxross.formation.resources.state_game_no_reward
+import xyz.mcxross.formation.resources.state_game_join
 
-internal fun LazyListScope.gameCatalog(games: List<Challenge<*, *>>, onOpen: (Challenge<*, *>) -> Unit) {
-  item(key = "games-header") { SectionHeader(stringResource(Res.string.label_games)) }
+internal fun LazyListScope.gameCatalog(
+  games: List<Challenge<*, *>>,
+  canHost: Boolean,
+  playable: Set<ChallengeId>,
+  testHost: Boolean,
+  onOpen: (Challenge<*, *>) -> Unit,
+) {
+  item(key = "games-header") {
+    SectionHeader(stringResource(Res.string.label_games), Modifier.padding(end = Space.m), trailing = {
+      if (testHost) Tag(stringResource(Res.string.label_test_host), tone = Tone.Warning)
+    })
+  }
   item(key = "games-catalog") {
     if (games.isEmpty()) {
       Text(stringResource(Res.string.state_no_games), Modifier.padding(horizontal = Space.gutter),
         style = Theme.type.subhead, color = Theme.colors.contentSecondary)
-    } else GameCatalog(games, onOpen)
+    } else GameCatalog(games, canHost, playable, onOpen)
   }
 }
 
 @Composable
-private fun GameCatalog(games: List<Challenge<*, *>>, onOpen: (Challenge<*, *>) -> Unit) {
+private fun GameCatalog(games: List<Challenge<*, *>>, canHost: Boolean, playable: Set<ChallengeId>, onOpen: (Challenge<*, *>) -> Unit) {
   val state = rememberPagerState { games.size }
   val scope = rememberCoroutineScope()
   val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
@@ -71,7 +87,7 @@ private fun GameCatalog(games: List<Challenge<*, *>>, onOpen: (Challenge<*, *>) 
   Column {
     CardDeck(state, key = { games[it].id.value }) { page, modifier ->
       val game = games[page]
-      GameCard(game, page, page == state.settledPage, modifier) {
+      GameCard(game, canHost, game.id in playable, page == state.settledPage, modifier) {
         if (!state.isScrollInProgress) {
           if (page == state.settledPage) onOpen(game) else select(page)
         }
@@ -90,11 +106,12 @@ private fun GameCatalog(games: List<Challenge<*, *>>, onOpen: (Challenge<*, *>) 
           style = IconButtonStyle.Ghost, size = 48.dp, enabled = state.settledPage < games.lastIndex && !state.isScrollInProgress)
       }
     }
+    GameGuide(games[state.settledPage].info)
   }
 }
 
 @Composable
-private fun GameCard(game: Challenge<*, *>, index: Int, focused: Boolean, modifier: Modifier, onOpen: () -> Unit) {
+private fun GameCard(game: Challenge<*, *>, canHost: Boolean, playable: Boolean, focused: Boolean, modifier: Modifier, onOpen: () -> Unit) {
   val c = Theme.colors
   val info = game.info
   val action = stringResource(if (focused) Res.string.action_preview_game else Res.string.action_select_game, info.title)
@@ -103,7 +120,14 @@ private fun GameCard(game: Challenge<*, *>, index: Int, focused: Boolean, modifi
     Column(Modifier.fillMaxWidth()) {
       Row(Modifier.fillMaxWidth().padding(start = Space.l, end = Space.l, top = Space.l),
         verticalAlignment = Alignment.CenterVertically) {
-        Overline((index + 1).toString().padStart(2, '0'), Modifier.weight(1f))
+        Box(Modifier.weight(1f)) {
+          Tag(stringResource(when {
+            playable -> Res.string.state_game_playable
+            canHost -> Res.string.state_game_no_reward
+            else -> Res.string.state_game_join
+          }), tone = if (playable) Tone.Positive else Tone.Neutral,
+            icon = if (playable) Icons.Check else null)
+        }
         Text(gamePlayerCount(info.players), style = Theme.type.caption, color = c.contentSecondary)
       }
       Box(Modifier.fillMaxWidth().height(150.dp).clearAndSetSemantics {}, contentAlignment = Alignment.Center) {

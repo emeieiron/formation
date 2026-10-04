@@ -21,6 +21,7 @@
 
     <string name="label_profile">Profile</string>
     <string name="label_games">Games</string>
+    <string name="label_how_to_play">How to play</string>
     <string name="label_funded_rewards">Funded rewards</string>
     <string name="label_test_host">Test host</string>
     <string name="label_name">Name</string>
@@ -54,6 +55,9 @@
     <string name="state_open_place">Open place</string>
     <string name="state_no_rewards">No rewards yet</string>
     <string name="state_no_locked_rewards">No locked rewards</string>
+    <string name="state_game_playable">Playable</string>
+    <string name="state_game_no_reward">No reward</string>
+    <string name="state_game_join">Join to play</string>
     <string name="state_connect_wifi">Connect to Wi-Fi</string>
 
     <string name="headline_play_together">Play together</string>

@@ -4,7 +4,7 @@ Formation is a local multiplayer Android app for unlocking shared SKR rewards on
 
 Play runs over a local network. Funding, unlocks and claims use Solana. Guests can connect a wallet before play or keep their entitlement on the phone and claim later.
 
-Home's **Games** section presents installed games in a horizontal card deck without requiring a wallet or funded reward. Swipe or use the arrows to select a game, then tap its card for instructions; Ricochet also includes aiming practice. A linked host can select a matching funded reward from the preview, then use the existing Formation flow. Guests join through Nearby, QR or code.
+Home's **Games** section presents installed games in a horizontal card deck without requiring a wallet or funded reward. Each card shows **Playable** when a linked host has a valid funded reward, **No reward** when funding is missing, or **Join to play** for guests. Swipe or use the arrows to select a game; brief instructions follow beneath the deck. Tap the card for its full preview and matching funded rewards. Ricochet also includes aiming practice. Guests join through Nearby, QR or code.
 
 The app includes two cooperative games:
 
@@ -97,7 +97,13 @@ scripts/emulators.sh install
 scripts/emulators.sh link
 ```
 
-The installer disables partial frame updates on emulators configured with the `skiagl` renderer. The tested emulators otherwise lost unchanged UI content after animations. This setting affects the emulator's renderer; it does not change the APK or physical-device rendering.
+The installer disables partial frame updates on emulators configured with `skiagl`. If unchanged UI content disappears after animation, stop the AVD and cold-start it with software graphics:
+
+```sh
+emulator -avd YOUR_AVD -gpu swiftshader -no-snapshot-load
+```
+
+Software graphics preserved the app's frames during the catalogue checks on this development machine; changing the Android UI renderer alone was insufficient. See [Android's graphics acceleration options](https://developer.android.com/studio/run/emulator-acceleration). These settings affect the emulator, not the APK.
 
 In Profile → Developer, enable **Pretend to be a Seeker** on the host. This option is limited to debug builds. A debug Seeker supplies a test host identity and signs with its own claim key; it can still submit real testnet transactions. Solana is the default ledger. Turn off **Solana ledger** explicitly for isolated simulation; release builds ignore a saved simulated-ledger preference.
 

@@ -200,44 +200,45 @@ def onboard(phone, name, light):
 
 
 def host_duo(seeker, title):
-    def open_visible_duo(root=None):
-        for card in (root if root is not None else seeker.nodes()).iter("node"):
-            texts = [value for n in card.iter("node")
-                     for value in (n.get("text"), n.get("content-desc")) if value]
-            x1, _, x2, _ = bounds(card)
-            if card.get("clickable") == "true" and title in texts and "2 players" in texts and "Locked reward" in texts and x2 - x1 > 500:
-                seeker.tap(card)
-                seeker.tap_text("Start Formation")
-                return True
-        return False
-
-    row = None
+    seeker.scroll_to("GAMES")
+    position = seeker.wait(desc=r"Game \d+ of \d+", prefix="regex")
+    current, total = map(int, re.findall(r"\d+", position.get("content-desc")))
+    while current > 1:
+        seeker.tap(seeker.wait(desc="Previous game"))
+        current -= 1
+        seeker.wait(desc=f"Game {current} of {total}")
+    for page in range(1, total + 1):
+        root = seeker.nodes()
+        card = next((node for node in root.iter("node")
+                     if node.get("clickable") == "true"
+                     and (node.get("selected") == "true" or node.get("checked") == "true")
+                     and seeker.find(title, root=node) is not None), None)
+        if card is not None:
+            seeker.tap(card)
+            break
+        if page == total:
+            raise Failed(f"seeker: no {title} in Games")
+        seeker.tap(seeker.wait(desc="Next game"))
+        seeker.wait(desc=f"Game {page + 1} of {total}")
+    seeker.scroll_to("FUNDED REWARDS")
     for _ in range(6):
         root = seeker.nodes()
-        if open_visible_duo(root):
+        rows = [row for row in root.iter("node")
+                if row.get("clickable") == "true" and any(
+                    " · 2 players" in (node.get("text") or "") for node in row.iter("node")
+                )]
+        if rows:
+            row = min(rows, key=lambda node: (bounds(node)[2] - bounds(node)[0]) * (bounds(node)[3] - bounds(node)[1]))
+            seeker.tap(row)
+            seeker.tap_text("Start Formation")
             return
-        row = seeker.find(desc="Locked reward", root=root)
-        if row is not None:
-            break
-        area = next((n for n in root.iter("node") if n.get("scrollable") == "true"), None)
+        area = next((node for node in root.iter("node") if node.get("scrollable") == "true"), None)
         if area is None:
             break
         left, top, right, bottom = bounds(area)
-        x, height = (left + right) // 2, bottom - top
-        seeker.shell(f"input swipe {x} {top + height * 3 // 4} {x} {top + height // 4} 400")
-        time.sleep(0.2)
-    if row is None:
-        raise Failed("seeker: no rewards on the shelf")
-    y = (bounds(row)[1] + bounds(row)[3]) // 2
-    # Slow, short drags so the row doesn't fling past a card; first back to the start, then along.
-    for _ in range(8):
-        seeker.shell(f"input swipe 250 {y} 1150 {y} 150")
-    for _ in range(24):
-        if open_visible_duo():
-            return
-        seeker.shell(f"input swipe 1000 {y} 500 {y} 700")
-        time.sleep(0.5)
-    raise Failed(f"seeker: no {title} duo on the shelf")
+        seeker.shell(f"input swipe {(left + right) // 2} {top + (bottom - top) * 3 // 4} {(left + right) // 2} {top + (bottom - top) // 4} 400")
+        time.sleep(0.3)
+    raise Failed(f"seeker: no funded {title} duo in its preview")
 
 
 def bounds(node):

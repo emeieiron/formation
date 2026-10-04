@@ -14,7 +14,7 @@ The convention plugin provides the shared API, Compose, serialization, and multi
 
 Add `include(":challenges:<game>")` to `app/settings.gradle.kts` and the corresponding dependency to `app/shared/build.gradle.kts`. Import the game's entry point in `app/shared/.../state/Catalog.kt` and add it to the registry's `challenges` list.
 
-Registration supplies ID lookup, vault-code lookup, player-count checks, and advertised format versions. It also adds the game to Home's Games section using its metadata and instructions, independently of reward funding. No game-specific switch or separate catalogue registration is needed in the app.
+Registration supplies ID lookup, vault-code lookup, player-count checks, and advertised format versions. It also adds the game to Home's Games section using its metadata and instructions, independently of reward funding. Home displays `info.steps` beneath the selected card and derives its availability label from valid rewards and host identity. Keep each step focused on one control or objective. No game-specific switch or separate catalogue registration is needed in the app.
 
 ## Implement the contracts
 

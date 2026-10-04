@@ -90,6 +90,8 @@ def nodes(serial):
             **{flag: str(flag.upper().replace("-", "_") in record.get("interactions", [])).lower()
                for flag in ("clickable", "scrollable", "password")},
             "focused": str("FOCUSED" in record.get("state", [])).lower(),
+            "selected": str("SELECTED" in record.get("state", [])).lower(),
+            "checked": str("CHECKED" in record.get("state", [])).lower(),
         })
         converted.append((node, tuple(map(int, re.findall(r"\d+", node.get("bounds"))))))
     # The CLI returns flat accessible nodes; restore containment for the journey's card queries.

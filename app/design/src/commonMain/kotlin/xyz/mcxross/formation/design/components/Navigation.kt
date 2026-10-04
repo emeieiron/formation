@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -116,15 +117,18 @@ fun SectionHeader(
   modifier: Modifier = Modifier,
   action: String? = null,
   onAction: (() -> Unit)? = null,
+  trailing: (@Composable () -> Unit)? = null,
 ) {
   Row(
     modifier
       .fillMaxWidth()
-      .padding(start = Space.gutter, end = Space.s, top = Space.xl, bottom = Space.s),
+      .padding(start = Space.gutter, end = Space.s, top = Space.xl, bottom = Space.s)
+      .heightIn(min = 36.dp),
     verticalAlignment = Alignment.CenterVertically,
   ) {
     Overline(title, Modifier.weight(1f))
-    if (action != null && onAction != null) TextButton(action, onAction)
+    if (trailing != null) trailing()
+    else if (action != null && onAction != null) TextButton(action, onAction)
     else Spacer(Modifier.height(36.dp))
   }
 }

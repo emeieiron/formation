@@ -7,9 +7,11 @@ Home exposes installed games independently of reward funding. Players can learn 
 - Populate the Games section from `ChallengeCatalog.all`; new registered modules appear automatically.
 - Use a horizontal card deck with a focused card, neighboring-card preview, and a compressed stack behind the selection. Swipes snap to a game; arrow controls provide the same selection without dragging. Tapping a neighboring card selects it; tapping the focused card opens its preview.
 - Keep metadata, supported player counts, instructions and optional interactive introductions available to guests. Games own their optional cover artwork; Home owns layout and navigation.
+- Label every card: Playable for a linked host with a valid reward, No reward for a linked host without one, and Join to play for guests. Use the same reward filter for labels and preview options; refresh availability at reward expiry while Home remains open.
+- Show the selected game's existing instruction steps beneath the deck. Selection updates the panel with a brief fade; longer instructions remain vertically scrollable with Home.
 - Show matching funded rewards in the preview only for a linked host. Reject expired, settled, unsupported, and unrelated rewards; recheck the current selection before opening the existing reward sheet.
 - Keep the current reward sheet, session setup, signing, and settlement flow. Browsing does not create a reward or start a game.
-- Keep funding in its own Home section. The debug identity is labelled Test host so it is distinct from simulated reward funding.
+- Keep funded reward selection inside the game's preview. Home has no separate funding shelf. The debug identity is labelled Test host beside Games so it is distinct from simulated reward funding.
 
 ## Verification plan
 
@@ -74,6 +76,38 @@ Hosting checks used simulated fixtures and stopped at the lobby. No settlement w
 | Overdrive | Ricochet | Compact display |
 | --- | --- | --- |
 | ![Overdrive selected in the Home card deck](images/game-deck-overdrive.png) | ![Ricochet selected with Overdrive stacked behind it](images/game-deck-ricochet.png) | ![Card deck at 360 by 640 dp with 130 percent text size](images/game-deck-compact.png) |
+
+## Availability and instruction panel checks
+
+Verified on 4 October 2026 with the updated debug APK installed on both Android emulators.
+
+From `app`:
+
+```sh
+./gradlew :shared:testAndroidHostTest :androidApp:assembleDebug \
+  :androidApp:lintRelease :shared:compileKotlinIosSimulatorArm64
+```
+
+All 35 shared host tests passed, including reward selection at expiry, unsupported player counts and settled rewards. Android assembly, release lint and shared iOS compilation passed. The four existing Python driver and chain-verification unit tests passed. The updated journey driver selects the game through the deck and chooses a matching duo reward in its preview.
+
+| Scenario | Observed result |
+| --- | --- |
+| Linked test host without rewards | Every card shows No reward. Home has no funded shelf or empty-funding section. |
+| Valid Ricochet reward and expired Overdrive reward | Ricochet shows Playable; Overdrive shows No reward. |
+| Reward expires while Home remains open | Ricochet changes from Playable to No reward without relaunching or manually refreshing. |
+| Guest without a wallet or Seeker identity | Cards show Join to play; instructions remain available. |
+| Selection changes | The instruction panel switches between the games' existing steps beneath the deck. |
+| 360 × 640 dp display, 130% text size | Cards and labels fit. All instruction rows wrap and remain readable; Scan QR and Code are reachable by vertical scrolling. |
+| Updated hosting driver | Ricochet's selected card opens its preview, its funded duo reward opens the existing reward sheet, and Start Formation reaches the lobby. |
+| Cleanup | Temporary preferences, reward history, display overrides and font scale were restored and checked. |
+
+The expanded motion check reproduced missing unchanged regions with the emulator's host GPU backend under both OpenGL and Vulkan UI rendering. Disabling partial updates alone was insufficient. Cold-starting with `-gpu swiftshader -no-snapshot-load` preserved the app's full layout through repeated deck and instruction transitions. The APK does not set rendering properties; the emulator installer retains its existing partial-update setting.
+
+Hosting used explicit simulated reward fixtures and stopped at the lobby. This pass did not perform settlement or verify physical-device rendering.
+
+| No funded reward | Playable game | Compact instructions |
+| --- | --- | --- |
+| ![Unfunded host with No reward labels and selected-game instructions](images/game-availability-empty.png) | ![Ricochet marked Playable with instructions beneath the deck](images/game-availability-playable.png) | ![All three Ricochet instruction rows readable at 130 percent text size](images/game-availability-compact.png) |
 
 ## Follow-up
 
