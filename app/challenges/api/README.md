@@ -24,13 +24,15 @@ Registration supplies ID lookup, vault-code lookup, player-count checks, and adv
 | `ChallengeInfo` | Stable ID and vault code, title, instructions, icon, accent, and supported player counts |
 | `ChallengeGame<S, I>` | Evaluate inputs and time; expose authoritative state and status |
 | `ChallengeSetup` | Frozen roster, Seeker, difficulty, random seed, start time, and each phone's available inputs |
-| `StageScope<S, I>` | Render state, identify players, read sensors and the shared clock, provide haptics, and send typed inputs |
+| `StageScope<S, I>` | Render state, identify players, read sensors and the shared clock, provide haptics/audio, and send typed inputs |
 
 Implement `newGame(setup)`, `stateSerializer`, `inputSerializer`, `goal(players, difficulty)`, and `Stage(scope)` on the entry point. Role descriptions and debug `autopilot()` are optional.
 
 Rules run sequentially on the host. Use `setup.seed` for randomness and the supplied `now` for timing. Keep sensor access, UI, networking, and wall-clock reads outside the rules. This makes outcomes reproducible in focused rule tests.
 
 The stage reads `scope.state` and sends `I` through `scope.send()`. Use `scope.sensors` for typed channels, `scope.motion` for processed pose and gestures, and `scope.clock` for host time. `rememberHostNow`, `rememberPose`, `OnGesture`, and `onTouchDown` are focused helpers; stage presentation remains under the game's control.
+
+For short gameplay sounds, call `scope.audio.play(GameCue.CloseCall)` or another semantic `GameCue`. The optional `StageAudio` contract defaults to silence. The app owns assets, native playback, the persisted mute setting, and foreground/volume gates. Deduplicate authoritative event IDs in the stage and discard stale events; bind repeating cues to the stage's lifetime. Audio is feedback, not a clock or an input requirement. Ricochet's `FeedbackEvents` demonstrates impact selection and a bounded last-life cadence.
 
 Return `GameStatus.Won` or `GameStatus.Lost` to finish an attempt. The framework then handles the shared result, signatures, persistence, and settlement. A game does not construct reward transactions or manage claim keys.
 

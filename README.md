@@ -7,7 +7,7 @@ Play runs over a local network. Funding, unlocks and claims use Solana. Guests c
 The app includes two cooperative games:
 
 - **Overdrive:** each player sees their partner's target symbol and calls it out while rotating their own square to catch a pulse. Both catches complete a shared wave. The group needs 12 successful waves before the clock runs out (36 seconds on Easy down to 25 on Extreme); three failed waves end the attempt.
-- **Ricochet:** two phones show halves of one arena. Each player moves an outer paddle to keep a shared pulse in play and aim it at six targets. Clear the arena within 60 seconds; three missed returns end the attempt. Touch controls work on emulators without sensors. See [the implementation and demo](docs/ricochet.md).
+- **Ricochet:** two phones show halves of one arena. Each player moves an outer paddle to keep a shared pulse in play and aim it at six targets. Alternating catches build speed up to 1.5×; a miss resets momentum. Clear the arena within 60 seconds; three missed returns end the attempt. Touch controls work on emulators without sensors. See [the implementation and demo](docs/ricochet.md).
 
 In Overdrive, each successful wave makes both pulses fall 8% faster, so by the final wave they move about two and a half times as fast as the first. A failed wave keeps the pace. The pause between cleared waves shrinks as the group progresses.
 

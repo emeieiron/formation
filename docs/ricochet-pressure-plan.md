@@ -29,3 +29,7 @@ Pressure should grow from successful cooperation while the pulse, targets, and c
 - A miss resets speed without restoring targets. Delayed ticks replay the same rules, and presentation prediction accelerates at the same contact as the host.
 - Restored/stale events stay silent; fresh events play once. Last-life feedback has a bounded cadence and stops outside live play.
 - Two emulators can still complete through ordinary inputs, sealing, and simulated settlement. Emulator execution does not establish enjoyable human pacing or physical haptic/audio feel.
+
+## Completion
+
+All four phases are complete. Rules and feedback remain in focused files; native audio continues through the existing app service. The [verification record](ricochet-pressure-verification.md) covers 153 passing Android host tests, 22 Ricochet iOS tests, builds, release lint, two simulated emulator journeys, compact layout inspection, and native cue logs. Physical playtesting and the additional mechanic experiments remain in the [roadmap](ricochet-plan.md#roadmap).

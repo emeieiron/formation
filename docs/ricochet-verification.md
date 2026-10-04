@@ -2,6 +2,8 @@
 
 Executed on 4 October 2026. Ricochet is registered as `ricochet`, vault code `7`, format version `1`, for exactly two players.
 
+This records the first implementation. See the [pressure-pass verification](ricochet-pressure-verification.md) for the current format version 2.
+
 ## Automated checks
 
 - All 143 Android host tests passed across 34 suites, including 13 focused Ricochet tests.

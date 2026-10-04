@@ -9,7 +9,7 @@ Short original cues reinforce major moments in the general app. They are optiona
 | Formation complete | Fuller harmonic impact | Confirmed successful round |
 | Reward unlocked or claimed | Latch and brighter resolve | Confirmed unlock snapshot or successful claim result |
 
-Discovery, waiting, routine navigation, readiness toggles, and individual challenge actions remain quiet. A persistent Sound effects control lives in Profile. Muting stops the current cue and prevents queued requests from starting. Foreground checks drop background events; sound loading never queues stale cues or delays the app.
+Discovery, waiting, routine navigation, and readiness toggles remain quiet. Ricochet also uses short gameplay cues through the optional `StageAudio` interface: own returns, close calls, faster returns, target breaks, misses, and a restrained last-life heartbeat. Its stage deduplicates event IDs and drops stale events. A persistent Sound effects control lives in Profile. Muting stops the current cue and prevents queued requests from starting. Foreground checks drop background events; sound loading never queues stale cues or delays the app.
 
 ## Build phases
 
@@ -20,6 +20,8 @@ Discovery, waiting, routine navigation, readiness toggles, and individual challe
 ## Assets and playback
 
 `assets/sound/generate.py` authors four deterministic mono 48 kHz, 16-bit PCM WAVs using the Python standard library. Cues last 0.32–0.90 seconds, with shaped attacks, fading endpoints, and headroom. There are no recorded voices, music loops, downloaded samples, or challenge-specific dependencies.
+
+`assets/sound/gameplay.py` reuses those PCM helpers to author six shorter gameplay cues, lasting 0.10–0.38 seconds. They use quieter mechanical contacts and a low two-beat danger cue. All cues share the same preference and native playback policy. See the [Ricochet pressure verification](ricochet-pressure-verification.md) for the new assets and observed Android playback.
 
 Android uses preloaded [SoundPool](https://developer.android.com/reference/android/media/SoundPool) samples, at most one playing stream, media volume, and a ringer/communication-mode gate. Playback stops on Activity pause. iOS uses prepared AVAudioPlayer instances and the [ambient audio category](https://developer.apple.com/documentation/avfaudio/avaudiosession/category-swift.struct/ambient), which mixes with other audio and respects the Silent switch. It stops on resignation of active state. Native playback objects belong to the application and retain no screen or Activity.
 
