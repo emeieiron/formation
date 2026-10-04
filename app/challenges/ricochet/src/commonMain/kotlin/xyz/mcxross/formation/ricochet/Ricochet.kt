@@ -1,0 +1,42 @@
+package xyz.mcxross.formation.ricochet
+
+import androidx.compose.runtime.Composable
+import xyz.mcxross.formation.challenge.Challenge
+import xyz.mcxross.formation.challenge.ChallengeInfo
+import xyz.mcxross.formation.challenge.Role
+import xyz.mcxross.formation.challenge.Sense
+import xyz.mcxross.formation.challenge.StageScope
+import xyz.mcxross.formation.challenge.Step
+import xyz.mcxross.formation.design.icons.Icons
+import xyz.mcxross.formation.model.ChallengeId
+import xyz.mcxross.formation.model.Difficulty
+import xyz.mcxross.formation.model.PlayerId
+import xyz.mcxross.formation.session.ChallengeSetup
+import xyz.mcxross.formation.session.ChallengeGame
+import xyz.mcxross.formation.ricochet.ui.RicochetStage
+
+object Ricochet : Challenge<RicochetState, MovePaddle>() {
+  override val info = ChallengeInfo(
+    id = ChallengeId("ricochet"), code = 7, title = "Ricochet",
+    tagline = "One pulse. Two players.",
+    summary = "Keep the pulse moving between your phones. Clear the targets together.",
+    steps = listOf(
+      Step(Icons.Tap, "Tap or drag vertically to move your outer paddle."),
+      Step(Icons.ArrowRight, "Catch the pulse. An edge hit angles the return."),
+      Step(Icons.Target, "Clear six targets in 60 seconds. Three missed returns end the attempt."),
+    ),
+    icon = Icons.Target, light = 0, senses = listOf(Sense.Touch, Sense.Timing), players = 2..2,
+  )
+  override val stateSerializer = RicochetState.serializer()
+  override val inputSerializer = MovePaddle.serializer()
+  override fun newGame(setup: ChallengeSetup): ChallengeGame<RicochetState, MovePaddle> = RicochetGame(setup)
+  override fun goal(players: Int, difficulty: Difficulty) = "6 targets · 3 misses · 60 seconds"
+
+  override fun role(players: List<PlayerId>, seeker: PlayerId, me: PlayerId): Role {
+    val left = players.first() == me
+    return Role(if (left) "Left paddle" else "Right paddle", "Your phone shows the ${if (left) "left" else "right"} half of the arena.",
+      if (left) Icons.ArrowLeft else Icons.ArrowRight)
+  }
+
+  @Composable override fun Stage(scope: StageScope<RicochetState, MovePaddle>) = RicochetStage(scope)
+}

@@ -5,10 +5,11 @@ import xyz.mcxross.formation.challenge.ChallengeRegistry
 import xyz.mcxross.formation.model.ChallengeId
 import xyz.mcxross.formation.model.Opportunity
 import xyz.mcxross.formation.overdrive.Overdrive
+import xyz.mcxross.formation.ricochet.Ricochet
 
 object ChallengeCatalog {
   private val registry = ChallengeRegistry(
-    challenges = listOf(Overdrive),
+    challenges = listOf(Overdrive, Ricochet),
     retiredIds = setOf("rally", "circuit", "sync", "formation", "rush").map(::ChallengeId).toSet(),
     retiredCodes = (1..5).toSet(),
   )

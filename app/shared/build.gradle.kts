@@ -24,6 +24,7 @@ kotlin {
 
       api(projects.challenges.api)
       implementation(projects.challenges.overdrive)
+      implementation(projects.challenges.ricochet)
 
       implementation(projects.solana.vault)
 
