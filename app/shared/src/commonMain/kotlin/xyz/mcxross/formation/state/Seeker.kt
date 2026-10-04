@@ -60,7 +60,17 @@ class SeekerState(
     }
   }
 
-  suspend fun link() = lock.withLock { connectAndCheck() }
+  suspend fun link() = lock.withLock {
+    try {
+      connectAndCheck()
+    } finally {
+      // Leaving onboarding can cancel the wallet request. Do not strand a later visit in Checking.
+      if (_status.value == SeekerStatus.Checking) {
+        _status.value = _identity.value?.let { SeekerStatus.Verified(it) }
+          ?: if (isSeeker) SeekerStatus.NotLinked else SeekerStatus.NotASeeker
+      }
+    }
+  }
 
   fun pretend(on: Boolean, claimAddress: String) {
     if (!debug) return
@@ -68,6 +78,11 @@ class SeekerState(
   }
 
   fun forget() = store(null)
+
+  /** Hosting requires the identity produced by verification, not an onboarding choice. */
+  fun requireHostIdentity(): SeekerIdentity = checkNotNull(identity.value) {
+    "Link a Seeker to unlock play, or join someone who has one."
+  }
 
   private suspend fun connectAndCheck() {
     _status.value = SeekerStatus.Checking

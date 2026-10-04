@@ -12,6 +12,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,6 +39,8 @@ import xyz.mcxross.formation.resources.Res
 import xyz.mcxross.formation.resources.action_done
 import xyz.mcxross.formation.resources.action_view_reward
 import xyz.mcxross.formation.resources.label_funded_rewards
+import xyz.mcxross.formation.resources.story_practice_locked
+import xyz.mcxross.formation.ui.LocalGraph
 import xyz.mcxross.formation.ui.components.timeLeft
 
 @Composable
@@ -46,6 +50,7 @@ internal fun GameActionSheet(
   onDismiss: () -> Unit,
   onReward: (Opportunity) -> Unit,
 ) {
+  val seeker by LocalGraph.current.seeker.identity.collectAsState()
   if (game.introduction == null && rewards.isEmpty()) {
     LaunchedEffect(game.id) { onDismiss() }
     return
@@ -57,7 +62,12 @@ internal fun GameActionSheet(
       Text(game.info.title, style = Theme.type.title2)
       game.introduction?.let { introduction ->
         Spacer(Modifier.height(Space.xl))
-        introduction()
+        if (seeker != null) introduction() else {
+          HowToPlay(game.info)
+          Spacer(Modifier.height(Space.m))
+          Text(stringResource(Res.string.story_practice_locked), style = Theme.type.footnote,
+            color = Theme.colors.contentSecondary)
+        }
       }
       if (rewards.isNotEmpty()) {
         Spacer(Modifier.height(Space.xl))

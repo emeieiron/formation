@@ -1,6 +1,12 @@
 package xyz.mcxross.formation.platform
 
 enum class SoundCue(val file: String) {
+  // Prepare the first-use story before game cues so cold launches can hear its opening.
+  STORY_WAKE("story-wake.wav"),
+  STORY_JOIN("story-join.wav"),
+  STORY_UNLOCK("story-unlock.wav"),
+  STORY_BEAT("story-beat.wav"),
+  STORY_COMPLETE("story-complete.wav"),
   ASSEMBLED("assembled.wav"),
   BEGIN("begin.wav"),
   COMPLETE("complete.wav"),

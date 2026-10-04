@@ -49,6 +49,11 @@ class SoundEffects(
     }
   }
 
+  /** Cancel short cues when a presentation is paused, sought, hidden or backgrounded. */
+  fun stop() {
+    scope.launch(dispatcher) { runCatching { player.stop() } }
+  }
+
   private companion object {
     const val KEY_ENABLED = "sound.enabled"
   }

@@ -1,9 +1,6 @@
 package xyz.mcxross.formation.ui.screens
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -30,7 +27,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -38,23 +34,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
-import xyz.mcxross.formation.resources.Res
-import xyz.mcxross.formation.resources.action_continue
-import xyz.mcxross.formation.resources.action_get_started
-import xyz.mcxross.formation.resources.copy_no_account
-import xyz.mcxross.formation.resources.headline_play_together
-import xyz.mcxross.formation.resources.label_light
-import xyz.mcxross.formation.resources.label_name
-import xyz.mcxross.formation.resources.label_profile
+import xyz.mcxross.formation.resources.*
 import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.components.BackHandler
 import xyz.mcxross.formation.design.components.BottomActions
 import xyz.mcxross.formation.design.components.LiveryRule
-import xyz.mcxross.formation.design.components.RewardPass
 import xyz.mcxross.formation.design.components.Button
 import xyz.mcxross.formation.design.components.ButtonStyle
 import xyz.mcxross.formation.design.components.Notice
@@ -62,7 +49,6 @@ import xyz.mcxross.formation.design.components.Page
 import xyz.mcxross.formation.design.components.PlayerLight
 import xyz.mcxross.formation.design.components.TextField
 import xyz.mcxross.formation.design.components.TopBar
-import xyz.mcxross.formation.design.effects.FormationMark
 import xyz.mcxross.formation.design.foundation.Text
 import xyz.mcxross.formation.design.foundation.Icon
 import xyz.mcxross.formation.design.icons.Icons
@@ -74,7 +60,6 @@ import xyz.mcxross.formation.design.tokens.Tone
 import xyz.mcxross.formation.state.Profile
 import xyz.mcxross.formation.state.SeekerStatus
 import xyz.mcxross.formation.ui.LocalGraph
-import xyz.mcxross.formation.ui.components.IntroJourney
 
 @Composable
 fun WelcomeScreen(onDone: (Profile) -> Unit) {
@@ -82,6 +67,7 @@ fun WelcomeScreen(onDone: (Profile) -> Unit) {
   var step by rememberSaveable { mutableIntStateOf(0) }
   var name by rememberSaveable { mutableStateOf("") }
   var light by rememberSaveable { mutableIntStateOf(0) }
+  val playback = rememberSaveable(saver = StoryPlayback.Saver) { StoryPlayback() }
   BackHandler(enabled = step > 0) { step -= 1 }
   LaunchedEffect(Unit) { graph.platform.external.prepareScanner() }
   Page {
@@ -94,7 +80,7 @@ fun WelcomeScreen(onDone: (Profile) -> Unit) {
       label = "welcome",
     ) { s ->
       when (s) {
-        0 -> Intro(onNext = { step = 1 })
+        0 -> OnboardingStory(playback, visible = step == 0, onNext = { step = 1 })
         1 ->
           Introduce(
             name = name,
@@ -102,55 +88,36 @@ fun WelcomeScreen(onDone: (Profile) -> Unit) {
             light = light,
             onLight = { light = it },
             onBack = { step = 0 },
-            onDone = {
-              if (graph.platform.device.seeker) step = 2 else onDone(Profile(name.trim(), light))
-            },
+            onDone = { step = 2 },
           )
-        else -> LinkSeeker(onBack = { step = 1 }, onDone = { onDone(Profile(name.trim(), light)) })
+        2 -> ChoosePath(onBack = { step = 1 }, onHost = { step = 3 },
+          onJoin = { onDone(Profile(name.trim(), light)) })
+        else -> LinkSeeker(onBack = { step = 2 }, onDone = { onDone(Profile(name.trim(), light)) })
       }
     }
   }
 }
 
 @Composable
-private fun Intro(onNext: () -> Unit) {
-  val c = Theme.colors
-  val draw = remember { Animatable(0f) }
-  LaunchedEffect(Unit) {
-    draw.animateTo(1f, tween(1_100, easing = LinearEasing))
-  }
+private fun ChoosePath(onBack: () -> Unit, onHost: () -> Unit, onJoin: () -> Unit) {
   Column(Modifier.fillMaxSize()) {
-    Column(
-      Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = Space.gutter),
-      horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-      Spacer(Modifier.height(Space.x6l))
-      FormationMark(
-        Modifier.size(width = 96.dp, height = 64.dp),
-        progress = (draw.value / 0.25f).coerceAtMost(1f),
-      )
-      Spacer(Modifier.height(Space.xl))
-      Text("Formation", style = Theme.type.title3, color = c.contentSecondary)
-      Spacer(Modifier.height(Space.l))
-      Text(
-        stringResource(Res.string.headline_play_together),
-        style = Theme.type.hero,
-        color = c.content,
-        textAlign = TextAlign.Center,
-      )
-      Spacer(Modifier.height(Space.x4l))
+    TopBar(onBack = onBack)
+    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = Space.gutter)) {
       LiveryRule()
-      Spacer(Modifier.height(Space.x4l))
-      IntroJourney(draw.value)
-      Spacer(Modifier.height(Space.xxl))
-      Text(
-        stringResource(Res.string.copy_no_account),
-        style = Theme.type.footnote,
-        color = c.contentSecondary,
-      )
-      Spacer(Modifier.height(Space.xxl))
+      Spacer(Modifier.height(Space.xl))
+      Text(stringResource(Res.string.story_path_title), style = Theme.type.title1)
+      Spacer(Modifier.height(Space.s))
+      Text(stringResource(Res.string.story_path_body), style = Theme.type.body, color = Theme.colors.contentSecondary)
+      OnboardingScene({ 6.8f }, reduced = true, modifier = Modifier.fillMaxWidth().height(240.dp))
+      Point(Icons.Seeker, stringResource(Res.string.story_host_help))
+      Spacer(Modifier.height(Space.l))
+      Point(Icons.Users, stringResource(Res.string.story_join_help))
+      Spacer(Modifier.height(Space.l))
     }
-    BottomActions { Button(stringResource(Res.string.action_get_started), onNext, trailingIcon = Icons.ArrowRight) }
+    BottomActions {
+      Button(stringResource(Res.string.story_have_seeker), onHost, leadingIcon = Icons.Seeker)
+      Button(stringResource(Res.string.story_join_seeker), onJoin, style = ButtonStyle.Secondary, leadingIcon = Icons.Users)
+    }
   }
 }
 
@@ -220,21 +187,21 @@ private fun LinkSeeker(onBack: () -> Unit, onDone: () -> Unit) {
     Column(
       Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = Space.gutter)
     ) {
-      Text("LINK YOUR SEEKER", style = Theme.type.title1)
+      Text(stringResource(Res.string.story_link_title), style = Theme.type.title1)
       Spacer(Modifier.height(Space.s))
       Text(
-        "Locked SKR for this Seeker reaches it once you link. Seed Vault will ask you to approve; nothing is spent or moved.",
+        stringResource(Res.string.story_link_body),
         style = Theme.type.body,
         color = c.contentSecondary,
       )
       Spacer(Modifier.height(Space.x3l))
       Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        RewardPass(Modifier.size(width = 128.dp, height = 80.dp))
+        OnboardingScene({ 3f }, reduced = true, modifier = Modifier.fillMaxWidth().height(210.dp))
       }
       Spacer(Modifier.height(Space.x3l))
       Column(verticalArrangement = Arrangement.spacedBy(Space.l)) {
-        Point(Icons.Seeker, "Formation checks this Seeker's Genesis Token.")
-        Point(Icons.Users, "Then you can host Formations for the people around you.")
+        Point(Icons.Seeker, stringResource(Res.string.story_verify_help))
+        Point(Icons.Users, stringResource(Res.string.story_host_help))
       }
       Spacer(Modifier.height(Space.xl))
       when (val s = status) {
@@ -259,7 +226,7 @@ private fun LinkSeeker(onBack: () -> Unit, onDone: () -> Unit) {
         leadingIcon = Icons.Seeker,
       )
       Button(
-        "Not now",
+        stringResource(Res.string.story_join_instead),
         onDone,
         style = ButtonStyle.Ghost,
         enabled = status != SeekerStatus.Checking,

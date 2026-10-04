@@ -134,6 +134,7 @@ class AppGraph(
   val autoplay = MutableStateFlow(false)
 
   suspend fun host(opportunity: Opportunity, recovery: xyz.mcxross.formation.session.SessionSnapshot? = null): Result<ActiveSession> = runCatching {
+    seeker.requireHostIdentity()
     check(identity.claims.status.value is xyz.mcxross.formation.state.recovery.ClaimKeyState.Ready) { "Restore this phone's claim key first" }
     endSession()
     val challenge =
