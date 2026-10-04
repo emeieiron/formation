@@ -194,12 +194,18 @@ private fun DrawScope.drawLinks(
 fun FormationMark(
   modifier: Modifier = Modifier,
   progress: Float = 1f,
+) = FormationMark(modifier) { progress }
+
+@Composable
+fun FormationMark(
+  modifier: Modifier,
+  progress: () -> Float,
 ) {
   val c = Theme.colors
   Canvas(modifier) {
     val barWidth = size.width * 0.22f
     repeat(3) { index ->
-      val reveal = (progress * 3 - index).coerceIn(0f, 1f)
+      val reveal = (progress() * 3 - index).coerceIn(0f, 1f)
       val top = size.height * (if (index == 1) 0f else 0.12f)
       drawRoundRect(
         if (index == 2) c.accent else c.content,

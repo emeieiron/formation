@@ -1,5 +1,7 @@
 package xyz.mcxross.formation.ui.components
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -28,6 +31,7 @@ import xyz.mcxross.formation.design.components.TagStyle
 import xyz.mcxross.formation.design.foundation.Text
 import xyz.mcxross.formation.design.icons.Icons
 import xyz.mcxross.formation.design.tokens.Space
+import xyz.mcxross.formation.design.tokens.Motion
 import xyz.mcxross.formation.design.tokens.Tone
 import xyz.mcxross.formation.model.ChallengeId
 import xyz.mcxross.formation.model.RewardSplit
@@ -109,6 +113,7 @@ fun Slots(
   modifier: Modifier = Modifier,
   max: Int = 10,
   color: Color = Theme.colors.content,
+  animate: Boolean = false,
 ) {
   val c = Theme.colors
   Row(
@@ -117,14 +122,15 @@ fun Slots(
     horizontalArrangement = Arrangement.spacedBy(5.dp),
   ) {
     repeat(minOf(total, max)) { i ->
+      val fill by animateFloatAsState(if (i < filled) 1f else 0f,
+        if (animate) Motion.standard(280) else tween(0), label = "slot-$i")
       Box(Modifier.size(10.dp)) {
         Canvas(Modifier.size(10.dp)) {
-          if (i < filled) drawCircle(color)
-          else
-            drawCircle(
+          drawCircle(
               c.contentTertiary,
               style = androidx.compose.ui.graphics.drawscope.Stroke(1.2.dp.toPx()),
             )
+          if (fill > 0f) drawCircle(color.copy(alpha = fill), radius = size.minDimension / 2 * fill)
         }
       }
     }

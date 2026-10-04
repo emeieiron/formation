@@ -30,6 +30,7 @@ kotlin {
 
       implementation(libs.compose.components.resources)
       implementation(libs.navigationevent.compose)
+      implementation(libs.androidx.lifecycle.runtimeCompose)
       implementation(libs.kotlinx.serialization.json)
       implementation(libs.ktor.client.core)
     }

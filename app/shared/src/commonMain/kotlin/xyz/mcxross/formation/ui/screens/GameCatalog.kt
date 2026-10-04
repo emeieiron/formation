@@ -10,9 +10,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -26,6 +28,8 @@ import org.jetbrains.compose.resources.stringResource
 import xyz.mcxross.formation.challenge.Challenge
 import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.components.CardDeck
+import xyz.mcxross.formation.design.components.LocalArtworkActive
+import xyz.mcxross.formation.design.components.motionEnabled
 import xyz.mcxross.formation.design.components.IconButton
 import xyz.mcxross.formation.design.components.IconButtonStyle
 import xyz.mcxross.formation.design.components.SectionHeader
@@ -63,6 +67,8 @@ internal fun LazyListScope.gameCatalog(
   canHost: Boolean,
   playable: Set<ChallengeId>,
   testHost: Boolean,
+  motionActive: Boolean,
+  entrance: () -> Float,
   onOpen: (Challenge<*, *>) -> Unit,
 ) {
   item(key = "games-header") {
@@ -74,22 +80,30 @@ internal fun LazyListScope.gameCatalog(
     if (games.isEmpty()) {
       Text(stringResource(Res.string.state_no_games), Modifier.padding(horizontal = Space.gutter),
         style = Theme.type.subhead, color = Theme.colors.contentSecondary)
-    } else GameCatalog(games, canHost, playable, onOpen)
+    } else GameCatalog(games, canHost, playable, motionActive, entrance, onOpen)
   }
 }
 
 @Composable
-private fun GameCatalog(games: List<Challenge<*, *>>, canHost: Boolean, playable: Set<ChallengeId>, onOpen: (Challenge<*, *>) -> Unit) {
+private fun GameCatalog(games: List<Challenge<*, *>>, canHost: Boolean, playable: Set<ChallengeId>, motionActive: Boolean,
+  entrance: () -> Float, onOpen: (Challenge<*, *>) -> Unit) {
   val state = rememberPagerState { games.size }
   val scope = rememberCoroutineScope()
   val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+  val moves = motionEnabled()
   fun select(page: Int) {
     if (!state.isScrollInProgress) scope.launch { state.animateScrollToPage(page, animationSpec = Motion.snappy()) }
   }
   Column {
-    CardDeck(state, key = { games[it].id.value }) { page, modifier ->
+    CardDeck(state, key = { games[it].id.value }, modifier = Modifier.graphicsLayer {
+      translationY = (1f - entrance()) * 14.dp.toPx()
+      alpha = .6f + .4f * entrance()
+    }) { page, modifier ->
       val game = games[page]
-      GameCard(game, canHost, game.id in playable, page == state.settledPage, modifier) {
+      val focused = page == state.settledPage
+      GameCard(game, canHost, game.id in playable, focused,
+        motionActive && focused && !state.isScrollInProgress,
+        { if (moves) (state.currentPage - page + state.currentPageOffsetFraction).coerceIn(-1f, 1f) else 0f }, modifier) {
         if (!state.isScrollInProgress) {
           if (page == state.settledPage) onOpen(game) else select(page)
         }
@@ -113,7 +127,8 @@ private fun GameCatalog(games: List<Challenge<*, *>>, canHost: Boolean, playable
 }
 
 @Composable
-private fun GameCard(game: Challenge<*, *>, canHost: Boolean, playable: Boolean, focused: Boolean, modifier: Modifier, onOpen: () -> Unit) {
+private fun GameCard(game: Challenge<*, *>, canHost: Boolean, playable: Boolean, focused: Boolean,
+  motionActive: Boolean, offset: () -> Float, modifier: Modifier, onOpen: () -> Unit) {
   val c = Theme.colors
   val info = game.info
   val canOpen = playable || game.introduction != null
@@ -140,7 +155,14 @@ private fun GameCard(game: Challenge<*, *>, canHost: Boolean, playable: Boolean,
         Text(gamePlayerCount(info.players, info.groupSizes), style = Theme.type.caption, color = c.contentSecondary)
       }
       Box(Modifier.fillMaxWidth().height(150.dp).clearAndSetSemantics {}, contentAlignment = Alignment.Center) {
-        game.cover?.invoke() ?: Icon(info.icon, null, tint = c.accent, size = 80.dp)
+        Box(Modifier.fillMaxWidth().height(150.dp).graphicsLayer {
+          translationX = offset() * 18.dp.toPx()
+          rotationZ = offset() * -2.5f
+        }, contentAlignment = Alignment.Center) {
+          CompositionLocalProvider(LocalArtworkActive provides motionActive) {
+            game.cover?.invoke() ?: Icon(info.icon, null, tint = c.accent, size = 80.dp)
+          }
+        }
       }
       Column(Modifier.fillMaxWidth().padding(horizontal = Space.l)) {
         Row(verticalAlignment = Alignment.CenterVertically) {

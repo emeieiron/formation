@@ -27,5 +27,6 @@ The [project overview](../README.md) explains the app, architecture, builds, and
 | [Session hardening plan](session-hardening-plan.md) | Recovery, admission, discovery, claims, and diagnostics |
 | [Session verification](session-hardening-verification.md) | Executed interruption and recovery checks |
 | [UI plan](apex-red-plan.md) | Shared visual direction and implementation phases |
+| [Home motion plan and verification](home-motion-plan.md) | Blender cover demonstrations, swipe depth, discovery/reward reveals, reduced motion, and emulator checks |
 | [UI copy polish](ui-copy-polish.md) | Concise interface language and localization decisions |
 | [Sound feedback](sound-feedback.md) | Shared sound cues and playback behaviour |

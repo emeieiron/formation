@@ -28,6 +28,7 @@ fun CardDeck(
   content: @Composable (page: Int, modifier: Modifier) -> Unit,
 ) {
   val direction = if (LocalLayoutDirection.current == LayoutDirection.Ltr) 1f else -1f
+  val moves = motionEnabled()
   BoxWithConstraints(modifier.fillMaxWidth()) {
     val cardWidth = (maxWidth - Space.gutter * 2 - 40.dp).coerceAtMost(340.dp)
     HorizontalPager(
@@ -41,13 +42,15 @@ fun CardDeck(
       flingBehavior = PagerDefaults.flingBehavior(state, snapAnimationSpec = Motion.snappy()),
       key = key,
     ) { page ->
-      val offset = state.currentPage - page + state.currentPageOffsetFraction
-      content(page, Modifier.fillMaxWidth().zIndex(2f - abs(offset)).graphicsLayer {
+      content(page, Modifier.fillMaxWidth().zIndex(2f - abs(state.currentPage - page)).graphicsLayer {
+        val offset = state.currentPage - page + state.currentPageOffsetFraction
         val depth = abs(offset).coerceAtMost(2f)
         transformOrigin = TransformOrigin(if (direction > 0) 0f else 1f, 0.5f)
         scaleX = 1f - depth * 0.065f
         scaleY = scaleX
         alpha = 1f - depth * 0.22f
+        rotationY = if (moves) offset.coerceIn(-1f, 1f) * -3f else 0f
+        cameraDistance = 18f * density
         // Keep previous cards in a shallow stack while future cards enter from the edge.
         if (offset > 0f) {
           translationX = direction * (offset * (cardWidth + Space.m).toPx() - offset.coerceAtMost(2f) * 12.dp.toPx())

@@ -115,4 +115,9 @@
     <string name="screen_calibration_reset">Use the phone’s value</string>
     <string name="screen_calibration_smaller">Smaller</string>
     <string name="screen_calibration_larger">Larger</string>
+    <string name="action_show_instructions">Show instructions</string>
+    <string name="action_hide_instructions">Hide instructions</string>
+    <string name="state_instructions_expanded">Expanded</string>
+    <string name="state_instructions_collapsed">Collapsed</string>
+    <string name="state_discovery_paused">Discovery paused</string>
 </resources>
