@@ -26,11 +26,17 @@ internal class AndroidHotspot(context: Context, private val bridge: () -> Activi
       Manifest.permission.NEARBY_WIFI_DEVICES
     else Manifest.permission.ACCESS_FINE_LOCATION
 
+  // Android 12 ignores a fine location request that doesn't also ask for coarse.
+  private val requested =
+    if (permission == Manifest.permission.ACCESS_FINE_LOCATION)
+      arrayOf(permission, Manifest.permission.ACCESS_COARSE_LOCATION)
+    else arrayOf(permission)
+
   override fun permitted(): Boolean =
     ContextCompat.checkSelfPermission(appContext, permission) == PackageManager.PERMISSION_GRANTED
 
   override suspend fun start(): Result<HotspotInfo> {
-    val granted = bridge()?.requestPermissions(arrayOf(permission))?.get(permission) == true
+    val granted = bridge()?.requestPermissions(requested)?.get(permission) == true
     if (!granted)
       return Result.failure(
         IllegalStateException("The Seeker network needs permission to use nearby Wi-Fi.")

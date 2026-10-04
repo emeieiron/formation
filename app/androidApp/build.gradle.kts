@@ -63,6 +63,8 @@ dependencies {
 
   implementation(libs.androidx.activity.compose)
   implementation(libs.androidx.core.ktx)
+  // Play services still pulls Fragment 1.0, which predates activity results.
+  implementation(libs.androidx.fragment)
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.mwa.clientlib)
   implementation(libs.play.codeScanner)
