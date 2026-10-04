@@ -62,9 +62,7 @@ class AppGraph(
       seekerCheck ?: sgtCheck(SolanaRpc(platform.network.http, platform.config.sgtRpcUrl)),
     )
 
-  val ledgerChoice: LedgerMode =
-    LedgerMode.entries.firstOrNull { it.name == platform.store.get(KEY_LEDGER) }
-      ?: LedgerMode.SOLANA
+  val ledgerChoice = selectLedger(platform.store.get(KEY_LEDGER), platform.config.debug)
   val ledger: RewardLedger =
     ledger
       ?: when (ledgerChoice) {
@@ -110,7 +108,8 @@ class AppGraph(
     _session.value?.client?.setProfile(profile.name, profile.light)
   }
 
-  fun chooseLedger(mode: LedgerMode) = platform.store.put(KEY_LEDGER, mode.name)
+  fun chooseLedger(mode: LedgerMode) =
+    platform.store.put(KEY_LEDGER, selectLedger(mode.name, platform.config.debug).name)
 
   suspend fun connectWallet(): String? =
     when (val connected = platform.wallet.connect()) {

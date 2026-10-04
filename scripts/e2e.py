@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# End-to-end test across two running emulators: one plays a simulated Seeker, the other a guest.
+# End-to-end test across two emulators: debug Seeker identity, real testnet settlement by default.
 #
 #   scripts/e2e.py --title GAME_TITLE --code GAME_CODE [--chain simulated|localnet|testnet] [--wallet none|connect|ADDRESS]
 #                  [--seeker SERIAL] [--guest SERIAL] [--no-build] [--approve]
@@ -23,6 +23,7 @@ from reward_fixtures import SKR, load_rewards
 from overdrive_driver import OverdriveFailed, play_overdrive
 from android_layout import LayoutUnavailable
 from autoplay_driver import start_autoplay
+from chain_verification import configured_mint, mint_balance, verify_settlement
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ADB = os.path.join(os.environ.get("ANDROID_HOME", os.path.expanduser("~/Library/Android/sdk")), "platform-tools", "adb")
@@ -149,12 +150,15 @@ class Phone:
 def rpc(chain, method, params):
     body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).encode()
     req = urllib.request.Request(RPC[chain], body, {"Content-Type": "application/json"})
-    return json.load(urllib.request.urlopen(req, timeout=30)).get("result")
+    reply = json.load(urllib.request.urlopen(req, timeout=30))
+    if "error" in reply:
+        raise Failed(f"{method}: {reply['error'].get('message', 'Solana RPC failed')}")
+    return reply["result"]
 
 
 def skr_balance(chain, owner):
-    result = rpc(chain, "getTokenAccountsByOwner", [owner, {"programId": TOKEN}, {"encoding": "jsonParsed", "commitment": "confirmed"}])
-    return sum(int(a["account"]["data"]["parsed"]["info"]["tokenAmount"]["amount"]) for a in result["value"])
+    read = lambda method, params: rpc(chain, method, params)
+    return mint_balance(read, owner, configured_mint(read))
 
 
 def open_rewards(chain, seeker, code):
@@ -275,7 +279,8 @@ def approve_wallet(guest, auto, timeout=180):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--chain", choices=["simulated", "localnet", "testnet"], default="simulated")
+    parser.add_argument("--chain", choices=["simulated", "localnet", "testnet"], default="testnet",
+                        help="testnet submits real transactions; simulation requires explicit selection")
     parser.add_argument("--title", required=True, help="registered game's visible title")
     parser.add_argument("--code", type=int, required=True, help="registered game's vault code")
     parser.add_argument("--wallet", default="none")
@@ -288,6 +293,7 @@ def main():
     parser.add_argument("--layout", choices=["uiautomator", "android"], default="uiautomator")
     parser.add_argument("--driver", choices=["autoplay", "overdrive", "manual"], default="autoplay")
     args = parser.parse_args()
+    args.started_at = int(time.time() * 1000)
     if not args.title.strip() or not 6 <= args.code <= 65535:
         parser.error("Use a nonempty game title and a vault code within 6..65535")
     fixtures = load_rewards()
@@ -435,6 +441,22 @@ def offline_unlock(seeker, guest, unlock):
 def finish(args, seeker, guest, chain_wallet, before):
     seeker.screenshot("won")
     guest.screenshot("won")
+    if args.chain != "simulated":
+        owner_ticket = next((ticket for ticket in json.loads(seeker.pref("sol.tickets") or "[]")
+                             if ticket["index"] == -1 and ticket["earnedAt"] >= args.started_at), None)
+        guest_ticket = next((ticket for ticket in json.loads(guest.pref("sol.tickets") or "[]")
+                             if owner_ticket and ticket["opportunity"] == owner_ticket["opportunity"]), None)
+        if not owner_ticket or not guest_ticket:
+            raise Failed("Both phones must retain the chain reward tickets")
+        try:
+            result = verify_settlement(lambda method, params: rpc(args.chain, method, params), owner_ticket, guest_ticket,
+                                       json.loads(seeker.pref(f"sol.submissions.{args.chain}") or "[]"))
+        except ValueError as error:
+            raise Failed(str(error)) from error
+        result["chain"] = args.chain
+        with open(os.path.join(OUT, f"settlement-{result['opportunity']}.json"), "w") as record:
+            json.dump(result, record, indent=2)
+        log(f"confirmed {args.chain} settlement: {result['signatures'][0]}; owner {result['owner_amount'] / SKR:g} SKR")
     if before is not None:
         share = 0
         for _ in range(30):
