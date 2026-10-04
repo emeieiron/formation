@@ -50,6 +50,7 @@ import xyz.mcxross.formation.resources.action_select_game
 import xyz.mcxross.formation.resources.a11y_game_position
 import xyz.mcxross.formation.resources.label_games
 import xyz.mcxross.formation.resources.label_test_host
+import xyz.mcxross.formation.resources.player_choices
 import xyz.mcxross.formation.resources.player_count
 import xyz.mcxross.formation.resources.player_range
 import xyz.mcxross.formation.resources.state_no_games
@@ -136,7 +137,7 @@ private fun GameCard(game: Challenge<*, *>, canHost: Boolean, playable: Boolean,
           }), tone = if (playable) Tone.Positive else Tone.Neutral,
             icon = if (playable) Icons.Check else null)
         }
-        Text(gamePlayerCount(info.players), style = Theme.type.caption, color = c.contentSecondary)
+        Text(gamePlayerCount(info.players, info.groupSizes), style = Theme.type.caption, color = c.contentSecondary)
       }
       Box(Modifier.fillMaxWidth().height(150.dp).clearAndSetSemantics {}, contentAlignment = Alignment.Center) {
         game.cover?.invoke() ?: Icon(info.icon, null, tint = c.accent, size = 80.dp)
@@ -154,7 +155,11 @@ private fun GameCard(game: Challenge<*, *>, canHost: Boolean, playable: Boolean,
 }
 
 @Composable
-internal fun gamePlayerCount(players: IntRange): String =
-  if (players.first == players.last)
-    pluralStringResource(Res.plurals.player_count, players.first, players.first)
-  else stringResource(Res.string.player_range, players.first, players.last)
+internal fun gamePlayerCount(players: IntRange, sizes: Set<Int> = players.toSet()): String {
+  val sorted = sizes.sorted()
+  return when {
+    sorted.size == 1 -> pluralStringResource(Res.plurals.player_count, sorted.single(), sorted.single())
+    sorted == (sorted.first()..sorted.last()).toList() -> stringResource(Res.string.player_range, sorted.first(), sorted.last())
+    else -> stringResource(Res.string.player_choices, sorted.dropLast(1).joinToString(", "), sorted.last())
+  }
+}

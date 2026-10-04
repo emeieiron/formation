@@ -69,6 +69,7 @@
     <string name="copy_offline_unlock">Connect to unlock this reward.</string>
     <string name="state_reward_unavailable">This reward is no longer available.</string>
     <string name="player_range">%1$d–%2$d players</string>
+    <string name="player_choices">%1$s or %2$d players</string>
 
     <!-- These remain translatable even when the corresponding information is visual. -->
     <string name="a11y_occupancy">%1$d of %2$d joined</string>

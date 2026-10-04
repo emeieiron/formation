@@ -17,6 +17,8 @@ data class ChallengeInfo(
   val light: Int,
   val senses: List<Sense>,
   val players: IntRange = 2..32,
+  // The group sizes a reward can fund, for games whose layout only works at some sizes.
+  val groupSizes: Set<Int> = players.toSet(),
 )
 
 @Immutable data class Step(val icon: ImageVector, val text: String)

@@ -138,7 +138,7 @@ class AppGraph(
     endSession()
     val challenge =
       ChallengeCatalog[opportunity.challenge] ?: error("This app doesn't know that challenge yet")
-    check(opportunity.players in challenge.info.players) { "This game does not support this group size." }
+    check(opportunity.players in challenge.info.groupSizes) { "This game does not support this group size." }
     if (recovery == null) {
       val required = challenge.requiredSensors(opportunity.players).map {
         it.copy(allowSimulated = it.allowSimulated && simulator != null)

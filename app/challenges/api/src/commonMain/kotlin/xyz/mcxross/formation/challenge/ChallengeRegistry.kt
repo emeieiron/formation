@@ -25,11 +25,14 @@ class ChallengeRegistry(
       require(challenge.formatVersion > 0) { "Format versions must be positive" }
       require(!info.players.isEmpty() && info.players.first >= Opportunity.MIN_PLAYERS &&
         info.players.last <= Opportunity.MAX_PLAYERS) { "Game player counts must be within 2..32" }
+      require(info.groupSizes.isNotEmpty() && info.groupSizes.all { it in info.players }) {
+        "Game group sizes must fall within its player counts"
+      }
     }
   }
 
   operator fun get(id: ChallengeId): Challenge<*, *>? = byId[id]
   fun byCode(code: Int): Challenge<*, *>? = byCode[code]
   fun supports(opportunity: Opportunity): Boolean =
-    get(opportunity.challenge)?.info?.players?.contains(opportunity.players) == true
+    get(opportunity.challenge)?.info?.groupSizes?.contains(opportunity.players) == true
 }
