@@ -5,28 +5,37 @@ import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.sin
 
-internal data class Contact(val kind: ImpactKind, val x: Double, val y: Double, val side: Int? = null, val target: Int? = null)
-internal data class Flight(val pulse: Pulse, val targets: List<Target>, val contacts: List<Contact>, val missed: Boolean)
+internal data class Contact(val kind: ImpactKind, val x: Double, val y: Double, val side: Int? = null, val target: Int? = null, val grazed: Boolean = false)
+internal data class Flight(val pulse: Pulse, val targets: List<Target>, val contacts: List<Contact>, val missed: Boolean, val momentum: Momentum)
 
 internal object Physics {
-  fun step(pulse: Pulse, targets: List<Target>, paddles: List<Paddle>, height: Double, seconds: Double): Flight {
+  fun step(pulse: Pulse, targets: List<Target>, paddles: List<Paddle>, height: Double, seconds: Double, momentum: Momentum = Momentum()): Flight {
     var ball = pulse
     var remaining = seconds
     var tiles = targets
+    var pace = momentum
     val contacts = mutableListOf<Contact>()
     repeat(24) {
       val hit = next(ball, tiles, paddles, height)
       if (hit == null || hit.time > remaining) {
         ball = travel(ball, remaining)
-        return Flight(ball, tiles, contacts, false)
+        return Flight(ball, tiles, contacts, false, pace)
       }
       ball = travel(ball, hit.time)
       remaining -= hit.time
-      contacts += Contact(hit.kind, ball.x, ball.y, hit.side, hit.target)
-      if (hit.kind == ImpactKind.Miss) return Flight(ball, tiles, contacts, true)
+      val grazed = hit.kind == ImpactKind.Paddle &&
+        abs(ball.y - paddles.first { it.side == hit.side }.y) >= height * 0.425
+      contacts += Contact(hit.kind, ball.x, ball.y, hit.side, hit.target, grazed)
+      if (hit.kind == ImpactKind.Miss) return Flight(ball, tiles, contacts, true, Momentum())
       if (hit.kind == ImpactKind.Target) tiles = tiles.filter { it.id != hit.target }
       ball = reflect(ball, hit, paddles, height)
-      if (remaining <= 0) return Flight(ball, tiles, contacts, false)
+      if (hit.kind == ImpactKind.Paddle) {
+        val nextPace = pace.returned(hit.side!!)
+        val boost = nextPace.factor / pace.factor
+        ball = ball.copy(vx = ball.vx * boost, vy = ball.vy * boost)
+        pace = nextPace
+      }
+      if (remaining <= 0) return Flight(ball, tiles, contacts, false, pace)
     }
     error("Ricochet exceeded the collision budget")
   }

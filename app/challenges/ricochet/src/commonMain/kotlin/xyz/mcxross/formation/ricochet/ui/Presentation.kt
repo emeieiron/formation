@@ -7,7 +7,7 @@ import xyz.mcxross.formation.ricochet.RicochetState
 internal fun presentedPulse(state: RicochetState, now: Long): Pulse {
   if (state.finishedAt != null || now <= state.serveAt) return state.pulse
   val seconds = (now - maxOf(state.at, state.serveAt)).coerceIn(0, 100) / 1_000.0
-  return Physics.step(state.pulse, state.targets, state.paddles, state.paddleHeight, seconds).pulse
+  return Physics.step(state.pulse, state.targets, state.paddles, state.paddleHeight, seconds, state.momentum).pulse
 }
 
 internal data class Viewport(val x: Float, val y: Float, val scale: Float) {

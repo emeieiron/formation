@@ -49,9 +49,9 @@ internal class RicochetGame(setup: ChallengeSetup) : ChallengeGame<RicochetState
       val at = state.at + STEP_MS
       state = state.copy(at = at)
       if (at <= state.serveAt) continue
-      val flight = Physics.step(state.pulse, state.targets, state.paddles, state.paddleHeight, STEP_MS / 1_000.0)
-      val impacts = flight.contacts.map { Impact(++eventId, it.kind, at, it.x, it.y, it.side, it.target) }
-      state = state.copy(pulse = flight.pulse, targets = flight.targets,
+      val flight = Physics.step(state.pulse, state.targets, state.paddles, state.paddleHeight, STEP_MS / 1_000.0, state.momentum)
+      val impacts = flight.contacts.map { Impact(++eventId, it.kind, at, it.x, it.y, it.side, it.target, it.grazed) }
+      state = state.copy(pulse = flight.pulse, targets = flight.targets, momentum = flight.momentum,
         returns = state.returns + flight.contacts.count { it.kind == ImpactKind.Paddle },
         impacts = (state.impacts + impacts).takeLast(12))
       if (state.targets.isEmpty()) {

@@ -17,10 +17,11 @@ import xyz.mcxross.formation.session.ChallengeGame
 import xyz.mcxross.formation.ricochet.ui.RicochetStage
 
 object Ricochet : Challenge<RicochetState, MovePaddle>() {
+  override val formatVersion = 2
   override val info = ChallengeInfo(
     id = ChallengeId("ricochet"), code = 7, title = "Ricochet",
     tagline = "One pulse. Two players.",
-    summary = "Keep the pulse moving between your phones. Clear the targets together.",
+    summary = "Keep the pulse moving between your phones. Clean exchanges build speed.",
     steps = listOf(
       Step(Icons.Tap, "Tap or drag vertically to move your outer paddle."),
       Step(Icons.ArrowRight, "Catch the pulse. An edge hit angles the return."),

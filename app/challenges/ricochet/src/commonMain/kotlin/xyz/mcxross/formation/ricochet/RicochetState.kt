@@ -24,6 +24,7 @@ data class Impact(
   val y: Double,
   val side: Int? = null,
   val target: Int? = null,
+  val grazed: Boolean = false,
 )
 
 @Serializable
@@ -39,6 +40,7 @@ data class RicochetState(
   val rally: Int = 1,
   val misses: Int = 0,
   val returns: Int = 0,
+  val momentum: Momentum = Momentum(),
   val impacts: List<Impact> = emptyList(),
   val finishedAt: Long? = null,
 ) {
