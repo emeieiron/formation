@@ -74,7 +74,7 @@ private fun DrawScope.drawImpacts(state: RicochetState, side: Int, now: Long, co
     val t = age / 420f
     val at = Offset((impact.x - side).toFloat(), impact.y.toFloat())
     when (impact.kind) {
-      ImpactKind.Target -> repeat(8) { index ->
+      ImpactKind.Target, ImpactKind.Pierce -> repeat(8) { index ->
         val angle = index * kotlin.math.PI / 4 + impact.id * 0.37
         val direction = Offset(cos(angle).toFloat(), sin(angle).toFloat())
         val start = at + direction * (0.025f + t * 0.17f)
@@ -86,7 +86,7 @@ private fun DrawScope.drawImpacts(state: RicochetState, side: Int, now: Long, co
         drawCircle(colors.content.copy(alpha = (1 - t) * 0.45f), 0.03f + t * 0.08f * emphasis, at, style = Stroke(0.003f))
       }
       ImpactKind.Miss -> drawRect(colors.accent.copy(alpha = (1 - t) * 0.12f), size = Size(1f, Arena.HEIGHT.toFloat()))
-      ImpactKind.Wall -> {}
+      ImpactKind.Wall, ImpactKind.Charge -> {}
     }
   }
 }

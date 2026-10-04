@@ -1,13 +1,20 @@
 package xyz.mcxross.formation.ricochet.ui
 
 import xyz.mcxross.formation.ricochet.Physics
+import xyz.mcxross.formation.ricochet.Flight
 import xyz.mcxross.formation.ricochet.Pulse
 import xyz.mcxross.formation.ricochet.RicochetState
 
 internal fun presentedPulse(state: RicochetState, now: Long): Pulse {
-  if (state.finishedAt != null || now <= state.serveAt) return state.pulse
+  return presentedFlight(state, now).pulse
+}
+
+internal fun presentedFlight(state: RicochetState, now: Long): Flight {
+  if (state.finishedAt != null || now <= state.serveAt) {
+    return Flight(state.pulse, state.targets, emptyList(), false, state.momentum, state.charge)
+  }
   val seconds = (now - maxOf(state.at, state.serveAt)).coerceIn(0, 100) / 1_000.0
-  return Physics.step(state.pulse, state.targets, state.paddles, state.paddleHeight, seconds, state.momentum).pulse
+  return Physics.step(state.pulse, state.targets, state.paddles, state.paddleHeight, seconds, state.momentum, state.charge)
 }
 
 internal data class Viewport(val x: Float, val y: Float, val scale: Float) {

@@ -13,7 +13,7 @@ data class Paddle(val player: PlayerId, val side: Int, val y: Double, val sequen
 data class Target(val id: Int, val x: Double, val y: Double)
 
 @Serializable
-enum class ImpactKind { Wall, Paddle, Target, Miss }
+enum class ImpactKind { Wall, Paddle, Target, Miss, Charge, Pierce }
 
 @Serializable
 data class Impact(
@@ -41,6 +41,7 @@ data class RicochetState(
   val misses: Int = 0,
   val returns: Int = 0,
   val momentum: Momentum = Momentum(),
+  val charge: Charge = Charge(),
   val impacts: List<Impact> = emptyList(),
   val finishedAt: Long? = null,
 ) {
@@ -50,7 +51,6 @@ data class RicochetState(
   companion object {
     const val TARGETS = 6
     const val MAX_MISSES = 3
-    const val LIMIT_MS = 60_000L
   }
 }
 

@@ -6,36 +6,41 @@ import kotlin.math.hypot
 import kotlin.math.sin
 
 internal data class Contact(val kind: ImpactKind, val x: Double, val y: Double, val side: Int? = null, val target: Int? = null, val grazed: Boolean = false)
-internal data class Flight(val pulse: Pulse, val targets: List<Target>, val contacts: List<Contact>, val missed: Boolean, val momentum: Momentum)
+internal data class Flight(val pulse: Pulse, val targets: List<Target>, val contacts: List<Contact>, val missed: Boolean, val momentum: Momentum, val charge: Charge)
 
 internal object Physics {
-  fun step(pulse: Pulse, targets: List<Target>, paddles: List<Paddle>, height: Double, seconds: Double, momentum: Momentum = Momentum()): Flight {
+  fun step(pulse: Pulse, targets: List<Target>, paddles: List<Paddle>, height: Double, seconds: Double, momentum: Momentum = Momentum(), charge: Charge = Charge()): Flight {
     var ball = pulse
     var remaining = seconds
     var tiles = targets
     var pace = momentum
+    var power = charge
     val contacts = mutableListOf<Contact>()
     repeat(24) {
       val hit = next(ball, tiles, paddles, height)
       if (hit == null || hit.time > remaining) {
         ball = travel(ball, remaining)
-        return Flight(ball, tiles, contacts, false, pace)
+        return Flight(ball, tiles, contacts, false, pace, power)
       }
       ball = travel(ball, hit.time)
       remaining -= hit.time
       val grazed = hit.kind == ImpactKind.Paddle &&
         abs(ball.y - paddles.first { it.side == hit.side }.y) >= height * 0.425
-      contacts += Contact(hit.kind, ball.x, ball.y, hit.side, hit.target, grazed)
-      if (hit.kind == ImpactKind.Miss) return Flight(ball, tiles, contacts, true, Momentum())
+      val pierced = hit.kind == ImpactKind.Target && power.armed
+      contacts += Contact(if (pierced) ImpactKind.Pierce else hit.kind, ball.x, ball.y, hit.side, hit.target, grazed)
+      if (hit.kind == ImpactKind.Miss) return Flight(ball, tiles, contacts, true, Momentum(), Charge())
       if (hit.kind == ImpactKind.Target) tiles = tiles.filter { it.id != hit.target }
-      ball = reflect(ball, hit, paddles, height)
+      if (pierced) power = Charge() else ball = reflect(ball, hit, paddles, height)
       if (hit.kind == ImpactKind.Paddle) {
         val nextPace = pace.returned(hit.side!!)
         val boost = nextPace.factor / pace.factor
         ball = ball.copy(vx = ball.vx * boost, vy = ball.vy * boost)
+        val nextPower = power.returned(nextPace.exchanges > pace.exchanges)
+        if (!power.armed && nextPower.armed) contacts += Contact(ImpactKind.Charge, ball.x, ball.y, hit.side)
+        power = nextPower
         pace = nextPace
       }
-      if (remaining <= 0) return Flight(ball, tiles, contacts, false, pace)
+      if (remaining <= 0) return Flight(ball, tiles, contacts, false, pace, power)
     }
     error("Ricochet exceeded the collision budget")
   }

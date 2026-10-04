@@ -26,15 +26,21 @@ internal object Arena {
 
 internal class Pacing(difficulty: Difficulty) {
   val speed = when (difficulty) {
-    Difficulty.EASY -> 0.62
-    Difficulty.NORMAL -> 0.82
-    Difficulty.HARD -> 1.04
-    Difficulty.EXTREME -> 1.20
+    Difficulty.EASY -> 0.72
+    Difficulty.NORMAL -> 0.96
+    Difficulty.HARD -> 1.18
+    Difficulty.EXTREME -> 1.40
   }
   val paddleHeight = when (difficulty) {
     Difficulty.EASY -> 0.34
     Difficulty.NORMAL -> 0.28
     Difficulty.HARD -> 0.23
     Difficulty.EXTREME -> 0.19
+  }
+  val limitMs = when (difficulty) {
+    Difficulty.EASY -> 60_000L
+    Difficulty.NORMAL -> 50_000L
+    Difficulty.HARD -> 45_000L
+    Difficulty.EXTREME -> 40_000L
   }
 }

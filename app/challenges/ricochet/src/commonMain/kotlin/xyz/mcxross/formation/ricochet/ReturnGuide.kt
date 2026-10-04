@@ -26,12 +26,19 @@ internal object ReturnGuide {
   fun landing(state: RicochetState): Landing? {
     var pulse = state.pulse
     var targets = state.targets
+    var charge = state.charge
     repeat(24) {
       val hit = Physics.next(pulse, targets, state.paddles, state.paddleHeight, catchAll = true) ?: return null
       pulse = Physics.travel(pulse, hit.time)
       if (hit.kind == ImpactKind.Paddle) return Landing(hit.side!!, pulse.x, pulse.y)
       if (hit.kind == ImpactKind.Miss) return null
-      if (hit.kind == ImpactKind.Target) targets = targets.filter { it.id != hit.target }
+      if (hit.kind == ImpactKind.Target) {
+        targets = targets.filter { it.id != hit.target }
+        if (charge.armed) {
+          charge = Charge()
+          return@repeat
+        }
+      }
       pulse = Physics.reflect(pulse, hit, state.paddles, state.paddleHeight)
     }
     return null

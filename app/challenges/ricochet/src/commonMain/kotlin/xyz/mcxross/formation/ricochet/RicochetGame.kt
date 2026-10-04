@@ -22,7 +22,7 @@ internal class RicochetGame(setup: ChallengeSetup) : ChallengeGame<RicochetState
   override var state = RicochetState(
     paddles = setup.players.mapIndexed { side, player -> Paddle(player, side, Arena.HEIGHT / 2) },
     pulse = serve(1), targets = Arena.targets(random), paddleHeight = pacing.paddleHeight,
-    at = setup.startAt, startAt = setup.startAt, endsAt = setup.startAt + RicochetState.LIMIT_MS,
+    at = setup.startAt, startAt = setup.startAt, endsAt = setup.startAt + pacing.limitMs,
     serveAt = setup.startAt + RESET_MS,
   )
     private set
@@ -49,9 +49,10 @@ internal class RicochetGame(setup: ChallengeSetup) : ChallengeGame<RicochetState
       val at = state.at + STEP_MS
       state = state.copy(at = at)
       if (at <= state.serveAt) continue
-      val flight = Physics.step(state.pulse, state.targets, state.paddles, state.paddleHeight, STEP_MS / 1_000.0, state.momentum)
+      val flight = Physics.step(state.pulse, state.targets, state.paddles, state.paddleHeight,
+        STEP_MS / 1_000.0, state.momentum, state.charge)
       val impacts = flight.contacts.map { Impact(++eventId, it.kind, at, it.x, it.y, it.side, it.target, it.grazed) }
-      state = state.copy(pulse = flight.pulse, targets = flight.targets, momentum = flight.momentum,
+      state = state.copy(pulse = flight.pulse, targets = flight.targets, momentum = flight.momentum, charge = flight.charge,
         returns = state.returns + flight.contacts.count { it.kind == ImpactKind.Paddle },
         impacts = (state.impacts + impacts).takeLast(12))
       if (state.targets.isEmpty()) {

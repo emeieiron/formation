@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class Momentum(val exchanges: Int = 0, val lastSide: Int? = null) {
-  val factor: Double get() = 1.08.pow(exchanges.coerceAtMost(6)).coerceAtMost(MAX_FACTOR)
+  val factor: Double get() = 1.12.pow(exchanges.coerceAtMost(6)).coerceAtMost(MAX_FACTOR)
 
   fun returned(side: Int) = copy(
     exchanges = exchanges + if (lastSide != null && lastSide != side) 1 else 0,
@@ -13,6 +13,6 @@ data class Momentum(val exchanges: Int = 0, val lastSide: Int? = null) {
   )
 
   companion object {
-    const val MAX_FACTOR = 1.5
+    const val MAX_FACTOR = 1.9
   }
 }

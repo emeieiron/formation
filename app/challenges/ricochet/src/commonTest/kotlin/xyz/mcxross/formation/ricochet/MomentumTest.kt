@@ -27,10 +27,10 @@ class MomentumTest {
         pace = flight.momentum
         speed = hypot(flight.pulse.vx, flight.pulse.vy)
         assertEquals(pacing.speed * pace.factor, speed, 1e-9)
-        if (index == 1) assertEquals(pacing.speed * 1.08, speed, 1e-9)
+        if (index == 1) assertEquals(pacing.speed * 1.12, speed, 1e-9)
       }
       assertEquals(11, pace.exchanges)
-      assertEquals(pacing.speed * 1.5, speed, 1e-9)
+      assertEquals(pacing.speed * 1.9, speed, 1e-9)
       val repeated = Physics.step(Pulse(1.88, 0.85, speed, 0.0), emptyList(), paddles,
         pacing.paddleHeight, 0.10, pace)
       assertEquals(pace, repeated.momentum)
@@ -54,7 +54,7 @@ class MomentumTest {
       pulse = Pulse(0.12, 0.85, -0.62, 0.0), momentum = Momentum(lastSide = 1),
     )
     val expected = Physics.step(frame.pulse, frame.targets, frame.paddles, frame.paddleHeight, 0.1, frame.momentum)
-    assertEquals(1.08, expected.momentum.factor)
+    assertEquals(1.12, expected.momentum.factor)
     assertEquals(expected.pulse, presentedPulse(frame, 2_100))
     assertEquals(Momentum(lastSide = 1), frame.momentum)
     val before = Physics.step(frame.pulse, frame.targets, frame.paddles, frame.paddleHeight, 0.05, frame.momentum)
@@ -85,7 +85,7 @@ class MomentumTest {
     while (game.state.misses == 0 && now < 60_000) game.tick(now.also { now += 10 })
     assertEquals(1, game.state.misses)
     assertEquals(Momentum(), game.state.momentum)
-    assertEquals(0.62, hypot(game.state.pulse.vx, game.state.pulse.vy), 1e-9)
+    assertEquals(0.72, hypot(game.state.pulse.vx, game.state.pulse.vy), 1e-9)
     assertTrue(game.state.targets.all { it.id in survivingIds })
   }
 
