@@ -126,15 +126,15 @@ cargo test -p formation-vault
 
 After changing the program, copy `program/target/idl/formation_vault.json` to `program/formation-vault/idl/`. The Kotlin `IdlContractTest` checks the client against that interface.
 
-Run Overdrive's two-emulator journey with the Android CLI, a JDK and two running emulators:
+Run Overdrive's two-emulator journey on testnet with the Android CLI, a JDK and two running emulators:
 
 ```sh
 FORMATION_REWARDS="$PWD/scripts/fixtures/overdrive.json" \
-  scripts/e2e.py --title Overdrive --code 6 --chain simulated \
+  scripts/e2e.py --title Overdrive --code 6 --chain testnet \
   --layout android --driver overdrive
 ```
 
-The driver reads each phone's visible partner clue and taps the other phone's dial. It exercises the actual game through sealing and simulated unlock. The fixture creates a 120 SKR test reward split equally between the two players; it does not fund an on-chain reward.
+The driver reads each phone's visible partner clue and taps the other phone's dial. It exercises the actual game through sealing and confirmed on-chain unlock. The fixture provisions a 120-token testnet reward split equally between the two players when no matching open reward exists. Complete the [testnet setup](#testnet) first. Add `--wallet ADDRESS` to pay the guest's committed share to a testnet recipient; otherwise that share remains reserved for a later claim. Test tokens have no mainnet SKR value. Add `--chain simulated` for an isolated run without transactions.
 
 Ricochet's two-emulator journey uses testnet and its optional autopilot:
 
