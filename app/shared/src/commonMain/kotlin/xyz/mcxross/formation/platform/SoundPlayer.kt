@@ -11,6 +11,8 @@ enum class SoundCue(val file: String) {
   TARGET("target.wav"),
   MISS("miss.wav"),
   DANGER("danger.wav"),
+  CHARGE("charge.wav"),
+  PIERCE("pierce.wav"),
 }
 
 /** Called on the main dispatcher. Drop unavailable cues rather than queueing them. */

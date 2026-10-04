@@ -20,6 +20,8 @@ internal class FeedbackEvents(initial: RicochetState) {
     val cue = when {
       events.any { it.kind == ImpactKind.Miss } -> GameCue.Miss
       now < state.serveAt -> null
+      events.any { it.kind == ImpactKind.Pierce } -> GameCue.Pierce
+      events.any { it.kind == ImpactKind.Charge } -> GameCue.Charge
       events.any { it.kind == ImpactKind.Target } -> GameCue.Target
       ownReturn?.grazed == true -> GameCue.CloseCall
       ownReturn != null -> if (state.momentum.factor >= 1.35) GameCue.FastReturn else GameCue.Return

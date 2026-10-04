@@ -12,5 +12,7 @@ internal class ChallengeAudio(private val sounds: SoundEffects) : StageAudio {
     GameCue.Target -> SoundCue.TARGET
     GameCue.Miss -> SoundCue.MISS
     GameCue.Danger -> SoundCue.DANGER
+    GameCue.Charge -> SoundCue.CHARGE
+    GameCue.Pierce -> SoundCue.PIERCE
   })
 }

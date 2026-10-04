@@ -18,6 +18,7 @@ import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.ricochet.Arena
 import xyz.mcxross.formation.ricochet.RicochetState
@@ -28,6 +29,7 @@ internal fun RicochetArena(state: RicochetState, side: Int, now: State<Long>, on
   val move by rememberUpdatedState(onMove)
   Canvas(modifier.semantics {
     contentDescription = "${if (side == 0) "Left" else "Right"} paddle. Drag vertically to aim the return."
+    stateDescription = if (state.charge.armed) "Charged pulse" else "${state.charge.progress} of 2 exchanges to charge"
     progressBarRangeInfo = ProgressBarRangeInfo(state.paddles.first { it.side == side }.y.toFloat(),
       (state.paddleHeight / 2).toFloat()..(Arena.HEIGHT - state.paddleHeight / 2).toFloat())
     setProgress { move(it.toDouble(), true); true }

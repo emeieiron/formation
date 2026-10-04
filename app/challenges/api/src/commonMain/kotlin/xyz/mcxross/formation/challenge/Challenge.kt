@@ -25,6 +25,8 @@ abstract class Challenge<S : Any, I : Any> : ChallengeRules<S, I> {
 
   open fun role(players: List<PlayerId>, seeker: PlayerId, me: PlayerId): Role? = null
 
+  open val introduction: (@Composable () -> Unit)? = null
+
   @Composable abstract fun Stage(scope: StageScope<S, I>)
 
   // Debug builds only: called every few frames; each distinct [Move.key] is sent once.

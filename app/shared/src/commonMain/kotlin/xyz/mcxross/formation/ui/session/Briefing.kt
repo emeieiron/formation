@@ -90,7 +90,8 @@ internal fun Briefing(
         }
       }
       Spacer(Modifier.height(Space.xl))
-      info?.let { HowToPlay(it) }
+      val introduction = challenge?.introduction
+      if (introduction != null) introduction() else info?.let { HowToPlay(it) }
       Spacer(Modifier.height(Space.xl))
     }
     BottomActions {

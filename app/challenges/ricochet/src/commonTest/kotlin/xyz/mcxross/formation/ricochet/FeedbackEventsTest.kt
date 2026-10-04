@@ -72,4 +72,16 @@ class FeedbackEventsTest {
     assertNull(feedback.next(state.copy(at = 61_000, finishedAt = 61_000,
       impacts = listOf(contact(3, ImpactKind.Target, at = 61_000))), 0, 61_000))
   }
+
+  @Test fun chargeAndPierceAreSharedFreshCuesAndPierceTakesPriority() {
+    val left = FeedbackEvents(state)
+    val right = FeedbackEvents(state)
+    val charged = state.copy(impacts = listOf(contact(1, ImpactKind.Charge)))
+    assertEquals(GameCue.Charge, left.next(charged, 0, 2_000))
+    assertEquals(GameCue.Charge, right.next(charged, 1, 2_000))
+    assertNull(left.next(charged, 0, 2_000))
+    val pierced = charged.copy(impacts = charged.impacts + contact(2, ImpactKind.Target) + contact(3, ImpactKind.Pierce))
+    assertEquals(GameCue.Pierce, left.next(pierced, 0, 2_000))
+    assertEquals(GameCue.Pierce, right.next(pierced, 1, 2_000))
+  }
 }

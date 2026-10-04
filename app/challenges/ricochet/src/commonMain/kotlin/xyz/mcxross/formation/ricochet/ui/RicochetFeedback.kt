@@ -19,7 +19,8 @@ internal fun RicochetFeedback(scope: StageScope<RicochetState, MovePaddle>, side
         scope.audio.play(cue)
         when (cue) {
           GameCue.Miss -> scope.haptics.reject()
-          GameCue.Target -> scope.haptics.success()
+          GameCue.Target, GameCue.Pierce -> scope.haptics.success()
+          GameCue.Charge -> scope.haptics.confirm()
           GameCue.Danger -> scope.haptics.heartbeat()
           else -> scope.haptics.heavy()
         }

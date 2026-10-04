@@ -15,13 +15,14 @@ import xyz.mcxross.formation.model.PlayerId
 import xyz.mcxross.formation.session.ChallengeSetup
 import xyz.mcxross.formation.session.ChallengeGame
 import xyz.mcxross.formation.ricochet.ui.RicochetStage
+import xyz.mcxross.formation.ricochet.ui.AimingIntroduction
 
 object Ricochet : Challenge<RicochetState, MovePaddle>() {
   override val formatVersion = 3
   override val info = ChallengeInfo(
     id = ChallengeId("ricochet"), code = 7, title = "Ricochet",
     tagline = "One pulse. Two players.",
-    summary = "Keep the pulse moving between your phones. Clean exchanges build speed.",
+    summary = "Clean exchanges build speed and charge a piercing return. Clear the targets together.",
     steps = listOf(
       Step(Icons.Tap, "Tap or drag vertically to move your outer paddle."),
       Step(Icons.ArrowRight, "Catch the pulse. An edge hit angles the return."),
@@ -31,6 +32,7 @@ object Ricochet : Challenge<RicochetState, MovePaddle>() {
   )
   override val stateSerializer = RicochetState.serializer()
   override val inputSerializer = MovePaddle.serializer()
+  override val introduction: @Composable () -> Unit = { AimingIntroduction() }
   override fun newGame(setup: ChallengeSetup): ChallengeGame<RicochetState, MovePaddle> = RicochetGame(setup)
   override fun goal(players: Int, difficulty: Difficulty) = "6 targets · 3 misses · ${Pacing(difficulty).limitMs / 1_000} seconds"
 
