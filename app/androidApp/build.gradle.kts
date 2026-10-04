@@ -50,7 +50,9 @@ android {
         check(rpcUrl.get().startsWith("https://")) { "A signed release needs an HTTPS formation.rpcUrl, not ${rpcUrl.get()}" }
         check(cluster.get() in setOf("devnet", "testnet", "mainnet-beta")) { "A signed release can't target ${cluster.get()}" }
       }
-      isMinifyEnabled = false
+      // R8 shrinks, optimises and obfuscates the release; resources nothing references go too.
+      isMinifyEnabled = true
+      isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
     }
   }
