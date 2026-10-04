@@ -150,7 +150,13 @@ class FormationClient(
         continue
       }
       failures = 0
-      session(channel)
+      try {
+        session(channel)
+      } catch (e: CancellationException) {
+        throw e
+      } catch (_: Exception) {
+        // A link that fails rather than closes is just another drop; escaping would kill the client.
+      }
       if (_me.value != null) joinedOnce = true
       if (!finished) {
         _status.value = Status.Reconnecting(1)

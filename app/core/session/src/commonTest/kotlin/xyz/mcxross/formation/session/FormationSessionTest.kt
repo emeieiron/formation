@@ -7,12 +7,15 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.io.EOFException
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import xyz.mcxross.formation.crypto.Base58
@@ -62,6 +65,7 @@ class FormationSessionTest {
       key: Ed25519KeyPair = Ed25519KeyPair.generate(),
       wallet: String? = null,
       capabilities: Set<String> = emptySet(),
+      link: (LinkChannel) -> LinkChannel = { it },
     ): FormationClient {
       val client =
         FormationClient(
@@ -70,7 +74,7 @@ class FormationSessionTest {
             val (phone, seekerSide) = memoryLink()
             links[device] = seekerSide
             test.backgroundScope.launch { host.serve(seekerSide, local = seeker) }
-            phone
+            link(phone)
           },
           scope = test.backgroundScope,
           clock = clock,
@@ -345,6 +349,27 @@ class FormationSessionTest {
     assertEquals(true, f.host.snapshot.value.player(seat)!!.connected)
     assertEquals(3, f.host.snapshot.value.players.size)
     assertIs<Stage.Lost>(f.stage, "A timed attempt restarts after a connection interruption")
+  }
+
+  @Test
+  fun aLinkThatFailsInsteadOfClosingIsRetried() = runTest {
+    val f = Formation(this)
+    f.join("Aaron", seeker = true)
+    runCurrent()
+    val maya = f.join("Maya", link = { phone ->
+      object : LinkChannel by phone {
+        override val incoming = flow<String> { emitAll(phone.incoming); throw EOFException() }
+      }
+    })
+    runCurrent()
+    assertEquals(FormationClient.Status.Joined, maya.status.value)
+
+    f.links.getValue("Maya").close()
+    runCurrent()
+    assertEquals(FormationClient.Status.Reconnecting(1), maya.status.value)
+
+    advanceTimeBy(1_000)
+    assertEquals(FormationClient.Status.Joined, maya.status.value)
   }
 
   @Test
