@@ -48,6 +48,8 @@ class ClaimRecoveryTest {
 
   @Test
   fun encryptedRecoveryRejectsTamperingAndRestoresAProofAcrossAnInterruptedWrite() = runTest {
+    // iOS has no secure export provider yet and refuses rather than exporting a plain key.
+    if (!recoveryCipher().available) return@runTest
     val sourceStore = Store()
     val sourceSecrets = Secrets()
     val source = ClaimIdentity(sourceStore, sourceSecrets)
