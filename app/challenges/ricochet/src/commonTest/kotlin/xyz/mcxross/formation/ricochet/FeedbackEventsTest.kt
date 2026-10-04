@@ -47,6 +47,8 @@ class FeedbackEventsTest {
     val beat = lastLife.copy(at = 3_600)
     assertEquals(GameCue.Danger, feedback.next(beat, 0, 3_600))
     assertNull(feedback.next(beat, 0, 3_600))
+    assertNull(feedback.next(beat.copy(at = 3_500), 0, 3_500))
+    assertNull(feedback.next(beat.copy(at = 4_200), 0, 4_200))
     assertNull(feedback.next(beat, 0, 6_000))
     val resumed = beat.copy(at = 6_040)
     assertNull(feedback.next(resumed, 0, 6_040))

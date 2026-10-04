@@ -13,8 +13,8 @@ internal class FeedbackEvents(initial: RicochetState) {
     val events = state.impacts.filter { it.id > seen && now - it.at in -50L..350L }
     seen = maxOf(seen, state.impacts.lastOrNull()?.id ?: 0)
     val currentBeat = state.rally to (now - state.serveAt).coerceAtLeast(0) / BEAT_MS
-    val newBeat = beat?.let { it.first == currentBeat.first && it != currentBeat } == true
-    beat = currentBeat
+    val newBeat = beat?.let { it.first == currentBeat.first && currentBeat.second > it.second } == true
+    if (beat?.first != currentBeat.first || newBeat) beat = currentBeat
     if (state.finishedAt != null || now < state.startAt || now >= state.endsAt || now - state.at !in -50L..300L) return null
     val ownReturn = events.lastOrNull { it.kind == ImpactKind.Paddle && it.side == side }
     val cue = when {
