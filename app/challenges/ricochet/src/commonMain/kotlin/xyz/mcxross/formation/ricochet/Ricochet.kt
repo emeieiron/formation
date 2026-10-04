@@ -3,6 +3,7 @@ package xyz.mcxross.formation.ricochet
 import androidx.compose.runtime.Composable
 import xyz.mcxross.formation.challenge.Challenge
 import xyz.mcxross.formation.challenge.ChallengeInfo
+import xyz.mcxross.formation.challenge.Move
 import xyz.mcxross.formation.challenge.Role
 import xyz.mcxross.formation.challenge.Sense
 import xyz.mcxross.formation.challenge.StageScope
@@ -31,6 +32,13 @@ object Ricochet : Challenge<RicochetState, MovePaddle>() {
   override val inputSerializer = MovePaddle.serializer()
   override fun newGame(setup: ChallengeSetup): ChallengeGame<RicochetState, MovePaddle> = RicochetGame(setup)
   override fun goal(players: Int, difficulty: Difficulty) = "6 targets · 3 misses · 60 seconds"
+
+  override fun autopilot(state: RicochetState, me: PlayerId, now: Long): Move<MovePaddle>? {
+    if (state.finishedAt != null || now < state.startAt || now >= state.endsAt) return null
+    val position = ReturnGuide.position(state, me) ?: return null
+    val sequence = state.paddle(me).sequence + 1
+    return Move("${state.rally}:${state.at}:$sequence", MovePaddle(state.rally, sequence, position))
+  }
 
   override fun role(players: List<PlayerId>, seeker: PlayerId, me: PlayerId): Role {
     val left = players.first() == me

@@ -3,7 +3,7 @@
 #
 #   scripts/e2e.py --title GAME_TITLE --code GAME_CODE [--chain simulated|localnet|testnet] [--wallet none|connect|ADDRESS]
 #                  [--seeker SERIAL] [--guest SERIAL] [--no-build] [--approve]
-#                  [--layout uiautomator|android] [--driver autoplay|overdrive]
+#                  [--layout uiautomator|android] [--driver autoplay|overdrive|manual]
 #
 # --wallet connect taps Connect in the guest's lobby and waits for the wallet app's approval; with
 # --approve it taps the wallet's own Connect button too (it never types a password). On chains, the
@@ -22,6 +22,7 @@ from xml.sax.saxutils import escape, unescape
 from reward_fixtures import SKR, load_rewards
 from overdrive_driver import OverdriveFailed, play_overdrive
 from android_layout import LayoutUnavailable
+from autoplay_driver import start_autoplay
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ADB = os.path.join(os.environ.get("ANDROID_HOME", os.path.expanduser("~/Library/Android/sdk")), "platform-tools", "adb")
@@ -285,7 +286,7 @@ def main():
     parser.add_argument("--keep-chain", action="store_true", help="leave the local validator running afterwards")
     parser.add_argument("--offline", action="store_true", help="the Seeker loses its connection at unlock and recovers after a restart")
     parser.add_argument("--layout", choices=["uiautomator", "android"], default="uiautomator")
-    parser.add_argument("--driver", choices=["autoplay", "overdrive"], default="autoplay")
+    parser.add_argument("--driver", choices=["autoplay", "overdrive", "manual"], default="autoplay")
     args = parser.parse_args()
     if not args.title.strip() or not 6 <= args.code <= 65535:
         parser.error("Use a nonempty game title and a vault code within 6..65535")
@@ -375,11 +376,10 @@ def main():
             phone.tap_text("I'm ready", timeout=20)
         if args.driver == "overdrive":
             play_overdrive(seeker, guest, log)
+        elif args.driver == "manual":
+            log("playing manually; operate the touch controls on both phones")
         else:
-            for phone in (seeker, guest):
-                phone.tap(phone.wait(desc="Motion pad", timeout=20))
-                phone.tap_text("Autoplay", timeout=10)
-            log("playing on autoplay")
+            start_autoplay((seeker, guest), log)
         unlock = seeker.wait(r"Unlock [\d,.]+ SKR", prefix="regex", timeout=240)
         if args.offline:
             offline_unlock(seeker, guest, unlock)
