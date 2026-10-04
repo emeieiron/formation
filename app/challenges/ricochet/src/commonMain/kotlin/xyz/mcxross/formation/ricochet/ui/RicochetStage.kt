@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -21,7 +20,6 @@ import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.foundation.Icon
 import xyz.mcxross.formation.design.foundation.Text
 import xyz.mcxross.formation.design.icons.Icons
-import xyz.mcxross.formation.ricochet.ImpactKind
 import xyz.mcxross.formation.ricochet.MovePaddle
 import xyz.mcxross.formation.ricochet.RicochetState
 
@@ -37,20 +35,11 @@ internal fun RicochetStage(scope: StageScope<RicochetState, MovePaddle>) {
     val at = (current.finishedAt ?: now.value).coerceAtLeast(current.startAt)
     ((current.endsAt - at).coerceAtLeast(0) + 999).div(1_000).toInt()
   } }
-  val felt = remember(scope.round) { longArrayOf(state.impacts.lastOrNull()?.id ?: 0) }
-  LaunchedEffect(state.impacts.lastOrNull()?.id) {
-    val events = state.impacts.filter { it.id > felt[0] && scope.clock.hostNow() - it.at < 500 }
-    when {
-      events.any { it.kind == ImpactKind.Miss } -> scope.haptics.reject()
-      events.any { it.kind == ImpactKind.Target } -> scope.haptics.success()
-      events.any { it.kind == ImpactKind.Paddle && it.side == paddle.side } -> scope.haptics.heavy()
-    }
-    felt[0] = state.impacts.lastOrNull()?.id ?: felt[0]
-  }
+  RicochetFeedback(scope, paddle.side)
   val shown = state.copy(paddles = state.paddles.map { if (it.player == scope.me) it.copy(y = control.y) else it })
   Column(Modifier.fillMaxSize().navigationBarsPadding().padding(horizontal = 20.dp).padding(top = 12.dp, bottom = 12.dp),
     verticalArrangement = Arrangement.spacedBy(14.dp)) {
-    RicochetHud(state, seconds)
+    RicochetHud(state, seconds, now)
     RicochetArena(shown, paddle.side, now, { y, force ->
       control.move(y, scope.state, scope.clock.hostNow(), force, scope::send)
     }, Modifier.fillMaxWidth().weight(1f))

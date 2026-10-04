@@ -42,6 +42,7 @@ import xyz.mcxross.formation.challenge.Challenge
 import xyz.mcxross.formation.challenge.Countdown
 import xyz.mcxross.formation.challenge.PlayerView
 import xyz.mcxross.formation.challenge.StageScope
+import xyz.mcxross.formation.challenge.StageAudio
 import xyz.mcxross.formation.challenge.rememberHostNow
 import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.components.Chip
@@ -118,6 +119,7 @@ internal fun Play(
             session.client,
             graph.motion,
             graph.platform.haptics,
+            graph.challengeAudio,
             c,
             autoplay = autoplay && debug,
           )
@@ -229,12 +231,13 @@ private fun <S : Any, I : Any> StageHost(
   client: FormationClient,
   motion: MotionSense,
   haptics: Haptics,
+  audio: StageAudio,
   colors: Colors,
   autoplay: Boolean,
 ) {
   val scope =
     remember(challenge, snapshot.round) {
-      LiveStage(challenge, client, me, client.sync, motion, haptics)
+      LiveStage(challenge, client, me, client.sync, motion, haptics, audio)
     }
   val decoded =
     remember(frame) {
@@ -283,6 +286,7 @@ private class LiveStage<S : Any, I : Any>(
   override val clock: ClockSync,
   override val motion: MotionSense,
   override val haptics: Haptics,
+  override val audio: StageAudio,
 ) : StageScope<S, I> {
   var current by mutableStateOf<S?>(null)
   override var players by mutableStateOf(emptyList<PlayerView>())

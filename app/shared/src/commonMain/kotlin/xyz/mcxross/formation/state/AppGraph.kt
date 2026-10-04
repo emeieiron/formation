@@ -52,6 +52,7 @@ class AppGraph(
   val motion = MotionSense(sensors, scope, simulator)
   val identity = Identity(platform) { sensors.capabilities.value.supported(allowSimulated = simulator != null) }
   val sounds = SoundEffects(platform.store, platform.sound, scope)
+  internal val challengeAudio = ChallengeAudio(sounds)
   val seeker =
     SeekerState(
       platform.store,

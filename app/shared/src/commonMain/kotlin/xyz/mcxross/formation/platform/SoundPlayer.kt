@@ -5,6 +5,12 @@ enum class SoundCue(val file: String) {
   BEGIN("begin.wav"),
   COMPLETE("complete.wav"),
   REWARD("reward.wav"),
+  RETURN("return.wav"),
+  FAST_RETURN("fast-return.wav"),
+  CLOSE_CALL("close-call.wav"),
+  TARGET("target.wav"),
+  MISS("miss.wav"),
+  DANGER("danger.wav"),
 }
 
 /** Called on the main dispatcher. Drop unavailable cues rather than queueing them. */

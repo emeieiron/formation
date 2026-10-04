@@ -11,6 +11,7 @@ import kotlinx.coroutines.test.runTest
 import xyz.mcxross.formation.platform.KeyValueStore
 import xyz.mcxross.formation.platform.SoundCue
 import xyz.mcxross.formation.platform.SoundPlayer
+import xyz.mcxross.formation.challenge.GameCue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SoundEffectsTest {
@@ -80,5 +81,23 @@ class SoundEffectsTest {
     effects.play(SoundCue.REWARD)
     runCurrent()
     assertEquals(listOf(SoundCue.REWARD), player.played)
+  }
+
+  @Test
+  fun challengeCuesUseThePersistedMuteGate() = runTest {
+    val player = Player()
+    val effects = SoundEffects(Store(), player, backgroundScope, StandardTestDispatcher(testScheduler))
+    val audio = ChallengeAudio(effects)
+    audio.play(GameCue.CloseCall)
+    runCurrent()
+    assertEquals(listOf(SoundCue.CLOSE_CALL), player.played)
+    audio.play(GameCue.Danger)
+    effects.setEnabled(false)
+    runCurrent()
+    assertEquals(listOf(SoundCue.CLOSE_CALL), player.played)
+    effects.setEnabled(true)
+    audio.play(GameCue.FastReturn)
+    runCurrent()
+    assertEquals(listOf(SoundCue.CLOSE_CALL, SoundCue.FAST_RETURN), player.played)
   }
 }

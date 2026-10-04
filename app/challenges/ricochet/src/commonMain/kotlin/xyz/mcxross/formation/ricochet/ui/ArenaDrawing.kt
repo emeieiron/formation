@@ -16,7 +16,9 @@ import xyz.mcxross.formation.ricochet.RicochetState
 
 internal fun DrawScope.drawHalf(state: RicochetState, side: Int, now: Long, colors: Colors) {
   val height = Arena.HEIGHT.toFloat()
-  drawRect(colors.line, Offset(0.002f, 0.002f), Size(0.996f, height - 0.004f), style = Stroke(0.002f))
+  val danger = dangerPulse(state, now)
+  drawRect(if (danger > 0) colors.accent.copy(alpha = 0.15f + danger * 0.35f) else colors.line,
+    Offset(0.002f, 0.002f), Size(0.996f, height - 0.004f), style = Stroke(0.002f))
   state.targets.filter { it.x.toInt() == side }.forEach { target ->
     val x = (target.x - side).toFloat()
     val y = target.y.toFloat()
@@ -39,8 +41,9 @@ internal fun DrawScope.drawHalf(state: RicochetState, side: Int, now: Long, colo
   val paddle = state.paddles.first { it.side == side }
   val contact = state.impacts.lastOrNull { it.kind == ImpactKind.Paddle && it.side == side }
   val punch = contact?.let { (1f - (now - it.at).coerceAtLeast(0) / 220f).coerceAtLeast(0f) } ?: 0f
-  val paddleHeight = state.paddleHeight.toFloat() * (1 - punch * 0.12f)
-  val paddleWidth = Arena.PADDLE_WIDTH.toFloat() * (1 + punch * 0.4f)
+  val intensity = if (contact?.grazed == true) 1.4f else 1f
+  val paddleHeight = state.paddleHeight.toFloat() * (1 - punch * 0.12f * intensity)
+  val paddleWidth = Arena.PADDLE_WIDTH.toFloat() * (1 + punch * 0.4f * intensity)
   val px = (Arena.paddleX(side) - side).toFloat()
   drawRoundRect(colors.content, Offset(px - paddleWidth / 2, paddle.y.toFloat() - paddleHeight / 2),
     Size(paddleWidth, paddleHeight), CornerRadius(paddleWidth / 2))
@@ -48,8 +51,10 @@ internal fun DrawScope.drawHalf(state: RicochetState, side: Int, now: Long, colo
   val pulse = presentedPulse(state, now)
   val at = Offset((pulse.x - side).toFloat(), pulse.y.toFloat())
   if (now >= state.serveAt || state.finishedAt != null) {
-    val tail = Offset(at.x - (pulse.vx * 0.10).toFloat(), at.y - (pulse.vy * 0.10).toFloat())
-    drawLine(colors.content.copy(alpha = 0.3f), tail, at, 0.006f, StrokeCap.Round)
+    val pace = ((state.momentum.factor - 1) / 0.5).toFloat()
+    val tailSeconds = 0.10 + pace * 0.05
+    val tail = Offset(at.x - (pulse.vx * tailSeconds).toFloat(), at.y - (pulse.vy * tailSeconds).toFloat())
+    drawLine(colors.content.copy(alpha = 0.25f + pace * 0.25f), tail, at, 0.006f + pace * 0.004f, StrokeCap.Round)
     drawCircle(colors.content, Arena.RADIUS.toFloat(), at)
     val edge = if (side == 0) 0.995f else 0.005f
     val approach = (1 - kotlin.math.abs(pulse.x - 1.0) / 0.35).coerceIn(0.0, 1.0).toFloat()
@@ -76,7 +81,10 @@ private fun DrawScope.drawImpacts(state: RicochetState, side: Int, now: Long, co
         drawLine((if (index % 3 == 0) colors.content else colors.accent).copy(alpha = 1 - t),
           start, start + direction * (0.026f * (1 - t)), 0.009f)
       }
-      ImpactKind.Paddle -> drawCircle(colors.content.copy(alpha = (1 - t) * 0.45f), 0.03f + t * 0.08f, at, style = Stroke(0.003f))
+      ImpactKind.Paddle -> {
+        val emphasis = if (impact.grazed) 1.4f else 1f
+        drawCircle(colors.content.copy(alpha = (1 - t) * 0.45f), 0.03f + t * 0.08f * emphasis, at, style = Stroke(0.003f))
+      }
       ImpactKind.Miss -> drawRect(colors.accent.copy(alpha = (1 - t) * 0.12f), size = Size(1f, Arena.HEIGHT.toFloat()))
       ImpactKind.Wall -> {}
     }

@@ -28,6 +28,7 @@ interface StageScope<S : Any, I : Any> {
   val motion: MotionSense
   val sensors: SensorHub get() = motion.sensors
   val haptics: Haptics
+  val audio: StageAudio get() = StageAudio.None
 
   fun send(input: I)
 
