@@ -4,7 +4,7 @@ Formation is a local multiplayer Android app for unlocking shared SKR rewards on
 
 Play runs over a local network. Funding, unlocks and claims use Solana. Guests can connect a wallet before play or keep their entitlement on the phone and claim later.
 
-Home's **Games** section lists installed games without requiring a wallet or funded reward. Tap a game to see its controls and supported player count; Ricochet also includes aiming practice. A linked host can select a matching funded reward from the preview, then use the existing Formation flow. Guests join through Nearby, QR or code.
+Home's **Games** section presents installed games in a horizontal card deck without requiring a wallet or funded reward. Swipe or use the arrows to select a game, then tap its card for instructions; Ricochet also includes aiming practice. A linked host can select a matching funded reward from the preview, then use the existing Formation flow. Guests join through Nearby, QR or code.
 
 The app includes two cooperative games:
 
@@ -96,6 +96,8 @@ From the repository root, install the app on running emulators and forward their
 scripts/emulators.sh install
 scripts/emulators.sh link
 ```
+
+The installer disables partial frame updates on emulators configured with the `skiagl` renderer. The tested emulators otherwise lost unchanged UI content after animations. This setting affects the emulator's renderer; it does not change the APK or physical-device rendering.
 
 In Profile → Developer, enable **Pretend to be a Seeker** on the host. This option is limited to debug builds. A debug Seeker supplies a test host identity and signs with its own claim key; it can still submit real testnet transactions. Solana is the default ledger. Turn off **Solana ledger** explicitly for isolated simulation; release builds ignore a saved simulated-ledger preference.
 

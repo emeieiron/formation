@@ -13,6 +13,11 @@
     <string name="action_open_network">Open network</string>
     <string name="action_done">Done</string>
     <string name="action_view_reward">View reward</string>
+    <string name="action_next_game">Next game</string>
+    <string name="action_previous_game">Previous game</string>
+    <string name="action_preview_game">Preview %1$s</string>
+    <string name="action_select_game">Select %1$s</string>
+    <string name="a11y_game_position">Game %1$d of %2$d</string>
 
     <string name="label_profile">Profile</string>
     <string name="label_games">Games</string>

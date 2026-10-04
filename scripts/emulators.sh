@@ -18,6 +18,9 @@ case "${1:-link}" in
     apk="$ROOT/app/androidApp/build/outputs/apk/debug/androidApp-debug.apk"
     for serial in $(emulators); do
       echo "Installing on $serial"
+      if [ "$("$ADB" -s "$serial" shell getprop debug.hwui.renderer | tr -d '\r')" = "skiagl" ]; then
+        "$ADB" -s "$serial" shell setprop debug.hwui.use_partial_updates false
+      fi
       "$ADB" -s "$serial" install -r "$apk" >/dev/null
     done
     ;;

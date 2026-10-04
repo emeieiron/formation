@@ -32,6 +32,7 @@ object Overdrive : Challenge<OverdriveState, Rotate>() {
   override val formatVersion = 3
   override val stateSerializer = OverdriveState.serializer()
   override val inputSerializer = Rotate.serializer()
+  override val cover: @Composable () -> Unit = { OverdriveCover() }
   override fun newGame(setup: ChallengeSetup): ChallengeGame<OverdriveState, Rotate> = OverdriveGame(setup)
   override fun goal(players: Int, difficulty: Difficulty) =
     "12 shared waves · 3 misses · ${Pacing(difficulty).limit / 1_000} seconds"

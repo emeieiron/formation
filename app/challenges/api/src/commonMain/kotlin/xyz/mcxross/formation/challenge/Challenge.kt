@@ -27,6 +27,8 @@ abstract class Challenge<S : Any, I : Any> : ChallengeRules<S, I> {
 
   open val introduction: (@Composable () -> Unit)? = null
 
+  open val cover: (@Composable () -> Unit)? = null
+
   @Composable abstract fun Stage(scope: StageScope<S, I>)
 
   // Debug builds only: called every few frames; each distinct [Move.key] is sent once.

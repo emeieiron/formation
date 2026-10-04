@@ -30,6 +30,8 @@ Implement `newGame(setup)`, `stateSerializer`, `inputSerializer`, `goal(players,
 
 Override `introduction: (@Composable () -> Unit)?` for a brief interactive explanation in the existing briefing and catalogue preview. Its default is `null`, which retains the metadata's normal instructions. Keep preview state local: it must not submit gameplay inputs, score a result, or add a readiness step. Ricochet uses this slot to demonstrate paddle aiming with its shared reflection rules.
 
+Override `cover: (@Composable () -> Unit)?` to supply decorative artwork for the Home card. Fill the provided slot without adding controls, inputs or session work. The default uses the metadata icon, so artwork is optional. Overdrive and Ricochet keep their Blender renders in their own modules; the app contains no game-specific artwork selection. A module using Compose resources must enable Android resources and declare its resource dependency, as these two modules do.
+
 Rules run sequentially on the host. Use `setup.seed` for randomness and the supplied `now` for timing. Keep sensor access, UI, networking, and wall-clock reads outside the rules. This makes outcomes reproducible in focused rule tests.
 
 The stage reads `scope.state` and sends `I` through `scope.send()`. Use `scope.sensors` for typed channels, `scope.motion` for processed pose and gestures, and `scope.clock` for host time. `rememberHostNow`, `rememberPose`, `OnGesture`, and `onTouchDown` are focused helpers; stage presentation remains under the game's control.

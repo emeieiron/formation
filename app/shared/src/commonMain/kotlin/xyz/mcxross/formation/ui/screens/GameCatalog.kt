@@ -1,22 +1,34 @@
 package xyz.mcxross.formation.ui.screens
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import xyz.mcxross.formation.challenge.Challenge
-import xyz.mcxross.formation.challenge.ChallengeInfo
 import xyz.mcxross.formation.design.Theme
+import xyz.mcxross.formation.design.components.CardDeck
+import xyz.mcxross.formation.design.components.IconButton
+import xyz.mcxross.formation.design.components.IconButtonStyle
+import xyz.mcxross.formation.design.components.Overline
 import xyz.mcxross.formation.design.components.SectionHeader
 import xyz.mcxross.formation.design.components.liveryCard
 import xyz.mcxross.formation.design.foundation.Icon
@@ -24,41 +36,87 @@ import xyz.mcxross.formation.design.foundation.Panel
 import xyz.mcxross.formation.design.foundation.Text
 import xyz.mcxross.formation.design.foundation.pressable
 import xyz.mcxross.formation.design.icons.Icons
+import xyz.mcxross.formation.design.tokens.Motion
 import xyz.mcxross.formation.design.tokens.Shapes
 import xyz.mcxross.formation.design.tokens.Space
 import xyz.mcxross.formation.resources.Res
+import xyz.mcxross.formation.resources.action_next_game
+import xyz.mcxross.formation.resources.action_previous_game
+import xyz.mcxross.formation.resources.action_preview_game
+import xyz.mcxross.formation.resources.action_select_game
+import xyz.mcxross.formation.resources.a11y_game_position
 import xyz.mcxross.formation.resources.label_games
 import xyz.mcxross.formation.resources.player_count
 import xyz.mcxross.formation.resources.player_range
 import xyz.mcxross.formation.resources.state_no_games
-import xyz.mcxross.formation.ui.components.ChallengeGlyph
 
 internal fun LazyListScope.gameCatalog(games: List<Challenge<*, *>>, onOpen: (Challenge<*, *>) -> Unit) {
   item(key = "games-header") { SectionHeader(stringResource(Res.string.label_games)) }
-  if (games.isEmpty()) {
-    item(key = "games-empty") {
+  item(key = "games-catalog") {
+    if (games.isEmpty()) {
       Text(stringResource(Res.string.state_no_games), Modifier.padding(horizontal = Space.gutter),
         style = Theme.type.subhead, color = Theme.colors.contentSecondary)
-    }
+    } else GameCatalog(games, onOpen)
   }
-  items(games, key = { "game-${it.id.value}" }) { game -> GameCard(game.info) { onOpen(game) } }
 }
 
 @Composable
-private fun GameCard(info: ChallengeInfo, onOpen: () -> Unit) {
-  val c = Theme.colors
-  Panel(Modifier.fillMaxWidth().padding(horizontal = Space.gutter, vertical = Space.xs)
-    .pressable(onOpen, shape = Shapes.card, travel = true).liveryCard()) {
-    Row(Modifier.fillMaxWidth().padding(Space.l), verticalAlignment = Alignment.CenterVertically) {
-      ChallengeGlyph(info, size = 40.dp)
-      Spacer(Modifier.width(Space.m))
-      Column(Modifier.weight(1f)) {
-        Text(info.title, style = Theme.type.headline)
-        Text(info.tagline, style = Theme.type.footnote, color = c.contentSecondary)
-        Text(gamePlayerCount(info.players), style = Theme.type.caption, color = c.contentTertiary)
+private fun GameCatalog(games: List<Challenge<*, *>>, onOpen: (Challenge<*, *>) -> Unit) {
+  val state = rememberPagerState { games.size }
+  val scope = rememberCoroutineScope()
+  val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+  fun select(page: Int) {
+    if (!state.isScrollInProgress) scope.launch { state.animateScrollToPage(page, animationSpec = Motion.snappy()) }
+  }
+  Column {
+    CardDeck(state, key = { games[it].id.value }) { page, modifier ->
+      val game = games[page]
+      GameCard(game, page, page == state.settledPage, modifier) {
+        if (!state.isScrollInProgress) {
+          if (page == state.settledPage) onOpen(game) else select(page)
+        }
       }
-      Spacer(Modifier.width(Space.s))
-      Icon(Icons.ChevronRight, null, tint = c.contentSecondary, size = 20.dp)
+    }
+    if (games.size > 1) {
+      val position = stringResource(Res.string.a11y_game_position, state.settledPage + 1, games.size)
+      Row(Modifier.fillMaxWidth().padding(start = Space.gutter, end = Space.gutter, top = Space.s),
+        verticalAlignment = Alignment.CenterVertically) {
+        Text("${(state.settledPage + 1).toString().padStart(2, '0')} / ${games.size.toString().padStart(2, '0')}",
+          Modifier.weight(1f).clearAndSetSemantics { contentDescription = position },
+          style = Theme.type.code, color = Theme.colors.contentTertiary)
+        IconButton(if (rtl) Icons.ArrowRight else Icons.ArrowLeft, stringResource(Res.string.action_previous_game), { select(state.settledPage - 1) },
+          style = IconButtonStyle.Ghost, size = 48.dp, enabled = state.settledPage > 0 && !state.isScrollInProgress)
+        IconButton(if (rtl) Icons.ArrowLeft else Icons.ArrowRight, stringResource(Res.string.action_next_game), { select(state.settledPage + 1) },
+          style = IconButtonStyle.Ghost, size = 48.dp, enabled = state.settledPage < games.lastIndex && !state.isScrollInProgress)
+      }
+    }
+  }
+}
+
+@Composable
+private fun GameCard(game: Challenge<*, *>, index: Int, focused: Boolean, modifier: Modifier, onOpen: () -> Unit) {
+  val c = Theme.colors
+  val info = game.info
+  val action = stringResource(if (focused) Res.string.action_preview_game else Res.string.action_select_game, info.title)
+  Panel(modifier.pressable(onOpen, shape = Shapes.card, travel = true, onClickLabel = action)
+    .semantics { selected = focused }.liveryCard()) {
+    Column(Modifier.fillMaxWidth()) {
+      Row(Modifier.fillMaxWidth().padding(start = Space.l, end = Space.l, top = Space.l),
+        verticalAlignment = Alignment.CenterVertically) {
+        Overline((index + 1).toString().padStart(2, '0'), Modifier.weight(1f))
+        Text(gamePlayerCount(info.players), style = Theme.type.caption, color = c.contentSecondary)
+      }
+      Box(Modifier.fillMaxWidth().height(150.dp).clearAndSetSemantics {}, contentAlignment = Alignment.Center) {
+        game.cover?.invoke() ?: Icon(info.icon, null, tint = c.accent, size = 80.dp)
+      }
+      Column(Modifier.fillMaxWidth().padding(horizontal = Space.l)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          Text(info.title, Modifier.weight(1f), style = Theme.type.title1, maxLines = 2)
+          Icon(Icons.ArrowUpRight, null, tint = c.contentSecondary)
+        }
+        Text(info.tagline, style = Theme.type.footnote, color = c.contentSecondary, maxLines = 2)
+        Spacer(Modifier.height(Space.l))
+      }
     }
   }
 }
