@@ -19,16 +19,19 @@ _readers = {}
 class Reader:
     def __init__(self, serial):
         self.adb = [str(Path(os.environ.get("ANDROID_HOME", Path.home() / "Library/Android/sdk")) / "platform-tools/adb"), "-s", serial]
-        for attempt in range(3):
-            result = subprocess.run(["android", "layout", "--device", serial, "--flat", "--no-idle"],
-                                    capture_output=True, text=True, timeout=15, check=True)
+        deadline = time.monotonic() + 45
+        while True:
             try:
-                json.loads(result.stdout)
-                break
-            except json.JSONDecodeError:
-                if attempt == 2:
-                    raise LayoutUnavailable(f"{serial}: Android CLI returned no readable layout")
-                time.sleep(0.2)
+                result = subprocess.run(["android", "layout", "--device", serial, "--flat", "--no-idle"],
+                                        capture_output=True, text=True,
+                                        timeout=max(1, min(20, deadline - time.monotonic())), check=True)
+                if isinstance(json.loads(result.stdout), list):
+                    break
+            except (json.JSONDecodeError, subprocess.TimeoutExpired, subprocess.CalledProcessError):
+                pass
+            if time.monotonic() >= deadline:
+                raise LayoutUnavailable(f"{serial}: Android CLI returned no readable layout")
+            time.sleep(0.5)
         info = self.command("shell", "am", "broadcast", "-a", "com.android.cli.interact.instrumentation.GET_INFO")
         socket = re.search(r'socket_name: "([^"\n]+)"', info)
         if socket is None:

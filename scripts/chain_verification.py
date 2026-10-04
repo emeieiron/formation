@@ -78,7 +78,7 @@ def verify_settlement(rpc, owner_ticket, guest_ticket, submissions):
         expected_helper = helper_amount + (owner_amount if recipient == owner else 0)
         if not claimed or helper_delta != expected_helper:
             raise ValueError("The bound helper's exact payout is not confirmed")
-    return {"opportunity": identity, "vault": accounts[0]["pubkey"], "mint": mint,
+    return {"opportunity": identity, "reward_account": accounts[0]["pubkey"], "vault": b58encode(data[152:184]), "mint": mint,
             "signatures": signatures, "owner": owner, "owner_amount": owner_amount, "owner_balance_delta": owner_delta,
             "helper": recipient, "helper_amount": helper_amount if recipient else 0,
             "helper_balance_delta": helper_delta, "helper_reserved": helper_amount if not recipient else 0}

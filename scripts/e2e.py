@@ -200,6 +200,19 @@ def onboard(phone, name, light):
 
 
 def host_duo(seeker, title):
+    def open_visible_duo():
+        for card in seeker.nodes().iter("node"):
+            texts = [value for n in card.iter("node")
+                     for value in (n.get("text"), n.get("content-desc")) if value]
+            x1, _, x2, _ = bounds(card)
+            if card.get("clickable") == "true" and title in texts and "2 players" in texts and x2 - x1 > 500:
+                seeker.tap(card)
+                seeker.tap_text("Start Formation")
+                return True
+        return False
+
+    if open_visible_duo():
+        return
     row = next((n for n in seeker.nodes().iter("node")
                 if (n.get("content-desc") or n.get("text") or "").endswith(" players")), None)
     if row is None:
@@ -209,14 +222,8 @@ def host_duo(seeker, title):
     for _ in range(8):
         seeker.shell(f"input swipe 250 {y} 1150 {y} 150")
     for _ in range(24):
-        for card in seeker.nodes().iter("node"):
-            texts = [value for n in card.iter("node")
-                     for value in (n.get("text"), n.get("content-desc")) if value]
-            x1, _, x2, _ = bounds(card)
-            if card.get("clickable") == "true" and title in texts and "2 players" in texts and x2 - x1 > 500:
-                seeker.tap(card)
-                seeker.tap_text("Start Formation")
-                return
+        if open_visible_duo():
+            return
         seeker.shell(f"input swipe 1000 {y} 500 {y} 700")
         time.sleep(0.5)
     raise Failed(f"seeker: no {title} duo on the shelf")
@@ -395,6 +402,7 @@ def main():
         log("seeker: unlocking")
         seeker.wait("Your share went straight to your Seeker's wallet.", timeout=90)
         if chain_wallet:
+            guest.scroll_to("YOU EARNED")
             guest.wait("It's in your wallet", prefix=True, timeout=60)
         else:
             guest.scroll_to("YOU EARNED")
