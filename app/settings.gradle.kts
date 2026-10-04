@@ -46,6 +46,8 @@ include(":challenges:api")
 
 include(":challenges:overdrive")
 
+include(":challenges:ricochet")
+
 include(":solana:vault")
 
 include(":shared")

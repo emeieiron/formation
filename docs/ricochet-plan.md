@@ -34,7 +34,7 @@ Ricochet is a cooperative game for two phones. Each phone renders one half of a 
 
 ## Roadmap
 
-- [ ] Host-authoritative rules and focused tests.
+- [x] Host-authoritative rules and focused tests.
 - [ ] Two-screen stage and registration.
 - [ ] Repeatable two-emulator demo and documented verification.
 - [ ] Physical-device playtest: controls, reaction windows, bezel continuity, and differently sized screens.
@@ -44,3 +44,7 @@ Ricochet is a cooperative game for two phones. Each phone renders one half of a 
 - [ ] Consider optional tilt controls with a touch fallback through the sensor module.
 
 Additional players, multiple pulses, and competitive modes are outside the first implementation. They change attention, arena layout, or reward semantics and need separate design work.
+
+## Progress
+
+4 October 2026: the standalone rule module passes nine Android host tests. The implementation uses a 2 × 1.7 logical arena, 10 ms simulation steps, swept target and paddle contacts, and sequenced absolute paddle positions. UI, registration, and emulator verification follow in later phases.
