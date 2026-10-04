@@ -48,6 +48,8 @@ include(":challenges:overdrive")
 
 include(":challenges:ricochet")
 
+include(":challenges:mosaic")
+
 include(":solana:vault")
 
 include(":shared")
