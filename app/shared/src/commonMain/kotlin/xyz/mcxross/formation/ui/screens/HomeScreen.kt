@@ -127,7 +127,7 @@ fun HomeScreen() {
   val nearby by
     produceState(emptyList<NearbyFormation>(), scanAttempt) { graph.nearby.scan().collect { value = it } }
   var opened by remember { mutableStateOf<Opportunity?>(null) }
-  var preview by remember { mutableStateOf<xyz.mcxross.formation.challenge.Challenge<*, *>?>(null) }
+  var gameActions by remember { mutableStateOf<xyz.mcxross.formation.challenge.Challenge<*, *>?>(null) }
   val rewardUnavailable = stringResource(Res.string.state_reward_unavailable)
   var enteringCode by remember { mutableStateOf(false) }
   val status by graph.seeker.status.collectAsState()
@@ -230,7 +230,7 @@ fun HomeScreen() {
       }
       gameCatalog(ChallengeCatalog.all, canHost = me != null,
         playable = gameRewards.filterValues { it.isNotEmpty() }.keys, testHost = me?.simulated == true,
-        onOpen = { preview = it })
+        onOpen = { gameActions = it })
 
       if (me != null) {
         problem?.let {
@@ -277,15 +277,15 @@ fun HomeScreen() {
     }
   }
 
-  preview?.let { game ->
-    GamePreviewSheet(game,
+  gameActions?.let { game ->
+    GameActionSheet(game,
       rewards = gameRewards[game.id].orEmpty(),
-      onDismiss = { preview = null },
+      onDismiss = { gameActions = null },
       onReward = { reward ->
         val current = ChallengeCatalog.rewardsFor(game.id, graph.ledger.opportunities.value, xyz.mcxross.formation.state.now())
           .firstOrNull { it.id == reward.id }
         if (current != null && graph.seeker.identity.value != null) {
-          preview = null
+          gameActions = null
           opened = current
         } else toaster.show(rewardUnavailable, Tone.Warning)
       },

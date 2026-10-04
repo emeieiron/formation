@@ -28,7 +28,7 @@ Registration supplies ID lookup, vault-code lookup, player-count checks, and adv
 
 Implement `newGame(setup)`, `stateSerializer`, `inputSerializer`, `goal(players, difficulty)`, and `Stage(scope)` on the entry point. Role descriptions and debug `autopilot()` are optional.
 
-Override `introduction: (@Composable () -> Unit)?` for a brief interactive explanation in the existing briefing and catalogue preview. Its default is `null`, which retains the metadata's normal instructions. Keep preview state local: it must not submit gameplay inputs, score a result, or add a readiness step. Ricochet uses this slot to demonstrate paddle aiming with its shared reflection rules.
+Override `introduction: (@Composable () -> Unit)?` for a brief interactive explanation in the existing briefing and the catalogue's action sheet. Its default is `null`: Home still shows the metadata's instructions, and the briefing uses them as its fallback. The action sheet opens only for interactive practice or matching funded rewards; it does not repeat Home's instructions. Keep practice state local: it must not submit gameplay inputs, score a result, or add a readiness step. Ricochet uses this slot to demonstrate paddle aiming with its shared reflection rules.
 
 Override `cover: (@Composable () -> Unit)?` to supply decorative artwork for the Home card. Fill the provided slot without adding controls, inputs or session work. The default uses the metadata icon, so artwork is optional. Overdrive and Ricochet keep their Blender renders in their own modules; the app contains no game-specific artwork selection. A module using Compose resources must enable Android resources and declare its resource dependency, as these two modules do.
 

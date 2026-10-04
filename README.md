@@ -4,7 +4,7 @@ Formation is a local multiplayer Android app for unlocking shared SKR rewards on
 
 Play runs over a local network. Funding, unlocks and claims use Solana. Guests can connect a wallet before play or keep their entitlement on the phone and claim later.
 
-Home's **Games** section presents installed games in a horizontal card deck without requiring a wallet or funded reward. Each card shows **Playable** when a linked host has a valid funded reward, **No reward** when funding is missing, or **Join to play** for guests. Swipe or use the arrows to select a game; brief instructions follow beneath the deck. Tap the card for its full preview and matching funded rewards. Ricochet also includes aiming practice. Guests join through Nearby, QR or code.
+Home's **Games** section presents installed games in a horizontal card deck without requiring a wallet or funded reward. Each card shows **Playable** when a linked host has a valid funded reward, **No reward** when funding is missing, or **Join to play** for guests. Swipe or use the arrows to select a game; brief instructions follow beneath the deck. Cards with an open arrow offer matching funded rewards or interactive practice. Ricochet includes aiming practice. Guests join through Nearby, QR or code.
 
 The app includes two cooperative games:
 

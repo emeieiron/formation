@@ -5,17 +5,17 @@ Home exposes installed games independently of reward funding. Players can learn 
 ## Implementation
 
 - Populate the Games section from `ChallengeCatalog.all`; new registered modules appear automatically.
-- Use a horizontal card deck with a focused card, neighboring-card preview, and a compressed stack behind the selection. Swipes snap to a game; arrow controls provide the same selection without dragging. Tapping a neighboring card selects it; tapping the focused card opens its preview.
+- Use a horizontal card deck with a focused card, neighboring-card preview, and a compressed stack behind the selection. Swipes snap to a game; arrow controls provide the same selection without dragging. Tapping a neighboring card selects it. The focused card opens an action sheet only when it offers interactive practice or matching funded rewards; cards without either have no open arrow or click action.
 - Keep metadata, supported player counts, instructions and optional interactive introductions available to guests. Games own their optional cover artwork; Home owns layout and navigation.
-- Label every card: Playable for a linked host with a valid reward, No reward for a linked host without one, and Join to play for guests. Use the same reward filter for labels and preview options; refresh availability at reward expiry while Home remains open.
+- Label every card: Playable for a linked host with a valid reward, No reward for a linked host without one, and Join to play for guests. Use the same reward filter for labels and action-sheet options; refresh availability at reward expiry while Home remains open.
 - Show the selected game's existing instruction steps beneath the deck. Selection updates the panel with a brief fade; longer instructions remain vertically scrollable with Home.
-- Show matching funded rewards in the preview only for a linked host. Reject expired, settled, unsupported, and unrelated rewards; recheck the current selection before opening the existing reward sheet.
+- Show matching funded rewards in the action sheet only for a linked host. Reject expired, settled, unsupported, and unrelated rewards; recheck the current selection before opening the existing reward sheet. Dismiss a reward-only sheet if its last valid reward disappears.
 - Keep the current reward sheet, session setup, signing, and settlement flow. Browsing does not create a reward or start a game.
-- Keep funded reward selection inside the game's preview. Home has no separate funding shelf. The debug identity is labelled Test host beside Games so it is distinct from simulated reward funding.
+- Keep funded reward selection inside the game's action sheet. The sheet includes the game title for context, optional interactive practice, matching rewards and Done. Home owns the tagline, player count and instruction steps. Home has no separate funding shelf. The debug identity is labelled Test host beside Games so it is distinct from simulated reward funding.
 
 ## Verification plan
 
-Build Android, run the focused reward-selection test, compile the shared iOS target, and run release lint. On emulators, inspect guest and empty-host Home, both previews, a compact display with larger text, and a matching funded reward opening the existing hosting sheet. Restore temporary preferences and display overrides afterward. Record executed checks below.
+Build Android, run the focused reward-selection test, compile the shared iOS target, and run release lint. On emulators, inspect guest and empty-host Home, interactive practice, reward-only sheets, reward expiry while a sheet is open, and a matching funded reward opening the existing hosting sheet. Check practice on a compact display with larger text. Restore temporary preferences and display overrides afterward. Record executed checks below.
 
 ## Initial catalogue checks
 
@@ -108,6 +108,28 @@ Hosting used explicit simulated reward fixtures and stopped at the lobby. This p
 | No funded reward | Playable game | Compact instructions |
 | --- | --- | --- |
 | ![Unfunded host with No reward labels and selected-game instructions](images/game-availability-empty.png) | ![Ricochet marked Playable with instructions beneath the deck](images/game-availability-playable.png) | ![All three Ricochet instruction rows readable at 130 percent text size](images/game-availability-compact.png) |
+
+## Action sheet checks
+
+Verified on 4 October 2026 with the updated debug APK installed on both Android emulators. Home retains the play instructions; the catalogue sheet now provides only interactive practice and matching rewards, with a game title for context.
+
+All 35 existing shared host tests passed. Android assembly, release lint and shared iOS compilation passed. No new unit tests were added for the presentation change.
+
+| Scenario | Observed result |
+| --- | --- |
+| Guest viewing unfunded Overdrive | Instructions remain on Home. The selected card has no open arrow or click action; tapping it does not open a description sheet. |
+| Guest viewing Ricochet | The card opens aiming practice without the tagline, instruction list, player count or senses tags. |
+| Funded Overdrive | The sheet contains the matching reward and Done. Choosing the reward reaches the existing lobby. |
+| Funded Ricochet | The existing journey driver selects a matching reward and reaches Ricochet's lobby. |
+| Last reward expires while its sheet is open | The reward-only sheet dismisses automatically. Overdrive shows No reward and loses its click action. |
+| 360 × 640 dp display, 130% text size | Practice and Done remain accessible; dragging the paddle changes the return path. |
+| Cleanup | Temporary preferences, reward history, display overrides and font scale were restored and checked. |
+
+Hosting checks used simulated reward fixtures and stopped at the lobby; this pass did not perform settlement.
+
+| Aiming practice | Compact practice |
+| --- | --- |
+| ![Ricochet sheet containing aiming practice without repeated Home instructions](images/game-actions-practice.png) | ![Interactive aiming and Done at 360 by 640 dp with 130 percent text size](images/game-actions-compact.png) |
 
 ## Follow-up
 

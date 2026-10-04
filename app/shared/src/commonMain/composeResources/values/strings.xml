@@ -15,7 +15,8 @@
     <string name="action_view_reward">View reward</string>
     <string name="action_next_game">Next game</string>
     <string name="action_previous_game">Previous game</string>
-    <string name="action_preview_game">Preview %1$s</string>
+    <string name="action_game_rewards">View rewards for %1$s</string>
+    <string name="action_practice_game">Practice %1$s</string>
     <string name="action_select_game">Select %1$s</string>
     <string name="a11y_game_position">Game %1$d of %2$d</string>
 
@@ -66,7 +67,6 @@
     <string name="copy_simulated_rewards">Simulated rewards. No on-chain value.</string>
     <string name="copy_rewards_empty">Join a Formation to get started.</string>
     <string name="copy_offline_unlock">Connect to unlock this reward.</string>
-    <string name="copy_game_hosting_requirement">Join a nearby Formation to play. Hosting requires a funded reward on a Seeker.</string>
     <string name="state_reward_unavailable">This reward is no longer available.</string>
     <string name="player_range">%1$d–%2$d players</string>
 

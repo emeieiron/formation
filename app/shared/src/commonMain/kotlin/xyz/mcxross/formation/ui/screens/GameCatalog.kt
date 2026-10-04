@@ -44,7 +44,8 @@ import xyz.mcxross.formation.model.ChallengeId
 import xyz.mcxross.formation.resources.Res
 import xyz.mcxross.formation.resources.action_next_game
 import xyz.mcxross.formation.resources.action_previous_game
-import xyz.mcxross.formation.resources.action_preview_game
+import xyz.mcxross.formation.resources.action_game_rewards
+import xyz.mcxross.formation.resources.action_practice_game
 import xyz.mcxross.formation.resources.action_select_game
 import xyz.mcxross.formation.resources.a11y_game_position
 import xyz.mcxross.formation.resources.label_games
@@ -114,9 +115,16 @@ private fun GameCatalog(games: List<Challenge<*, *>>, canHost: Boolean, playable
 private fun GameCard(game: Challenge<*, *>, canHost: Boolean, playable: Boolean, focused: Boolean, modifier: Modifier, onOpen: () -> Unit) {
   val c = Theme.colors
   val info = game.info
-  val action = stringResource(if (focused) Res.string.action_preview_game else Res.string.action_select_game, info.title)
-  Panel(modifier.pressable(onOpen, shape = Shapes.card, travel = true, onClickLabel = action)
-    .semantics { selected = focused }.liveryCard()) {
+  val canOpen = playable || game.introduction != null
+  val action = stringResource(when {
+    !focused -> Res.string.action_select_game
+    playable -> Res.string.action_game_rewards
+    else -> Res.string.action_practice_game
+  }, info.title)
+  val interaction = if (!focused || canOpen)
+    Modifier.pressable(onOpen, shape = Shapes.card, travel = true, onClickLabel = action)
+  else Modifier
+  Panel(modifier.then(interaction).semantics(mergeDescendants = true) { selected = focused }.liveryCard()) {
     Column(Modifier.fillMaxWidth()) {
       Row(Modifier.fillMaxWidth().padding(start = Space.l, end = Space.l, top = Space.l),
         verticalAlignment = Alignment.CenterVertically) {
@@ -136,7 +144,7 @@ private fun GameCard(game: Challenge<*, *>, canHost: Boolean, playable: Boolean,
       Column(Modifier.fillMaxWidth().padding(horizontal = Space.l)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
           Text(info.title, Modifier.weight(1f), style = Theme.type.title1, maxLines = 2)
-          Icon(Icons.ArrowUpRight, null, tint = c.contentSecondary)
+          if (canOpen) Icon(Icons.ArrowUpRight, null, tint = c.contentSecondary)
         }
         Text(info.tagline, style = Theme.type.footnote, color = c.contentSecondary, maxLines = 2)
         Spacer(Modifier.height(Space.l))

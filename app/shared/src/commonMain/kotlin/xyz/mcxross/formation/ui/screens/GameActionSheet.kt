@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,39 +36,29 @@ import xyz.mcxross.formation.model.Opportunity
 import xyz.mcxross.formation.resources.Res
 import xyz.mcxross.formation.resources.action_done
 import xyz.mcxross.formation.resources.action_view_reward
-import xyz.mcxross.formation.resources.copy_game_hosting_requirement
 import xyz.mcxross.formation.resources.label_funded_rewards
-import xyz.mcxross.formation.ui.components.ChallengeGlyph
 import xyz.mcxross.formation.ui.components.timeLeft
 
 @Composable
-internal fun GamePreviewSheet(
+internal fun GameActionSheet(
   game: Challenge<*, *>,
   rewards: List<Opportunity>,
   onDismiss: () -> Unit,
   onReward: (Opportunity) -> Unit,
 ) {
-  val c = Theme.colors
-  val info = game.info
+  if (game.introduction == null && rewards.isEmpty()) {
+    LaunchedEffect(game.id) { onDismiss() }
+    return
+  }
   ModalSheet(onDismiss) {
     Column(Modifier.fillMaxWidth().weight(1f, fill = false)
       .verticalScroll(rememberScrollState()).padding(horizontal = Space.xxl)) {
       Spacer(Modifier.height(Space.s))
-      Row(verticalAlignment = Alignment.CenterVertically) {
-        ChallengeGlyph(info, size = 48.dp)
-        Spacer(Modifier.width(Space.m))
-        Column(Modifier.weight(1f)) {
-          Text(info.title, style = Theme.type.title1)
-          Text(info.tagline, style = Theme.type.subhead, color = c.contentSecondary)
-          Text(gamePlayerCount(info.players), style = Theme.type.footnote, color = c.contentTertiary)
-        }
-      }
+      Text(game.info.title, style = Theme.type.title2)
       game.introduction?.let { introduction ->
         Spacer(Modifier.height(Space.xl))
         introduction()
       }
-      Spacer(Modifier.height(Space.xl))
-      HowToPlay(info)
       if (rewards.isNotEmpty()) {
         Spacer(Modifier.height(Space.xl))
         Overline(stringResource(Res.string.label_funded_rewards))
@@ -78,10 +69,6 @@ internal fun GamePreviewSheet(
       }
     }
     SheetActions {
-      if (rewards.isEmpty()) {
-        Text(stringResource(Res.string.copy_game_hosting_requirement),
-          style = Theme.type.footnote, color = c.contentSecondary)
-      }
       Button(stringResource(Res.string.action_done), onDismiss, style = ButtonStyle.Secondary)
     }
   }
