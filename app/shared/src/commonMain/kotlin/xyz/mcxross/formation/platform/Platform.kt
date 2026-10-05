@@ -45,6 +45,7 @@ interface ScreenPort {
   // Stores pixels per millimetre measured against a card; null returns to the platform's value.
   fun calibrate(pxPerMm: Double?)
 
+  // Each true must be matched by a false; the screen leaves full screen when the last holder releases it.
   fun fullScreen(on: Boolean)
 
   companion object {

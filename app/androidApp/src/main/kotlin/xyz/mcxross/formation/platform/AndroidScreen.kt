@@ -7,6 +7,7 @@ import android.os.Build
 import android.util.DisplayMetrics
 import android.view.RoundedCorner
 import android.view.WindowManager
+import androidx.core.content.edit
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -29,24 +30,28 @@ class AndroidScreen(context: Context, private val activity: () -> Activity?) : S
   override val measurement: StateFlow<ScreenMeasurement> = state.asStateFlow()
 
   override fun calibrate(pxPerMm: Double?) {
-    prefs.edit().apply {
-      if (pxPerMm == null) remove(KEY_CALIBRATION) else putFloat(KEY_CALIBRATION, pxPerMm.toFloat())
-    }.apply()
+    prefs.edit { if (pxPerMm == null) remove(KEY_CALIBRATION) else putFloat(KEY_CALIBRATION, pxPerMm.toFloat()) }
     activity()?.let { it.runOnUiThread { update(it) } }
   }
+
+  // Counted, because a phase transition briefly composes the outgoing stage alongside the incoming one, and
+  // the outgoing copy leaving must not restore the bars under the live stage.
+  private var fullScreenHolds = 0
 
   override fun fullScreen(on: Boolean) {
     val current = activity() ?: return
     current.runOnUiThread {
+      fullScreenHolds = (fullScreenHolds + if (on) 1 else -1).coerceAtLeast(0)
+      val held = fullScreenHolds > 0
       val window = current.window
       val controller = WindowCompat.getInsetsController(window, window.decorView)
-      if (on) {
+      if (held) {
         controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         controller.hide(WindowInsetsCompat.Type.systemBars())
       } else controller.show(WindowInsetsCompat.Type.systemBars())
       // Neighbouring phones match more closely at a shared brightness than at each owner's setting.
       window.attributes = window.attributes.apply {
-        screenBrightness = if (on) STAGE_BRIGHTNESS else WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+        screenBrightness = if (held) STAGE_BRIGHTNESS else WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
       }
     }
   }
