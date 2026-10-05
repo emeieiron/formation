@@ -32,7 +32,7 @@ Play the story once on first use, on a clean screen with no buttons, chapter mar
 
 With reduced motion, the six composed still states keep the same captions and advance only by tapping. Screen readers get each chapter's headline and caption, plus Next and Previous actions. Backgrounding or hiding the story freezes it at its current time, and returning resumes from that moment.
 
-The app detects Seeker hardware instead of asking. After name and colour setup, a Seeker goes on to link its wallet for hosting, with **Link later** available. Every other phone saves the profile without a wallet step, returns to Home and resumes any pending join link. Hardware detection only chooses the path; hosting still waits for a verified Seeker Genesis Token.
+The app detects Seeker hardware instead of asking. After name and colour setup, a Seeker goes on to link its wallet for hosting, with **Link later** available. Every other phone saves the profile without a wallet step, returns to Home and resumes any pending join link. Hardware detection only chooses the path; hosting still waits for a verified Seeker Genesis Token and the hardware proof in [Seeker presence](seeker-presence.md).
 
 Moving quickly through the story doesn't skip the Seeker requirement. Browsing the catalogue may remain available, but playing any game requires a Seeker-backed Formation. Practice must obey the same rule.
 

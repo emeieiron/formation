@@ -194,7 +194,9 @@ The provisioning script stores addresses in `program/testnet.json`. `FORMATION_R
 
 ### Real Seeker
 
-The owner explicitly links a Seeker through the app's wallet flow. Formation checks the wallet's Seeker Genesis Token on mainnet and rechecks the stored address on later launches. Remembered wallet authorization supports subsequent requests; new signing requests still go through the wallet.
+The owner explicitly links a Seeker through the app's wallet flow. The wallet signs a one-time message to prove it holds the key for its address, then Formation checks that address's Seeker Genesis Token on mainnet and rechecks it on later launches. Remembered wallet authorization supports subsequent requests; new signing requests still go through the wallet.
+
+A Genesis Token shows who owns a Seeker, not that the phone in hand is one. Hosting and practice also need the phone's secure hardware to attest that it is a Seeker with a locked bootloader running Formation, and every joining phone checks that attestation itself. [Seeker presence](docs/seeker-presence.md) describes the proof; Settings → Seeker → **Check** runs it on the phone.
 
 For testnet rewards, provision the linked wallet with `scripts/testnet.py seeker SEED_VAULT_ADDRESS`, then `FORMATION_REWARDS=/absolute/path/rewards.json scripts/testnet.py drops SEED_VAULT_ADDRESS`. This creates a token in the test SGT group and funds the wallet with testnet SOL for fees.
 
@@ -247,6 +249,6 @@ Release builds are shrunk and obfuscated by R8; keep rules for code reached only
 
 ## Trust boundaries
 
-Client admission proves control of a claim key, not that each phone belongs to a different person. Local seal verification preserves agreement on a result, but the current vault program does not verify every participant's seal signature or the challenge execution on chain. A modified host can fabricate a roster and result.
+Joining phones accept a host only with a hardware attestation of a Seeker, and only take the session state it signs; see [Seeker presence](docs/seeker-presence.md). Client admission proves control of a claim key, not that each phone belongs to a different person. Local seal verification preserves agreement on a result, but the current vault program does not verify every participant's seal signature or the challenge execution on chain. A modified host can fabricate a roster and result.
 
 The current enforcement is reward ownership, committed payout destinations, the split, one claim per helper slot and refund conditions. Before distributing rewards with material value, evaluate stronger host and participant verification against the intended reward size and abuse model.
