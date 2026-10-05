@@ -1,7 +1,7 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
-val rpcUrl = providers.gradleProperty("formation.rpcUrl").orElse("https://api.testnet.solana.com")
-val cluster = providers.gradleProperty("formation.cluster").orElse("testnet")
+val rpcUrl = providers.gradleProperty("formation.rpcUrl").orElse("https://api.devnet.solana.com")
+val cluster = providers.gradleProperty("formation.cluster").orElse("devnet")
 
 // A distributable release is signed with the key CI passes in; without it, release builds stay
 // unsigned for local use. See .github/workflows/release-android.yml.

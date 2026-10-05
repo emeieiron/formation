@@ -3,15 +3,15 @@
 # requires-python = ">=3.10"
 # dependencies = ["solders>=0.21"]
 # ///
-# Sets up the Formation vault on testnet. Deploy the program first (see README), then:
+# Sets up the Formation vault on devnet. Deploy the program first (see README), then:
 #
-#   scripts/testnet.py setup            test SKR mint, test Seeker Genesis Token group, vault config
-#   scripts/testnet.py seeker WALLET    give WALLET a test Seeker Genesis Token and SOL for fees
-#   scripts/testnet.py drops WALLET     lock rewards from $FORMATION_REWARDS for WALLET's token
-#   scripts/testnet.py fund WALLET [SOL]
+#   scripts/devnet.py setup            test SKR mint, test Seeker Genesis Token group, vault config
+#   scripts/devnet.py seeker WALLET    give WALLET a test Seeker Genesis Token and SOL for fees
+#   scripts/devnet.py drops WALLET     lock rewards from $FORMATION_REWARDS for WALLET's token
+#   scripts/devnet.py fund WALLET [SOL]
 #
-# Signs with $FORMATION_KEYPAIR (default ~/.config/solana/seekers-testnet.json), which must be the
-# program's upgrade authority for `setup`. Addresses are kept in program/testnet.json.
+# Signs with $FORMATION_KEYPAIR (default ~/.config/solana/seekers-devnet.json), which must be the
+# program's upgrade authority for `setup`. Addresses are kept in program/devnet.json.
 import base64
 import hashlib
 import json
@@ -33,10 +33,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from reward_fixtures import SKR, load_rewards
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-STATE = os.environ.get("FORMATION_STATE", os.path.join(ROOT, "program", "testnet.json"))
+STATE = os.environ.get("FORMATION_STATE", os.path.join(ROOT, "program", "devnet.json"))
 IDL = os.path.join(ROOT, "program", "formation-vault", "idl", "formation_vault.json")
-RPC = os.environ.get("FORMATION_RPC", "https://api.testnet.solana.com")
-KEYPAIR = os.path.expanduser(os.environ.get("FORMATION_KEYPAIR", "~/.config/solana/seekers-testnet.json"))
+RPC = os.environ.get("FORMATION_RPC", "https://api.devnet.solana.com")
+KEYPAIR = os.path.expanduser(os.environ.get("FORMATION_KEYPAIR", "~/.config/solana/seekers-devnet.json"))
 
 PROGRAM = Pubkey.from_string(json.load(open(IDL))["address"])
 TOKEN = Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
@@ -150,11 +150,29 @@ def fund(admin, wallet, sol):
     print(f"sent {sol} SOL to {wallet}", send(admin, ix))
 
 
+# Where the vault's reward account keeps the Genesis Token mint, the game's code and whether it's open.
+OPPORTUNITY_SIZE, SGT_OFFSET, CHALLENGE_OFFSET, STATE_OFFSET = 337, 88, 195, 246
+
+
+def open_games(mint):
+    # One open reward per Seeker for each game, keyed by the Genesis Token's mint rather than the wallet, so moving
+    # the token to another wallet doesn't earn it a second reward. The vault records the mint on every reward.
+    accounts = rpc("getProgramAccounts", [str(PROGRAM), {"encoding": "base64", "filters": [
+        {"dataSize": OPPORTUNITY_SIZE},
+        {"memcmp": {"offset": SGT_OFFSET, "bytes": mint}},
+        {"memcmp": {"offset": STATE_OFFSET, "bytes": "1"}},
+    ]}])
+    return {int.from_bytes(base64.b64decode(a["account"]["data"][0])[CHALLENGE_OFFSET:CHALLENGE_OFFSET + 2], "little") for a in accounts}
+
+
 def drops(admin, config, state, wallet):
-    fixtures = load_rewards()
-    if not fixtures:
-        raise SystemExit("Set FORMATION_REWARDS to a JSON fixture file for a registered game")
     sgt = state["seekers"].get(wallet) or sys.exit(f"Run `seeker {wallet}` first")
+    funded = open_games(sgt["sgt"])
+    fixtures = [f for f in load_rewards() if f.code not in funded]
+    if not fixtures:
+        print(f"{wallet}'s Genesis Token already has an open reward for each fixture" if funded else
+              "Set FORMATION_REWARDS to a JSON fixture file for a registered game")
+        return
     skr = Pubkey.from_string(state["skr"])
     total = sum(f.amount for f in fixtures)
     spl(config, "create-account", str(skr)) if rpc("getAccountInfo", [str(ata(admin.pubkey(), skr)), {"encoding": "base64"}])["value"] is None else None
@@ -187,7 +205,7 @@ def drops(admin, config, state, wallet):
 
 def main():
     if len(sys.argv) < 2 or sys.argv[1] not in ("setup", "seeker", "drops", "fund") or (sys.argv[1] != "setup" and len(sys.argv) < 3):
-        sys.exit(__doc__ or "usage: scripts/testnet.py setup | seeker WALLET | drops WALLET | fund WALLET [SOL]")
+        sys.exit(__doc__ or "usage: scripts/devnet.py setup | seeker WALLET | drops WALLET | fund WALLET [SOL]")
     admin = Keypair.from_bytes(bytes(json.load(open(KEYPAIR))))
     config = solana_config()
     state = load_state()

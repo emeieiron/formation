@@ -12,7 +12,7 @@ members = ["formation-vault"]
 [programs.localnet]
 formation_vault = "3AzZbKhGFcnaBRRenDDdNSdVumjKoXSkNHsPVeo5q6GW"
 
-[programs.testnet]
+[programs.devnet]
 formation_vault = "3AzZbKhGFcnaBRRenDDdNSdVumjKoXSkNHsPVeo5q6GW"
 
 [provider]

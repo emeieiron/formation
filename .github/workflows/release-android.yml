@@ -137,8 +137,8 @@ jobs:
         with:
           version-name: 0.0.${{ github.run_number }}
           version-code: ${{ github.run_number }}
-          cluster: ${{ vars.FORMATION_CLUSTER || 'testnet' }}
-          rpc-url: ${{ vars.FORMATION_RPC_URL || 'https://api.testnet.solana.com' }}
+          cluster: ${{ vars.FORMATION_CLUSTER || 'devnet' }}
+          rpc-url: ${{ vars.FORMATION_RPC_URL || 'https://api.devnet.solana.com' }}
           expected-cert-sha256: ${{ steps.key.outputs.cert }}
           keystore-b64: ${{ steps.key.outputs.keystore }}
           keystore-password: rehearsal

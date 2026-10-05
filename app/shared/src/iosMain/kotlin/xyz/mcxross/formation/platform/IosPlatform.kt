@@ -23,8 +23,8 @@ class IosPlatform : PlatformServices {
     AppConfig(
       version = "0.1.0",
       developer = true,
-      rpcUrl = "https://api.testnet.solana.com",
-      cluster = "testnet",
+      rpcUrl = "https://api.devnet.solana.com",
+      cluster = "devnet",
     )
 
   override val store =

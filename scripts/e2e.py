@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-# End-to-end test across emulators: debug Seeker identity, real testnet settlement by default.
+# End-to-end test across emulators: debug Seeker identity, real devnet settlement by default.
 #
-#   scripts/e2e.py --title GAME_TITLE --code GAME_CODE [--players N] [--chain simulated|localnet|testnet]
+#   scripts/e2e.py --title GAME_TITLE --code GAME_CODE [--players N] [--chain simulated|localnet|devnet]
 #                  [--wallet none|connect|ADDRESS] [--seeker SERIAL] [--guest SERIAL ...] [--no-build] [--approve]
 #                  [--layout uiautomator|android] [--driver autoplay|overdrive|mosaic|manual]
 #
@@ -35,8 +35,8 @@ ACTIVITY = "xyz.mcxross.formation.MainActivity"
 OUT = os.path.join(ROOT, "program", "target", "e2e")
 PROGRAM = "3AzZbKhGFcnaBRRenDDdNSdVumjKoXSkNHsPVeo5q6GW"
 TOKEN = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-RPC = {"localnet": "http://127.0.0.1:8899", "testnet": "https://api.testnet.solana.com"}
-APP_RPC = {"localnet": ("http://10.0.2.2:8899", "localnet"), "testnet": ("https://api.testnet.solana.com", "testnet")}
+RPC = {"localnet": "http://127.0.0.1:8899", "devnet": "https://api.devnet.solana.com"}
+APP_RPC = {"localnet": ("http://10.0.2.2:8899", "localnet"), "devnet": ("https://api.devnet.solana.com", "devnet")}
 WALLET_APPS = ("com.solflare.mobile", "app.phantom")
 PEOPLE = (("Aaron", "Nova"), ("Maya", "Jade"), ("Kofi", "Sky"), ("Lena", "Sol"), ("Ravi", "Lime"), ("Ines", "Bloom"),
           ("Tomas", "Tide"), ("Yara", "Ember"))
@@ -366,8 +366,8 @@ def approve_wallet(guest, auto, timeout=180):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--chain", choices=["simulated", "localnet", "testnet"], default="testnet",
-                        help="testnet submits real transactions; simulation requires explicit selection")
+    parser.add_argument("--chain", choices=["simulated", "localnet", "devnet"], default="devnet",
+                        help="devnet submits real transactions; simulation requires explicit selection")
     parser.add_argument("--title", required=True, help="registered game's visible title")
     parser.add_argument("--code", type=int, required=True, help="registered game's vault code")
     parser.add_argument("--wallet", default="none")
@@ -449,10 +449,10 @@ def main():
                 except OSError:
                     pass
                 time.sleep(1)
-        if args.chain == "testnet" and open_rewards("testnet", seeker_wallet, code) == 0:
-            log("locking fresh testnet rewards for the seeker")
+        if args.chain == "devnet" and open_rewards("devnet", seeker_wallet, code) == 0:
+            log("locking fresh devnet rewards for the seeker")
             for command in (["seeker", seeker_wallet], ["drops", seeker_wallet]):
-                subprocess.run([os.path.join(ROOT, "scripts", "testnet.py"), *command], check=True)
+                subprocess.run([os.path.join(ROOT, "scripts", "devnet.py"), *command], check=True)
         if args.chain != "simulated":
             seeker.launch()
 
