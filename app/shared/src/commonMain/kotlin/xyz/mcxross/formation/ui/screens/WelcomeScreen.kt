@@ -88,35 +88,11 @@ fun WelcomeScreen(onDone: (Profile) -> Unit) {
             light = light,
             onLight = { light = it },
             onBack = { step = 0 },
-            onDone = { step = 2 },
+            // Seeker hardware goes on to link its wallet for hosting; every other phone is ready to join.
+            onDone = { if (graph.platform.device.seeker) step = 2 else onDone(Profile(name.trim(), light)) },
           )
-        2 -> ChoosePath(onBack = { step = 1 }, onHost = { step = 3 },
-          onJoin = { onDone(Profile(name.trim(), light)) })
-        else -> LinkSeeker(onBack = { step = 2 }, onDone = { onDone(Profile(name.trim(), light)) })
+        else -> LinkSeeker(onBack = { step = 1 }, onDone = { onDone(Profile(name.trim(), light)) })
       }
-    }
-  }
-}
-
-@Composable
-private fun ChoosePath(onBack: () -> Unit, onHost: () -> Unit, onJoin: () -> Unit) {
-  Column(Modifier.fillMaxSize()) {
-    TopBar(onBack = onBack)
-    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = Space.gutter)) {
-      LiveryRule()
-      Spacer(Modifier.height(Space.xl))
-      Text(stringResource(Res.string.story_path_title), style = Theme.type.title1)
-      Spacer(Modifier.height(Space.s))
-      Text(stringResource(Res.string.story_path_body), style = Theme.type.body, color = Theme.colors.contentSecondary)
-      OnboardingScene({ 6.8f }, reduced = true, modifier = Modifier.fillMaxWidth().height(240.dp))
-      Point(Icons.Seeker, stringResource(Res.string.story_host_help))
-      Spacer(Modifier.height(Space.l))
-      Point(Icons.Users, stringResource(Res.string.story_join_help))
-      Spacer(Modifier.height(Space.l))
-    }
-    BottomActions {
-      Button(stringResource(Res.string.story_have_seeker), onHost, leadingIcon = Icons.Seeker)
-      Button(stringResource(Res.string.story_join_seeker), onJoin, style = ButtonStyle.Secondary, leadingIcon = Icons.Users)
     }
   }
 }
@@ -226,7 +202,7 @@ private fun LinkSeeker(onBack: () -> Unit, onDone: () -> Unit) {
         leadingIcon = Icons.Seeker,
       )
       Button(
-        stringResource(Res.string.story_join_instead),
+        stringResource(Res.string.story_link_later),
         onDone,
         style = ButtonStyle.Ghost,
         enabled = status != SeekerStatus.Checking,

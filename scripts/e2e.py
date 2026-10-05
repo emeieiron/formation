@@ -203,9 +203,9 @@ def build(chain):
 
 
 def onboard(phone, name, light):
-    # The welcome story leads to the profile form, through Get started or Skip; an onboarded phone opens
-    # on Home instead.
-    deadline = time.time() + 40
+    # The welcome story advances with taps on the right half and leads to the profile form; an onboarded
+    # phone opens on Home instead.
+    deadline = time.time() + 60
     while time.time() < deadline:
         root = phone.nodes()
         if at_home(phone, root):
@@ -213,13 +213,10 @@ def onboard(phone, name, light):
         if any(n.get("class") == "android.widget.EditText" for n in root.iter("node")):
             break
         phone.dismiss_stalls(root)
-        # Element truthiness counts children, so test for None explicitly.
-        step = phone.find("Get started", root=root)
-        if step is None:
-            step = phone.find("Skip", root=root)
-        if step is not None:
-            phone.tap(step)
-        time.sleep(1)
+        screen = next(iter(root.iter("node")), None)
+        right, bottom = bounds(screen)[2:] if screen is not None else (1344, 2992)
+        phone.shell(f"input tap {right * 4 // 5} {bottom // 2}")
+        time.sleep(0.8)
     else:
         raise Failed(f"{phone.role}: never reached the profile form or Home")
     log(f"{phone.role}: onboarding as {name}")
@@ -232,17 +229,9 @@ def onboard(phone, name, light):
     # The keyboard can cover the second row of lights.
     phone.tap(phone.scroll_to(light))
     phone.tap(phone.scroll_to("Continue"))
-    # Emulators can't link a Seeker here; the Seeker phone pretends to be one from its developer settings.
-    deadline = time.time() + 20
-    while time.time() < deadline:
-        root = phone.nodes()
-        if at_home(phone, root):
-            return
-        joining = phone.find("I.m joining a Seeker", prefix="regex", root=root)
-        if joining is not None:
-            phone.tap(joining)
-        time.sleep(1)
-    raise Failed(f"{phone.role}: onboarding never reached Home")
+    # Emulators aren't Seeker hardware, so onboarding ends on Home; the Seeker phone pretends from its
+    # developer settings.
+    scroll_until(phone, "GAMES", timeout=20)
 
 
 def at_home(phone, root):
