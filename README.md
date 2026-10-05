@@ -4,16 +4,17 @@ Formation is a local multiplayer Android app for unlocking shared SKR rewards on
 
 Play runs over a local network. Funding, unlocks and claims use Solana. Guests can connect a wallet before play or keep their entitlement on the phone and claim later.
 
-Home's **Games** section presents installed games in a horizontal card deck without requiring a wallet or funded reward. Each card shows **Playable** when a linked host has a valid funded reward, **No reward** when funding is missing, or **Join to play** for guests. Swipe or use the arrows to select a game; brief instructions follow beneath the deck. Cards with an open arrow offer matching funded rewards or interactive practice. Ricochet includes aiming practice. Guests join through Nearby, QR or code.
+Home's **Games** section presents installed games in a horizontal card deck without requiring a wallet or funded reward. Each card shows **Playable** when a linked host has a valid funded reward, **No reward** when funding is missing, or **Join to play** for guests. Swipe or use the arrows to select a game; brief instructions follow beneath the deck. Cards with an open arrow offer matching funded rewards or interactive practice. Ricochet includes aiming practice and Mosaic includes pinch practice. Guests join through Nearby, QR or code.
 
-The app includes two cooperative games:
+The app includes three cooperative games:
 
 - **Overdrive:** each player sees their partner's target symbol and calls it out while rotating their own square to catch a pulse. Both catches complete a shared wave. The group needs 12 successful waves before the clock runs out (36 seconds on Easy down to 25 on Extreme); three failed waves end the attempt.
 - **Ricochet:** two phones show halves of one arena. Each player moves an outer paddle to keep a shared pulse in play and aim it at six targets. Alternating catches build speed up to 1.9×; two exchanges charge a return that pierces one target. Deadlines range from 60 seconds on Easy to 40 on Extreme, with three shared misses. An interactive briefing introduces aiming. Touch controls work on emulators without sensors. See [the implementation and demo](docs/ricochet.md).
+- **Mosaic:** 6 or 9 phones each show one piece of the Solana logomark at true physical size. Players lay them in three rows, one per bar, then pinch across every seam to seal it. Every piece has the same physical size: the narrowest usable width and shortest usable height among the phones. Deadlines run from 20 seconds plus 9 per seam on Easy to 20 plus 4 on Extreme, and three wrong pairs end the attempt. See [the implementation and demo](docs/mosaic.md).
 
 In Overdrive, each successful wave makes both pulses fall 8% faster, so by the final wave they move about two and a half times as fast as the first. A failed wave keeps the pace. The pause between cleared waves shrinks as the group progresses.
 
-Prototype games remain removed. Both games use the same [game API](app/challenges/api/README.md) available to future formats; their rules and stages are isolated from the app's session and reward flow.
+Prototype games remain removed. All three games use the same [game API](app/challenges/api/README.md) available to future formats; their rules and stages are isolated from the app's session and reward flow.
 
 Saved claims and reward history remain available. An incomplete result from a removed format cannot resume sealing without that game installed; its saved record is retained.
 
@@ -64,6 +65,7 @@ Diagnostics stay on the device. The app records a bounded set of session, discov
 | `app/challenges/api` | Game contracts, validated registration, and focused input/time helpers |
 | `app/challenges/overdrive` | Two-player rules, private clues, pacing and custom Compose stage |
 | `app/challenges/ricochet` | Shared arena physics, sequenced touch input, and two-screen Compose stage |
+| `app/challenges/mosaic` | Logomark layout across phones, size-aware deal, pinch pairing, and a full-screen physical-scale stage |
 | `app/solana/vault` | Kotlin vault instructions, account decoding, RPC and SGT lookup |
 | `app/shared` | Compose screens, app coordination, settlement, saved completion and recovery |
 | `app/androidApp` | Android entry point, Mobile Wallet Adapter, Keystore storage and hotspot lifecycle |
@@ -148,6 +150,15 @@ Testnet is the journey's default chain. It uses an open reward or provisions the
 
 Append `--driver manual` to operate Ricochet's paddles yourself. Its debug assistance sends normal inputs and is visibly marked **AUTOPLAY**. The [format 3 verification](docs/ricochet-escalation-verification.md) records the aiming introduction, charged pulse, compact display, and confirmed testnet payouts.
 
+Mosaic's six-emulator journey needs six running emulators; give two of them smaller displays with `adb shell wm size` to vary the shared piece size:
+
+```sh
+FORMATION_REWARDS="$PWD/scripts/fixtures/mosaic.json" \
+  python3 scripts/e2e.py --title Mosaic --code 8 --players 6 --chain simulated --driver mosaic
+```
+
+The Mosaic driver reads each phone's piece and seam strips from its accessibility tree and swipes both phones of every seam toward it at once. Omit `--driver` for debug assistance. The [verification record](docs/mosaic-verification.md) lists the executed checks and what still needs physical phones.
+
 For other registered formats and chain configurations:
 
 ```sh
@@ -157,11 +168,11 @@ scripts/e2e.py --title "My game" --code 6 --chain localnet --wallet GUEST_WALLET
 scripts/e2e.py --title "My game" --code 6 --chain testnet --wallet connect --approve
 ```
 
-The journey hosts a duo, joins, plays, seals and unlocks. `--title` and `--code` identify the registered game; there is no default format. Simulated runs seed only the supplied fixtures. Chain runs verify the configured mint, unlocked vault, committed roster, confirmed transaction signatures, and exact token changes for paid shares. They save public verification records under `program/target/e2e`. `--offline` interrupts the host's network at unlock and checks recovery after relaunch.
+The journey hosts a duo, or the `--players` group size with one guest per extra emulator, then joins, plays, seals and unlocks. `--title` and `--code` identify the registered game; there is no default format. Simulated runs seed only the supplied fixtures. Chain runs verify the configured mint, unlocked vault, committed roster, confirmed transaction signatures, and exact token changes for paid shares. They save public verification records under `program/target/e2e`. `--offline` interrupts the host's network at unlock and checks recovery after relaunch.
 
 `--wallet connect` opens the guest's wallet flow. `--approve` taps its connection approval; otherwise the script waits for manual approval. It never enters a wallet password. The default layout reader uses UI Automator. `--layout android` starts the Android CLI's instrumentation server and reuses its bundled protocol and serializer for fast, non-idle reads. Set `ANDROID_CLI_JAR` if its `main.jar` is installed outside `~/.android/cli/bundles`.
 
-See the [documentation index](docs/README.md), [session verification](docs/session-hardening-verification.md), [Overdrive verification](docs/overdrive-verification.md), and [Ricochet's plan and roadmap](docs/ricochet-plan.md). Emulator automation verifies rules and the session flow; it does not establish the quality of human play or physical-network reliability.
+See the [documentation index](docs/README.md), [session verification](docs/session-hardening-verification.md), [Overdrive verification](docs/overdrive-verification.md), [Ricochet's plan and roadmap](docs/ricochet-plan.md), and [Mosaic verification](docs/mosaic-verification.md). Emulator automation verifies rules and the session flow; it does not establish the quality of human play or physical-network reliability.
 
 ## Rewards and deployment
 

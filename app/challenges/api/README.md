@@ -21,7 +21,7 @@ Registration supplies ID lookup, vault-code lookup, player-count checks, and adv
 | Contract | Responsibility |
 | --- | --- |
 | `Challenge<S, I>` | Bind metadata, serializers, rules, and stage UI |
-| `ChallengeInfo` | Stable ID and vault code, title, instructions, icon, accent, and supported player counts |
+| `ChallengeInfo` | Stable ID and vault code, title, instructions, icon, accent, supported player counts, and optional `groupSizes` when only some counts work |
 | `ChallengeGame<S, I>` | Evaluate inputs and time; expose authoritative state and status |
 | `ChallengeSetup` | Frozen roster, Seeker, difficulty, random seed, start time, and each phone's available inputs |
 | `StageScope<S, I>` | Render state, identify players, read sensors and the shared clock, provide haptics/audio, and send typed inputs |
@@ -58,11 +58,17 @@ Use `optionalSensors(players)` for inputs with a supported fallback. Select opti
 
 Channels share acquisition and release it when collection stops. Collect them in effects bound to the stage's lifetime; do not create platform listeners inside a game. Availability and readiness do not attest hardware or gameplay.
 
+## Draw at physical size
+
+A game whose pieces must match across phones declares `screenRequirement(players)` with the smallest usable area it accepts. Phones then need the `display.physical.v1` capability to join. Readiness waits until every phone reports an accepted `ScreenProfile`: its full-screen window in portrait, safe insets for cutouts and rounded corners in millimetres, and pixels per millimetre. `setup.screens` freezes the profiles at start; rules must treat them as the only physical measurements. The stage reads its own profile from `scope.screen` to convert millimetres to pixels.
+
+Override `fullScreen = true` to hide the system bars and the session bar during play; players leave with the system back gesture. Android counts full-screen requests, so a stage composed twice during a transition stays full screen. iOS reports no physical size, so iOS phones are turned away from such games. Mosaic is the reference implementation; see [its guide](../../../docs/mosaic.md).
+
 ## Preserve compatibility
 
 Use a new game ID and a previously unused positive vault code. Codes `1..5` and IDs `rally`, `circuit`, `sync`, `formation`, and `rush` are retired. The app registry rejects their reuse because old rewards and saved records retain those identities.
 
-Supported player counts must stay within `2..32`. Vault codes fit `1..65535`. Increment `formatVersion` when rules, input/state serialization, or required capabilities change incompatibly; admission rejects mismatched formats before play.
+Supported player counts must stay within `2..32`. `groupSizes` defaults to every count in `players`; a game that works only at some sizes lists them, and rewards for other sizes are treated as unsupported. Vault codes fit `1..65535`. Increment `formatVersion` when rules, input/state serialization, or required capabilities change incompatibly; admission rejects mismatched formats before play.
 
 ## Configure development rewards
 

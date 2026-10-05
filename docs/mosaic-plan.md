@@ -12,11 +12,11 @@ The official logomark is 101 × 88 units: three bars 21.79 units tall, separated
 
 | Phones | Grid | Orientation | Smallest fragment fill | Mark on typical phones |
 | --- | --- | --- | --- | --- |
-| 6 | 3 × 2 | Landscape | 45% or more | About 22 × 19 cm |
-| 9 | 3 × 3 | Landscape | 8–30%; outer phones carry the slanted bar ends | About 22 × 19 cm |
-| 18 | 3 × 6 | Portrait | 25% or more | About 38 × 33 cm |
+| 6 | 3 × 2 | Landscape | 47% or more | About 24 × 21 cm |
+| 9 | 3 × 3 | Landscape | 6–28%; outer phones carry the slanted bar ends | About 24 × 21 cm |
+| 18 | 3 × 6 | Portrait | 22% or more | About 43 × 37 cm |
 
-Fill is the share of a phone's fragment covered by the mark. The mark sizes assume a usable area of 140 × 64 mm. Nine phones produce the same mark as six; the extra phones make the puzzle harder rather than the mark larger.
+Fill is the share of a phone's fragment covered by the mark, measured by the shipped layout code with seam gaps. The mark sizes assume a usable area of 147.6 × 66.5 mm. Nine phones produce the same mark as six; the extra phones make the puzzle harder rather than the mark larger.
 
 Other counts fail for common phone shapes. Twelve phones work only on 16:9 screens, 15 fail on 21:9 screens, 24 fail on 16:9 screens, and 21 leave a nearly empty fragment on 16:9 screens. Counts that aren't divisible by three can't keep one bar per row.
 
@@ -54,7 +54,7 @@ Each phone reports its half of a pinch: the edge the finger moved toward, the fi
 - **Phones that aren't neighbours on those edges:** this is a wrong seam and costs a shared miss on every difficulty.
 - **Unpaired halves** expire silently after 400 ms. Stale, duplicate and unknown-player halves are ignored.
 
-Pinches start inside the screen and move outward. Android's back and home gestures begin with a swipe inward from an edge, so pinches don't trigger them. Where the platform allows, the stage also excludes seam edges from system gestures.
+Pinches start inside the screen and move outward. Android's back and home gestures begin with a swipe inward from an edge, so pinches don't trigger them, and the shipped stage doesn't need gesture exclusion.
 
 A seal proves that two phones were adjacent and aligned at that moment, not that the mosaic stayed assembled. A later version could unseal a phone when it is lifted, using optional motion sensors with touch-only play as the fallback.
 
@@ -123,7 +123,7 @@ The artwork is `solanaLogoMark.svg` from [solana.com/branding](https://solana.co
    - the deadline, misses, completion and seeded replay.
 5. **Stage and registration.**
    - Build the fragment drawing, full-screen stage, pinch input, seal glow, corner HUD, reveal and introduction.
-   - Add haptics and sound cues for seal and wrong-seam events. New cues extend `GameCue` and are authored in `assets/sound/gameplay.py`.
+   - Add haptics and sound cues for seal and wrong-seam events. The shipped stage reuses `Target`, `Miss`, `CloseCall` and `Danger`, so no new sound assets were needed.
    - Register the game. Build Android and compile the shared iOS target.
 6. **Assets.** The Blender cover scene and the module-owned PNG.
 7. **Demo and verification.**
@@ -155,3 +155,20 @@ The artwork is `solanaLogoMark.svg` from [solana.com/branding](https://solana.co
 - No session has run on devices with more than two phones. Lobby layouts, discovery and readiness with 6–18 phones, and settlement across many helpers, all need explicit checks.
 - Eighteen phones need a table of about 50 × 50 cm.
 - iOS phones are excluded until iOS can report physical screen size.
+
+## Progress
+
+Phases 1–7 and 9 are complete on the `mosaic` branch as of 5 October 2026. Phase 8 needs physical phones.
+
+- [x] Plan and layout diagram.
+- [x] Screen profiles, card calibration, the readiness gate, `ChallengeSetup.screens`, `StageScope.screen` and counted full-screen stages.
+- [x] Discrete group sizes in the API, registry, hosting check and Home label.
+- [x] Rules: artwork, layout, deal, pairing and lifecycle, with 25 focused tests.
+- [x] Stage, pinch input, HUD, sweep, feedback, practice and registration.
+- [x] Blender cover and motion sheet.
+- [x] Six-emulator journeys with debug assistance and with real touch swipes through sealing and simulated settlement.
+- [ ] Physical playtest with six mixed phones: ruler checks, alignment, pinch reliability, brightness, then tuning.
+- [ ] An 18-phone session, then add 18 to `Layouts.groupSizes`; until then rewards can fund 6 or 9 phones.
+- [ ] Testnet settlement for a six-player reward.
+
+The [implementation guide](mosaic.md) records shipped behaviour and module boundaries. The [verification record](mosaic-verification.md) separates host tests, emulator runs and the checks still waiting for phones.

@@ -17,7 +17,9 @@ The [project overview](../README.md) explains the app, architecture, builds, and
 | [Ricochet escalation verification](ricochet-escalation-verification.md) | Current checks, screenshots, and exact confirmed testnet payouts |
 | [Overdrive plan](overdrive-plan.md) | Cooperative symbol-calling rules and implementation phases |
 | [Overdrive verification](overdrive-verification.md) | Rule checks and two-phone execution |
-| [Mosaic plan](mosaic-plan.md) | Multi-phone logomark puzzle, physical fragment sizing, pinch seals, and implementation phases |
+| [Mosaic](mosaic.md) | Shipped mechanics, screen measurement, sealing, module boundaries, and emulator demo |
+| [Mosaic plan](mosaic-plan.md) | Multi-phone logomark puzzle, physical fragment sizing, pinch seals, phases, and progress |
+| [Mosaic verification](mosaic-verification.md) | Host tests, six-emulator journeys, screenshots, and checks awaiting physical phones |
 
 ## App and platform
 
