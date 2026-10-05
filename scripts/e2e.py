@@ -227,7 +227,7 @@ def at_home(phone, root):
     return phone.find("Scan QR", root=root) is not None or phone.find("GAMES", root=root) is not None
 
 
-def host_group(seeker, title, players):
+def host_group(seeker, title, players, difficulty=None):
     seeker.scroll_to("GAMES")
     position = seeker.wait(desc=r"Game \d+ of \d+", prefix="regex")
     current, total = map(int, re.findall(r"\d+", position.get("content-desc")))
@@ -263,6 +263,8 @@ def host_group(seeker, title, players):
             chip = seeker.find(str(players)) if players > 2 else None
             if chip is not None:
                 seeker.tap(chip)
+            if difficulty:
+                seeker.tap(scroll_until(seeker, difficulty, timeout=10))
             seeker.tap_text("Start Formation")
             return
         area = next((node for node in root.iter("node") if node.get("scrollable") == "true"), None)
@@ -448,7 +450,9 @@ def main():
 
         seeker.wait("Scan QR", timeout=20)
         log(f"seeker: hosting a {args.players}-player {title}")
-        host_group(seeker, title, args.players)
+        # The host picks the difficulty; fixtures name it as 0..3.
+        level = ("Easy", "Normal", "Hard", "Extreme")[fixtures[0].difficulty] if fixtures else None
+        host_group(seeker, title, args.players, level)
         seeker.wait("JOIN CODE", timeout=20)
 
         for other in guests:

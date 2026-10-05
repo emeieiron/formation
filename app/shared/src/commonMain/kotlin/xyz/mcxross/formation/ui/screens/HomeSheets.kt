@@ -45,6 +45,7 @@ import xyz.mcxross.formation.design.tokens.Space
 import xyz.mcxross.formation.challenge.Challenge
 import xyz.mcxross.formation.design.components.Chip
 import xyz.mcxross.formation.model.Budget
+import xyz.mcxross.formation.model.Difficulty
 import xyz.mcxross.formation.design.components.ButtonSize
 import xyz.mcxross.formation.design.foundation.Panel
 import xyz.mcxross.formation.state.OpenDraw
@@ -67,8 +68,9 @@ internal fun OpportunitySheet(
   val info = game.info
   val sizes = ChallengeCatalog.sizesFor(game.id, budget)
   var players by remember(sizes) { mutableStateOf(sizes.firstOrNull()) }
+  var difficulty by remember { mutableStateOf(Difficulty.NORMAL) }
   var starting by remember { mutableStateOf(false) }
-  val o = players?.let { Opportunity(budget, game.id, it) }
+  val o = players?.let { Opportunity(budget, game.id, it, difficulty) }
   ModalSheet(onDismiss, dismissible = !starting) {
     Column(
       Modifier.fillMaxWidth()
@@ -104,6 +106,12 @@ internal fun OpportunitySheet(
         Row(horizontalArrangement = Arrangement.spacedBy(Space.s)) {
           sizes.forEach { size -> Chip("$size", size == players, { players = size }) }
         }
+      }
+      Spacer(Modifier.height(Space.l))
+      Overline("Difficulty")
+      Spacer(Modifier.height(Space.s))
+      Row(horizontalArrangement = Arrangement.spacedBy(Space.s)) {
+        Difficulty.entries.forEach { level -> Chip(level.label, level == difficulty, { difficulty = level }) }
       }
       o?.let {
         Spacer(Modifier.height(Space.xl))
