@@ -15,7 +15,9 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import xyz.mcxross.formation.crypto.Base58
 import xyz.mcxross.formation.crypto.Base64
+import xyz.mcxross.formation.crypto.Ed25519
 import xyz.mcxross.formation.crypto.Ed25519KeyPair
+import xyz.mcxross.formation.crypto.secureRandomBytes
 import xyz.mcxross.formation.link.LinkChannel
 import xyz.mcxross.formation.model.PlayerId
 
@@ -39,6 +41,8 @@ class FormationClient(
   private val json: Json = FormationJson,
   private val observe: (DiagnosticEvent) -> Unit = {},
   private val recovery: SessionSnapshot? = null,
+  // Every phone but the Seeker's own checks the host; without a verifier the client trusts its link.
+  private val verifier: HostVerifier? = null,
 ) {
   sealed interface Status {
     data object Connecting : Status
@@ -48,6 +52,9 @@ class FormationClient(
     data class Reconnecting(val attempt: Int) : Status
 
     data class Rejected(val reason: Rejection) : Status
+
+    // The host couldn't prove it's a Seeker, or its signed updates didn't check out.
+    data class Untrusted(val reason: String) : Status
 
     data class Ended(val reason: String) : Status
   }
@@ -76,6 +83,9 @@ class FormationClient(
   private var connectingAt = clock.now()
   private var reportedStage: DiagnosticCode? = null
   private var completionCheckpoint: (SessionSnapshot) -> Unit = {}
+  private var hostSession: String? = null
+  private var hostKey: ByteArray? = null
+  private var presence = ""
 
   fun checkpointCompletions(save: (SessionSnapshot) -> Unit) { completionCheckpoint = save }
 
@@ -122,7 +132,7 @@ class FormationClient(
   private fun end(reason: String) {
     finished = true
     observe(DiagnosticEvent(DiagnosticCode.CONNECT_ENDED))
-    if (_status.value !is Status.Rejected) _status.value = Status.Ended(reason)
+    if (_status.value !is Status.Rejected && _status.value !is Status.Untrusted) _status.value = Status.Ended(reason)
   }
 
   private suspend fun run() {
@@ -171,6 +181,8 @@ class FormationClient(
     // Moves made while the link was down are stale; drop them.
     while (outbox.tryReceive().isSuccess) {}
     sealedMessage = null
+    hostKey = null
+    hostSession = null
     sync.reset()
     val writer = launch { for (message in outbox) if (!channel.send(encode(message))) break }
     val pinger = launch {
@@ -196,14 +208,47 @@ class FormationClient(
     }
   }
 
-  private fun handle(message: ToPlayer) {
+  private suspend fun handle(message: ToPlayer) {
     when (message) {
       is ToPlayer.Authenticate -> {
+        val session = message.challenge.session
+        if (verifier != null) verifier.problem(session, message.seeker)?.let { return untrusted(it) }
+        hostKey = message.seeker?.sessionKey?.let { runCatching { Base58.decode(it) }.getOrNull() }
+        hostSession = session
+        presence = Base58.encode(secureRandomBytes(32))
         val hello = ToHost.Hello(PROTOCOL_VERSION, identity.device, name, light, identity.claimKey, wallet,
-          identity.formats, identity.capabilities, message.challenge.nonce)
+          identity.formats, identity.capabilities, message.challenge.nonce, presence)
         send(hello.copy(signature = Base58.encode(identity.key.sign(admissionMessage(message.challenge, hello)))))
       }
+      is ToPlayer.Signed -> {
+        val key = hostKey
+        val session = hostSession
+        if (verifier != null) {
+          val valid = key != null && session != null && runCatching {
+            Ed25519.verify(Base58.decode(message.signature), SeekerPresence.signed(session, message.message), key)
+          }.getOrDefault(false)
+          if (!valid) return untrusted("The Seeker's updates couldn't be verified.")
+        }
+        val inner = decode(message.message)
+        if (inner is ToPlayer.Welcome || inner is ToPlayer.Session) accept(inner)
+      }
+      // Only the Seeker's own link may send these unsigned.
+      is ToPlayer.Welcome, is ToPlayer.Session -> if (verifier == null) accept(message)
+      else -> accept(message)
+    }
+  }
+
+  private fun untrusted(reason: String) {
+    _status.value = Status.Untrusted(reason)
+    observe(DiagnosticEvent(DiagnosticCode.CONNECT_UNTRUSTED))
+    finished = true
+  }
+
+  private fun accept(message: ToPlayer) {
+    when (message) {
+      is ToPlayer.Authenticate, is ToPlayer.Signed -> {}
       is ToPlayer.Welcome -> {
+        if (verifier != null && message.presence != presence) return untrusted("The Seeker's welcome wasn't meant for this phone.")
         _me.value = message.you
         _status.value = Status.Joined
         observe(DiagnosticEvent(DiagnosticCode.CONNECT_JOINED, clock.now() - connectingAt))

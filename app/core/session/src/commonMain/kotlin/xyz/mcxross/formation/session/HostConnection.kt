@@ -12,14 +12,18 @@ internal class HostConnection(
   private val channel: LinkChannel,
   val local: Boolean,
   val challenge: AdmissionChallenge,
+  private val proof: SeekerProof?,
   private val json: Json,
 ) {
+  // The nonce this phone sent in its hello; the Seeker echoes it in the signed welcome.
+  var presence: String = ""
+
   // Snapshot traffic can discard old frames without holding up the referee.
   val outbox = Channel<String>(512, BufferOverflow.DROP_OLDEST)
   fun send(frame: String) { outbox.trySend(frame) }
 
   suspend fun run(received: suspend (ToHost) -> Unit, closed: () -> Unit, timedOut: () -> Unit) {
-    send(json.encodeToString(ToPlayer.serializer(), ToPlayer.Authenticate(challenge)))
+    send(json.encodeToString(ToPlayer.serializer(), ToPlayer.Authenticate(challenge, proof)))
     try {
       coroutineScope {
         val deadline = launch { delay(10_000); timedOut() }

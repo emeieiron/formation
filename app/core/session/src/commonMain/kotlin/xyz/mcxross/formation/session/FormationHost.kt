@@ -34,6 +34,7 @@ class FormationHost(
   recovery: SessionSnapshot? = null,
   private val checkpoint: (SessionSnapshot) -> Unit = {},
   private val observe: (DiagnosticEvent) -> Unit = {},
+  private val presence: HostPresence? = null,
 ) {
   private val info = formation
   private val screenRequirement = rules.screenRequirement(info.opportunity.players)
@@ -72,7 +73,7 @@ class FormationHost(
 
   // Only the Seeker's own in-process link ([local]) can take the Seeker's seat.
   suspend fun serve(channel: LinkChannel, local: Boolean = false) {
-    val conn = HostConnection(channel, local, admissionChallenge(info, rules), json)
+    val conn = HostConnection(channel, local, admissionChallenge(info, rules), presence?.proof, json)
     conn.run(received = { events.send(Event.Received(conn, it)) },
       closed = { events.trySend(Event.Closed(conn)) },
       timedOut = { command { if (seatOf(conn) == null) reject(conn, Rejection.IDENTITY) } })
@@ -227,6 +228,7 @@ class FormationHost(
     if (stage is Stage.Closed) return reject(conn, Rejection.CLOSED)
     admissionRejection(conn.challenge, hello)?.let { return reject(conn, it) }
     if (seatOf(conn) != null) return reject(conn, Rejection.DUPLICATE)
+    conn.presence = hello.presence
 
     val returning = seats.firstOrNull { it.device == hello.device || it.claimKey == hello.claimKey }
     if (returning != null) {
@@ -290,7 +292,7 @@ class FormationHost(
   }
 
   private fun welcome(conn: HostConnection, seat: Seat) {
-    conn.send(encode(ToPlayer.Welcome(seat.id)))
+    conn.send(signed(ToPlayer.Welcome(seat.id, conn.presence)))
     publish()
     lastFrames[seat.id]?.takeIf { stage is Stage.Playing }?.let(conn::send)
   }
@@ -502,12 +504,18 @@ class FormationHost(
       if ((snapshot.stage as? Stage.Won)?.seal?.complete == true) observe(DiagnosticEvent(DiagnosticCode.SEAL_DURATION, clock.now() - sealingAt))
       reportedSeals = count }
     _snapshot.value = snapshot
-    broadcast(encode(ToPlayer.Session(snapshot)))
+    broadcast(signed(ToPlayer.Session(snapshot)))
   }
 
   private fun broadcast(frame: String) = seats.forEach { it.conn?.send(frame) }
 
   private fun encode(message: ToPlayer) = json.encodeToString(ToPlayer.serializer(), message)
+
+  private fun signed(message: ToPlayer): String {
+    val key = presence?.key ?: return encode(message)
+    val text = encode(message)
+    return encode(ToPlayer.Signed(text, Base58.encode(key.sign(SeekerPresence.signed(info.session, text)))))
+  }
 
 
 

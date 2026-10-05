@@ -10,7 +10,7 @@ import xyz.mcxross.formation.model.PlayerId
 import xyz.mcxross.formation.model.Skr
 
 // Bump whenever phones and Seekers on different versions could misunderstand each other.
-const val PROTOCOL_VERSION = 4
+const val PROTOCOL_VERSION = 5
 
 val FormationJson = Json {
   ignoreUnknownKeys = true
@@ -143,6 +143,8 @@ sealed interface ToHost {
     val formats: Map<String, Int> = emptyMap(),
     val capabilities: Set<String> = emptySet(),
     val nonce: String = "",
+    // A fresh nonce the Seeker echoes in its signed welcome.
+    val presence: String = "",
     val signature: String = "",
   ) : ToHost
 
@@ -169,9 +171,14 @@ sealed interface ToHost {
 
 @Serializable
 sealed interface ToPlayer {
-  @Serializable @SerialName("authenticate") data class Authenticate(val challenge: AdmissionChallenge) : ToPlayer
+  @Serializable
+  @SerialName("authenticate")
+  data class Authenticate(val challenge: AdmissionChallenge, val seeker: SeekerProof? = null) : ToPlayer
 
-  @Serializable @SerialName("welcome") data class Welcome(val you: PlayerId) : ToPlayer
+  @Serializable @SerialName("welcome") data class Welcome(val you: PlayerId, val presence: String = "") : ToPlayer
+
+  // Another ToPlayer message, exactly as the Seeker signed it with its session key.
+  @Serializable @SerialName("signed") data class Signed(val message: String, val signature: String) : ToPlayer
 
   @Serializable @SerialName("pong") data class Pong(val sent: Long, val host: Long) : ToPlayer
 
