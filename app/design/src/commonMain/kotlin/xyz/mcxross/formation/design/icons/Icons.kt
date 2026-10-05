@@ -449,5 +449,28 @@ object Icons {
       stroke { polyline(3f, 12f, 7f, 12f, 9.5f, 6f, 13.5f, 18f, 16f, 12f, 21f, 12f) }
     }
   }
+  // Six phones lying in three rows.
+  val Tiles by lazy {
+    icon("Tiles") {
+      stroke(width = 1.5f) {
+        for (top in listOf(3.5f, 9.8f, 16.1f)) {
+          roundRect(2.5f, top, 11f, top + 4.4f, 1.1f)
+          roundRect(13f, top, 21.5f, top + 4.4f, 1.1f)
+        }
+      }
+    }
+  }
+  // Two fingers sliding together across a seam.
+  val Pinch by lazy {
+    icon("Pinch") {
+      stroke(alpha = 0.4f) { line(12f, 4.5f, 12f, 19.5f) }
+      stroke {
+        line(3.5f, 12f, 9.5f, 12f)
+        arrowHead(9.5f, 12f, 0f, 3f)
+        line(20.5f, 12f, 14.5f, 12f)
+        arrowHead(14.5f, 12f, 180f, 3f)
+      }
+    }
+  }
 
 }
