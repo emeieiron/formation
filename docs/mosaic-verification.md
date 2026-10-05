@@ -53,6 +53,8 @@ Six read-only instances of the `formation-release` AVD ran Android 16 at 1344 ×
   - waits for "Waiting…" until a group is full;
   - creates the preferences folder on fresh installs.
 
+With these script changes, Ricochet's simulated duo journey still passed on two of the same emulators.
+
 ## Not yet verified
 
 - Physical phones on a table:
