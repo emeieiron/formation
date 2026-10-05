@@ -40,6 +40,7 @@ import xyz.mcxross.formation.resources.action_done
 import xyz.mcxross.formation.resources.action_view_reward
 import xyz.mcxross.formation.resources.label_funded_rewards
 import xyz.mcxross.formation.resources.story_practice_locked
+import xyz.mcxross.formation.state.HardwareCheck
 import xyz.mcxross.formation.ui.LocalGraph
 import xyz.mcxross.formation.ui.components.timeLeft
 
@@ -50,11 +51,16 @@ internal fun GameActionSheet(
   onDismiss: () -> Unit,
   onReward: (Opportunity) -> Unit,
 ) {
-  val seeker by LocalGraph.current.seeker.identity.collectAsState()
+  val graph = LocalGraph.current
+  val seeker by graph.seeker.identity.collectAsState()
+  val hardware by graph.hardware.local.collectAsState()
   if (game.introduction == null && rewards.isEmpty()) {
     LaunchedEffect(game.id) { onDismiss() }
     return
   }
+  // Practice runs on this phone alone, so this phone must be the Seeker; a debug build's pretend Seeker is exempt.
+  val pretend = seeker?.simulated == true
+  if (seeker != null && !pretend) LaunchedEffect(Unit) { graph.hardware.proveThisPhone() }
   ModalSheet(onDismiss) {
     Column(Modifier.fillMaxWidth().weight(1f, fill = false)
       .verticalScroll(rememberScrollState()).padding(horizontal = Space.xxl)) {
@@ -62,11 +68,19 @@ internal fun GameActionSheet(
       Text(game.info.title, style = Theme.type.title2)
       game.introduction?.let { introduction ->
         Spacer(Modifier.height(Space.xl))
-        if (seeker != null) introduction() else {
+        if (seeker != null && (pretend || hardware == HardwareCheck.Proven)) introduction() else {
           HowToPlay(game.info)
           Spacer(Modifier.height(Space.m))
-          Text(stringResource(Res.string.story_practice_locked), style = Theme.type.footnote,
-            color = Theme.colors.contentSecondary)
+          val failed = hardware as? HardwareCheck.Failed
+          Text(
+            when {
+              seeker == null -> stringResource(Res.string.story_practice_locked)
+              failed != null -> "Only a Seeker can practise. ${failed.message}"
+              else -> "Checking this Seeker…"
+            },
+            style = Theme.type.footnote,
+            color = Theme.colors.contentSecondary,
+          )
         }
       }
       if (rewards.isNotEmpty()) {

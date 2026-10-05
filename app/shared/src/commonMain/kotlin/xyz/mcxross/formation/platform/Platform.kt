@@ -23,6 +23,29 @@ interface PlatformServices {
   val external: ExternalPort
   val hotspot: HotspotPort?
   val screen: ScreenPort get() = ScreenPort.Unsupported
+  val attestation: DeviceAttestation get() = DeviceAttestation.Unsupported
+}
+
+// Hardware key attestation: lets other phones check what this phone is and which app is asking.
+interface DeviceAttestation {
+  val packageName: String
+
+  // SHA-256 digests (lowercase hex) of the certificates this app is signed with; empty when unknown.
+  val signers: Set<String>
+
+  // Makes a key in secure hardware and returns its attestation chain, leaf first, carrying [challenge]
+  // and the phone's brand, manufacturer and model. Throws when the phone can't attest them.
+  suspend fun attest(challenge: ByteArray): List<ByteArray>
+
+  companion object {
+    val Unsupported = object : DeviceAttestation {
+      override val packageName = "xyz.mcxross.formation"
+      override val signers = emptySet<String>()
+
+      override suspend fun attest(challenge: ByteArray): List<ByteArray> =
+        throw UnsupportedOperationException("This phone can't attest its hardware.")
+    }
+  }
 }
 
 sealed interface ScreenMeasurement {
@@ -104,6 +127,8 @@ interface LocalNetwork {
 
 data class WalletAccount(val address: String, val label: String?)
 
+class SignedMessage(val address: String, val signature: ByteArray)
+
 sealed interface WalletResult<out T> {
   fun <R> map(f: (T) -> R): WalletResult<R> =
     when (this) {
@@ -123,6 +148,9 @@ interface WalletPort {
   fun installed(): Boolean
 
   suspend fun connect(): WalletResult<WalletAccount>
+
+  // Connects and has the wallet sign [message] with the account it names, proving it holds that key.
+  suspend fun signIn(message: ByteArray): WalletResult<SignedMessage>
 
   // Sign only: the app sends the transaction itself.
   suspend fun sign(transaction: ByteArray): WalletResult<ByteArray> =

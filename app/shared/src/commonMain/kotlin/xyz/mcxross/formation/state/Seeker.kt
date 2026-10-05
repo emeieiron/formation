@@ -6,6 +6,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
+import xyz.mcxross.formation.crypto.Base58
+import xyz.mcxross.formation.crypto.Ed25519
+import xyz.mcxross.formation.crypto.secureRandomBytes
 import xyz.mcxross.formation.platform.KeyValueStore
 import xyz.mcxross.formation.platform.WalletPort
 import xyz.mcxross.formation.platform.WalletResult
@@ -84,15 +87,20 @@ class SeekerState(
     "Link a Seeker to unlock play, or join someone who has one."
   }
 
+  // Solana Mobile's Genesis Token check needs the wallet to sign, not just name an address that holds one.
   private suspend fun connectAndCheck() {
     _status.value = SeekerStatus.Checking
+    val message = ("Formation will check this wallet holds your Seeker Genesis Token.\n" +
+      "Nonce: ${Base58.encode(secureRandomBytes(16))}").encodeToByteArray()
     _status.value =
-      when (val connected = wallet.connect()) {
+      when (val signed = wallet.signIn(message)) {
         WalletResult.NoWallet -> SeekerStatus.NeedsApproval("No Seed Vault or wallet app answered.")
-        is WalletResult.Failed -> SeekerStatus.NeedsApproval(connected.message)
+        is WalletResult.Failed -> SeekerStatus.NeedsApproval(signed.message)
         is WalletResult.Ok -> {
-          val address = connected.value.address
-          check
+          val address = signed.value.address
+          val holdsKey = runCatching { Ed25519.verify(signed.value.signature, message, Base58.decode(address)) }.getOrDefault(false)
+          if (!holdsKey) SeekerStatus.NeedsApproval("The wallet's signature doesn't match its address.")
+          else check
             .sgtOf(address)
             .fold(
               onSuccess = { sgt ->

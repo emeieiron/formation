@@ -65,6 +65,8 @@ class AppGraph(
       platform.config.debug,
       seekerCheck ?: sgtCheck(SolanaRpc(platform.network.http, platform.config.sgtRpcUrl)),
     )
+  val revocations = AttestationRevocations(platform.store, platform.network.http, ::now)
+  val hardware = SeekerHardware(platform.attestation, revocations, platform.config.debug, ::now)
 
   val ledgerChoice = selectLedger(platform.store.get(KEY_LEDGER), platform.config.debug)
   val ledger: RewardLedger =
@@ -134,8 +136,12 @@ class AppGraph(
   val autoplay = MutableStateFlow(false)
 
   suspend fun host(opportunity: Opportunity, recovery: xyz.mcxross.formation.session.SessionSnapshot? = null): Result<ActiveSession> = runCatching {
-    seeker.requireHostIdentity()
+    val owner = seeker.requireHostIdentity()
     check(identity.claims.status.value is xyz.mcxross.formation.state.recovery.ClaimKeyState.Ready) { "Restore this phone's claim key first" }
+    val info =
+      recovery?.formation ?: FormationInfo(newUuid(), FormationHost.newCode(), identity.player().name, opportunity)
+    // The hardware proof comes before anything that would end the current session.
+    val presence = hardware.host(info.session, simulated = owner.simulated)
     endSession()
     val challenge =
       ChallengeCatalog[opportunity.challenge] ?: error("This app doesn't know that challenge yet")
@@ -153,11 +159,9 @@ class AppGraph(
     }
     val server = platform.network.server ?: error("This phone can't host Formations")
     val sessionScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    val info =
-      recovery?.formation ?: FormationInfo(newUuid(), FormationHost.newCode(), identity.player().name, opportunity)
     val tag = diagnostics.nextSession()
     val host = FormationHost(info, challenge, sessionScope, recovery = recovery,
-      checkpoint = { completed.remember(it) }, observe = diagnostics.sink(TraceSource.HOST, tag))
+      checkpoint = { completed.remember(it) }, observe = diagnostics.sink(TraceSource.HOST, tag), presence = presence)
     val port = server.start(LinkDefaults.PORTS, host::beacon) { channel -> host.serve(channel) }
     platform.network.advertiser?.advertise("Formation ${info.code}", port)
     val client =
@@ -202,7 +206,7 @@ class AppGraph(
     val tag = diagnostics.nextSession()
     val client =
       FormationClient(identity.player(), connect = { connector.connect(address) }, sessionScope,
-        observe = diagnostics.sink(TraceSource.CLIENT, tag), recovery = recovery)
+        observe = diagnostics.sink(TraceSource.CLIENT, tag), recovery = recovery, verifier = hardware.verifier)
     client.start()
     return ActiveSession(
         client,
@@ -285,6 +289,8 @@ class AppGraph(
   init {
     runCatching { recovery.resumePending() }.onFailure { recoveryProblem.value = it.message ?: "Recovery could not finish" }
     scope.launch { sounds.prepare() }
+    scope.launch { revocations.current() }
+    scope.launch { if (seeker.identity.value?.simulated == false) hardware.proveThisPhone() }
     scope.launch {
       platform.network.finder.status.collect { state ->
         diagnostics.sink(TraceSource.DISCOVERY)(DiagnosticEvent(

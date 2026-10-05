@@ -96,6 +96,7 @@ import xyz.mcxross.formation.model.Opportunity
 import xyz.mcxross.formation.model.OpportunityState
 import xyz.mcxross.formation.model.Skr
 import xyz.mcxross.formation.session.NearbyFormation
+import xyz.mcxross.formation.state.HardwareCheck
 import xyz.mcxross.formation.state.Links
 import xyz.mcxross.formation.state.SeekerStatus
 import xyz.mcxross.formation.state.ChallengeCatalog
@@ -159,6 +160,7 @@ fun HomeScreen(presentation: HomePresentation) {
     } else entrance.snapTo(1f)
   }
   val status by graph.seeker.status.collectAsState()
+  val hardware by graph.hardware.local.collectAsState()
   val pendingWins by graph.pending.pending.collectAsState()
   val completed by graph.completed.entries.collectAsState()
 
@@ -268,6 +270,12 @@ fun HomeScreen(presentation: HomePresentation) {
         onOpen = { gameActions = it })
 
       if (me != null) {
+        (hardware as? HardwareCheck.Failed)?.takeIf { !me.simulated }?.let { failed ->
+          item {
+            Notice(failed.message, Modifier.padding(horizontal = Space.gutter, vertical = Space.s),
+              title = "This phone can't host", tone = Tone.Warning)
+          }
+        }
         problem?.let {
           item {
             Notice(it, Modifier.padding(horizontal = Space.gutter, vertical = Space.s), tone = Tone.Warning)

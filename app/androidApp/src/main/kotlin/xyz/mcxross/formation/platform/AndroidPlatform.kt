@@ -154,6 +154,8 @@ class AndroidPlatform(private val context: Context) : PlatformServices {
 
   override val screen = AndroidScreen(context) { bridge as? android.app.Activity }
 
+  override val attestation = AndroidAttestation(context)
+
   private fun isEmulator(): Boolean =
     Build.HARDWARE in setOf("goldfish", "ranchu") ||
       Build.FINGERPRINT.startsWith("generic") ||

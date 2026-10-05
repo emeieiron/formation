@@ -80,7 +80,8 @@ fun SessionScreen() {
     graph.navigator.remove(Screen.Session)
   }
 
-  val ended = status is FormationClient.Status.Ended || status is FormationClient.Status.Rejected
+  val ended = status is FormationClient.Status.Ended || status is FormationClient.Status.Rejected ||
+    status is FormationClient.Status.Untrusted
   BackHandler { if (ended) leave() else confirmLeave = true }
 
   val fullScreen = snapshot?.stage is Stage.Playing && active.challenge?.fullScreen == true
@@ -89,6 +90,9 @@ fun SessionScreen() {
       when (val st = status) {
         is FormationClient.Status.Rejected ->
           Problem("Couldn't join", st.reason.message, onBack = ::leave)
+        is FormationClient.Status.Untrusted ->
+          Problem(if (me == null) "Couldn't join" else "Left the Formation", "${st.reason} Formations only run on a Seeker.",
+            onBack = ::leave)
         is FormationClient.Status.Ended ->
           Problem("The Formation ended", st.reason, onBack = ::leave)
         else -> {

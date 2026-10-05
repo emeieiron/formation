@@ -11,7 +11,10 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
+import xyz.mcxross.formation.crypto.Base58
+import xyz.mcxross.formation.crypto.Ed25519KeyPair
 import xyz.mcxross.formation.platform.KeyValueStore
+import xyz.mcxross.formation.platform.SignedMessage
 import xyz.mcxross.formation.platform.WalletAccount
 import xyz.mcxross.formation.platform.WalletPort
 import xyz.mcxross.formation.platform.WalletResult
@@ -27,7 +30,8 @@ class SeekerStateTest {
     }
   }
 
-  private class Wallet(var answer: WalletResult<WalletAccount>) : WalletPort {
+  // Signs with the key behind the account it answers with, unless [signer] stands in for it.
+  private class Wallet(var answer: WalletResult<WalletAccount>, val signer: Ed25519KeyPair? = null) : WalletPort {
     var connects = 0
     var pending: CompletableDeferred<WalletResult<WalletAccount>>? = null
 
@@ -38,12 +42,16 @@ class SeekerStateTest {
       return pending?.await() ?: answer
     }
 
+    override suspend fun signIn(message: ByteArray): WalletResult<SignedMessage> = connect().map { account ->
+      SignedMessage(account.address, (signer ?: keys.getValue(account.address)).sign(message))
+    }
+
     override suspend fun signAll(transactions: List<ByteArray>): WalletResult<List<ByteArray>> =
       WalletResult.NoWallet
   }
 
-  private val seedVault = WalletResult.Ok(WalletAccount("SeekerWallet111", "Seed Vault"))
-  private val sgts = mutableMapOf("SeekerWallet111" to "Sgt111")
+  private val seedVault = WalletResult.Ok(WalletAccount(SEEKER, "Seed Vault"))
+  private val sgts = mutableMapOf(SEEKER to "Sgt111")
   private val check = SeekerCheck { Result.success(sgts[it]) }
 
   @OptIn(ExperimentalCoroutinesApi::class)
@@ -74,7 +82,7 @@ class SeekerStateTest {
 
     state.link()
     assertEquals(
-      SeekerIdentity("SeekerWallet111", "Sgt111", simulated = false),
+      SeekerIdentity(SEEKER, "Sgt111", simulated = false),
       state.identity.value,
     )
     assertIs<SeekerStatus.Verified>(state.status.value)
@@ -115,15 +123,24 @@ class SeekerStateTest {
     val state =
       SeekerState(
         Store(),
-        Wallet(WalletResult.Ok(WalletAccount("Other111", null))),
+        Wallet(WalletResult.Ok(WalletAccount(OTHER, null))),
         isSeeker = true,
         debug = false,
         check,
       )
     state.link()
     assertNull(state.identity.value)
-    assertEquals(SeekerStatus.NoToken("Other111"), state.status.value)
+    assertEquals(SeekerStatus.NoToken(OTHER), state.status.value)
     assertFailsWith<IllegalStateException> { state.requireHostIdentity() }
+  }
+
+  @Test
+  fun aWalletMustSignForTheAddressItNames() = runTest {
+    // An address that holds a Genesis Token proves nothing unless the wallet can sign for it.
+    val state = SeekerState(Store(), Wallet(seedVault, signer = Ed25519KeyPair.generate()), isSeeker = true, debug = false, check)
+    state.link()
+    assertNull(state.identity.value)
+    assertEquals(SeekerStatus.NeedsApproval("The wallet's signature doesn't match its address."), state.status.value)
   }
 
   @Test
@@ -134,7 +151,7 @@ class SeekerStateTest {
     val relaunched = SeekerState(store, Wallet(seedVault), isSeeker = true, debug = false, check)
     relaunched.autoVerify()
     assertNull(relaunched.identity.value)
-    assertEquals(SeekerStatus.NoToken("SeekerWallet111"), relaunched.status.value)
+    assertEquals(SeekerStatus.NoToken(SEEKER), relaunched.status.value)
     assertFailsWith<IllegalStateException> { relaunched.requireHostIdentity() }
   }
 
@@ -149,5 +166,11 @@ class SeekerStateTest {
       .pretend(true, "Claim111")
     val release = SeekerState(store, Wallet(seedVault), isSeeker = false, debug = false, check)
     assertNull(release.identity.value, "a pretend Seeker never carries into a release build")
+  }
+
+  private companion object {
+    val keys = listOf(Ed25519KeyPair.generate(), Ed25519KeyPair.generate()).associateBy { Base58.encode(it.publicKey) }
+    val SEEKER = keys.keys.first()
+    val OTHER = keys.keys.last()
   }
 }

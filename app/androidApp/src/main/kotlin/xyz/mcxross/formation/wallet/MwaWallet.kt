@@ -10,6 +10,7 @@ import com.solana.mobilewalletadapter.clientlib.Solana
 import com.solana.mobilewalletadapter.clientlib.TransactionResult
 import xyz.mcxross.formation.crypto.Base58
 import xyz.mcxross.formation.platform.SecretStore
+import xyz.mcxross.formation.platform.SignedMessage
 import xyz.mcxross.formation.platform.WalletAccount
 import xyz.mcxross.formation.platform.WalletPort
 import xyz.mcxross.formation.platform.WalletResult
@@ -59,6 +60,24 @@ class MwaWallet(
         WalletResult.Ok(
           WalletAccount(Base58.encode(account?.publicKey ?: auth.publicKey), account?.accountLabel)
         )
+      }
+      is TransactionResult.NoWalletFound -> WalletResult.NoWallet
+      is TransactionResult.Failure -> WalletResult.Failed(result.message)
+    }
+  }
+
+  override suspend fun signIn(message: ByteArray): WalletResult<SignedMessage> {
+    val activity = sender() ?: return WalletResult.Failed("Open Formation to connect a wallet")
+    val result = adapter.transact(activity) { auth ->
+      val account = auth.accounts.firstOrNull()?.publicKey ?: auth.publicKey
+      val signed = signMessagesDetached(arrayOf(message), arrayOf(account)).messages.firstOrNull()
+      account to signed?.signatures?.firstOrNull()
+    }.also { remember() }
+    return when (result) {
+      is TransactionResult.Success -> {
+        val (account, signature) = result.payload
+        signature?.let { WalletResult.Ok(SignedMessage(Base58.encode(account), it)) }
+          ?: WalletResult.Failed("The wallet didn't sign")
       }
       is TransactionResult.NoWalletFound -> WalletResult.NoWallet
       is TransactionResult.Failure -> WalletResult.Failed(result.message)

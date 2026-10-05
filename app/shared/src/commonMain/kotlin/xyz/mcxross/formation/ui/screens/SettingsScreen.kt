@@ -47,6 +47,7 @@ import xyz.mcxross.formation.design.icons.Icons
 import xyz.mcxross.formation.design.tokens.Sizes
 import xyz.mcxross.formation.design.tokens.Space
 import xyz.mcxross.formation.link.EmulatorBridge
+import xyz.mcxross.formation.state.HardwareCheck
 import xyz.mcxross.formation.state.LedgerMode
 import xyz.mcxross.formation.state.Profile
 import xyz.mcxross.formation.state.SeekerStatus
@@ -63,6 +64,7 @@ fun SettingsScreen() {
   val profile by graph.identity.profile.collectAsState()
   val seeker by graph.seeker.identity.collectAsState()
   val status by graph.seeker.status.collectAsState()
+  val hardware by graph.hardware.local.collectAsState()
   val soundEnabled by graph.sounds.enabled.collectAsState()
   val claimState by graph.identity.claims.status.collectAsState()
   var name by remember { mutableStateOf(profile?.name ?: "") }
@@ -161,6 +163,28 @@ fun SettingsScreen() {
                 loading = status == SeekerStatus.Checking,
               )
             }
+          }
+          // Debug builds show the check on any phone, so emulators exercise the real attestation path.
+          if (graph.platform.device.seeker || (s != null && !s.simulated) || graph.platform.config.debug) {
+            Hairline()
+            SettingRow(
+              title = when (hardware) {
+                HardwareCheck.Proven -> "Seeker hardware verified"
+                HardwareCheck.Checking -> "Checking this phone…"
+                is HardwareCheck.Failed -> "Seeker hardware not verified"
+                HardwareCheck.Unknown -> "Seeker hardware"
+              },
+              detail = when (val check = hardware) {
+                HardwareCheck.Proven -> "Secure hardware shows a Seeker with a locked bootloader running this app."
+                is HardwareCheck.Failed -> check.message
+                else -> "Phones that join check this proof before they play."
+              },
+              icon = Icons.Lock,
+              trailing = {
+                Button("Check", { scope.launch { graph.hardware.proveThisPhone() } }, style = ButtonStyle.Secondary,
+                  size = ButtonSize.Small, fillWidth = false, loading = hardware == HardwareCheck.Checking)
+              },
+            )
           }
         }
       }
