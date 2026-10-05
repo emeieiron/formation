@@ -4,7 +4,7 @@
 
 Make the central rule explicit: **no game can be played without a Seeker. One Seeker unlocks play with any other phone.** Ordinary participants do not each need their own Seeker. Explain that relationship through one continuous scene: a Seeker sends the red unlock signal, other phones join, the catalogue opens, and the group plays and finishes together. Keep game names, screenshots, fixed player counts, and specific control schemes out of the story so it remains useful as the catalogue changes.
 
-The app now replaces the original 1.1-second Join, Play, and Claim introduction with a 24-second native story. It is skippable throughout and holds at the final chapter. The Blender terminal layer retains its original 1024 × 1536 resolution; motion, captions, and controls run natively in Compose.
+The app now replaces the original 1.1-second Join, Play, and Claim introduction with a 24-second native story. It runs full screen without controls or progress markers, and continues to profile setup shortly after the final chapter plays. The Blender terminal layer retains its original 1024 × 1536 resolution; motion, captions, and controls run natively in Compose.
 
 ## Storyboard
 
@@ -15,7 +15,7 @@ The app now replaces the original 1.1-second Join, Play, and Claim introduction 
 | 7.5–11.5 s | **Choose your challenge.** Every game needs a Seeker to unlock play. | A fan of anonymous game portals appears locked. A signal visibly travels from the Seeker to the portals; they illuminate and one opens into a shared space. | Establish the unlock requirement for the whole changing catalogue. |
 | 11.5–17.5 s | **Find your rhythm.** Different roles. One shared goal. | Contributions travel from different screens toward the shared space. Each exchange changes the central composition; a common rhythm makes the relationship visible. | Show cooperation through cause and effect. Illustrate contributions rather than a game mechanic. |
 | 17.5–21.5 s | **Finish together.** Every contribution becomes part of the result. | Separate pieces align into Formation's three-bar mark. A single completion wave travels outward, then the scene settles. | Make the shared result the payoff. Do not promise a payout from every game. |
-| 21.5–24 s, then hold | **Find your Formation.** Host with a Seeker, or join someone who has one. | The camera settles on the assembled mark. Get started hands off to name/colour selection and the appropriate host or joining path. | Give Seeker owners and ordinary-phone participants distinct useful actions. |
+| 21.5–24 s | **Find your Formation.** Host with a Seeker, or join someone who has one. | The camera settles on the assembled mark. After a short hold, the story hands off to name/colour selection. | Close the story before the profile and the automatic host or joining path. |
 
 ## Direction
 
@@ -23,18 +23,18 @@ The app now replaces the original 1.1-second Join, Play, and Claim introduction 
 - Carry one red signal through the entire story. Objects move and transform between beats; they do not restart as separate looping slides.
 - Change captions after the new action becomes legible. Keep one headline and one supporting sentence visible at a time.
 - Let the camera follow the event: close on the first player, wider for the group, nearer the selected challenge, and still for the final action.
-- Use quiet optional sound: a wake tone, paired arrivals, short exchanges on a 720 ms beat, and one resolving completion chord. Default the preview to silent. Production should use the app's sound preference and support a visible mute control.
-- Keep this introduction free of repeated haptics. Optional audio uses the existing saved sound preference, platform volume/silent-mode behavior, and a visible mute control.
+- Use quiet optional sound: a wake tone, paired arrivals, short exchanges on a 720 ms beat, and one resolving completion chord.
+- Keep this introduction free of repeated haptics. Audio follows the saved sound preference in Profile and the platform's volume and silent mode; the story itself shows no mute control.
 
 ## Interaction
 
-Play the story once on first use. Keep Pause, Next, and Skip introduction available; hold at the final action. Chapter markers allow reviewing earlier material. Avoid requiring someone to wait for animation before proceeding.
+Play the story once on first use, on a clean screen with no buttons, chapter markers or progress indicator. Tapping the right half of the screen moves to the next chapter, and on the last chapter it continues to profile setup. Tapping the left half returns to the previous chapter, as does the system back gesture. Holding anywhere pauses until release. Nobody has to wait for an animation before moving on.
 
-With reduced motion, show six composed still states with the same captions and manual Next. Screen readers receive the chapter and caption, not every frame. Backgrounding or hiding the story freezes it at its current time. Return resumes from that moment; it does not jump ahead or start over.
+With reduced motion, the six composed still states keep the same captions and advance only by tapping. Screen readers get each chapter's headline and caption, plus Next and Previous actions. Backgrounding or hiding the story freezes it at its current time, and returning resumes from that moment.
 
-The app retains name/colour setup and adds two paths: **I have a Seeker** leads to linking the Seeker so it can unlock a Formation; **I'm joining a Seeker** leads to joining a Formation hosted by one. Ordinary phones do not receive a wallet-linking requirement merely to join. The joining path saves the profile without asking for a wallet, then returns to Home and resumes any pending join link. The host path waits for verified Seeker identity; someone who cannot link can explicitly choose Join a Seeker instead.
+The app detects Seeker hardware instead of asking. After name and colour setup, a Seeker goes on to link its wallet for hosting, with **Link later** available. Every other phone saves the profile without a wallet step, returns to Home and resumes any pending join link. Hardware detection only chooses the path; hosting still waits for a verified Seeker Genesis Token.
 
-Skipping the introduction skips the story, not the Seeker requirement. Browsing the catalogue may remain available, but playing any game requires a Seeker-backed Formation. Practice must obey the same rule.
+Moving quickly through the story doesn't skip the Seeker requirement. Browsing the catalogue may remain available, but playing any game requires a Seeker-backed Formation. Practice must obey the same rule.
 
 ## Implementation approach
 
@@ -42,9 +42,9 @@ Use one monotonic playhead for scene positions, camera transforms, caption chang
 
 The study reuses an original high-resolution terminal model, rendered at 1024 × 1536. A transparent WebP preserves that resolution for the preview. The game portals, trails, and final mark are drawn at the screen's resolution. The isolated model, materials, camera, and source are in [assets/onboarding](../assets/onboarding/README.md).
 
-WelcomeScreen owns the saved playhead outside its step transitions, so going back from profile setup restores the story position. Native captions and chapter buttons are localized; captions announce chapter changes through a polite live region, while decorative frame updates remain hidden from accessibility. The stage height adapts to available space and text scaling, with a scroll fallback for unusually small windows.
+WelcomeScreen owns the saved playhead outside its step transitions, so going back from profile setup restores the story position. Native captions are localized and announce chapter changes through a polite live region, while decorative frame updates remain hidden from accessibility. The stage takes about three fifths of the screen height, with the caption below it.
 
-AppGraph.host now calls SeekerState.requireHostIdentity before ending an existing session, assessing game inputs, or starting a server. Selecting the host path or skipping onboarding does not grant this identity. The same identity gates standalone interactive practice in GameActionSheet; guests can still read static game instructions and use a Seeker-hosted session without linking their own wallet. Existing verification remains responsible for the Genesis Token, including removing identity when the token is definitively absent. Debug simulated Seekers remain confined to debug builds.
+AppGraph.host now calls SeekerState.requireHostIdentity before ending an existing session, assessing game inputs, or starting a server. Being detected as Seeker hardware or finishing onboarding does not grant this identity. The same identity gates standalone interactive practice in GameActionSheet; guests can still read static game instructions and use a Seeker-hosted session without linking their own wallet. Existing verification remains responsible for the Genesis Token, including removing identity when the token is definitively absent. Debug simulated Seekers remain confined to debug builds.
 
 The layered format adds a 36,752-byte transparent WebP and five short, original PCM sound cues (76,958 bytes total). One decoded RGBA terminal costs approximately 6 MiB and is reused for all three illustrated phones. There is no frame atlas, video player, or WebView in the onboarding. The sound generator is in assets/onboarding/sounds.py; existing Android/iOS sound players retain their foreground and silent-mode gates.
 
@@ -72,3 +72,17 @@ The [silent device recording](images/onboarding-story.mp4) shows the six native 
 The browser study passed playback/pause, chapter selection, optional sound activation, Next, skip, both local Seeker-owner and joining handoffs, and replay. Layouts at 320, 360, and 736 pixels had no horizontal overflow. Reduced motion held a composed still and manual Next advanced the chapter. No JavaScript runtime errors were observed. The Seeker introduction, locked portals, and compact layout were visually inspected.
 
 The embedded study is under 1 MB. The transparent terminal layer preserves the original 1024 × 1536 render resolution. These checks validate the design study, not Android/iOS game-entry enforcement or physical audio timing.
+
+## Controls-free story and automatic path
+
+Verified on 5 October 2026 on an Android 16 emulator with a fresh install:
+
+- The story runs full screen with no header, sound toggle, Skip, chapter markers, progress bars or buttons.
+- A right-half tap advanced to "Bring any other phone." A left-half tap returned to "A Seeker unlocks play."
+- Tapping through the last chapter opened profile setup. Continue on a non-Seeker phone went straight to Home without asking how the person will play.
+- `scripts/e2e.py` now taps through the story. Ricochet's simulated duo journey passed with a freshly installed guest onboarding this way.
+- Android debug assembly and the shared host tests passed.
+
+Not exercised on an emulator:
+- The Seeker-hardware path, since emulators report as ordinary phones.
+- The automatic hand-off after the final chapter.
