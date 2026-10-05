@@ -6,8 +6,6 @@ import kotlin.test.assertNull
 import xyz.mcxross.formation.crypto.AttestedApplication
 import xyz.mcxross.formation.crypto.AttestedKey
 import xyz.mcxross.formation.crypto.AuthorizationList
-import xyz.mcxross.formation.crypto.Base58
-import xyz.mcxross.formation.crypto.Ed25519KeyPair
 import xyz.mcxross.formation.crypto.KeyDescription
 import xyz.mcxross.formation.crypto.Provisioning
 import xyz.mcxross.formation.crypto.PublicKeyInfo
@@ -16,7 +14,7 @@ import xyz.mcxross.formation.crypto.SecurityLevel
 import xyz.mcxross.formation.crypto.VerifiedBootState
 
 class SeekerPolicyTest {
-  private val policy = SeekerPolicy(PACKAGE, setOf(SIGNER), allowSimulated = false)
+  private val policy = SeekerPolicy(PACKAGE, setOf(SIGNER))
   private val challenge = SeekerPresence.challenge("session-1", "key")
 
   private fun attested(
@@ -78,18 +76,10 @@ class SeekerPolicyTest {
   }
 
   @Test
-  fun checksTheProofBeforeTheAttestation() {
-    val key = Base58.encode(Ed25519KeyPair.generate().publicKey)
-    assertEquals("This host didn't prove it's a Seeker.", SeekerPresence.problem(null, "s", policy, 0, emptySet()))
-    assertEquals("This host's proof is malformed.", SeekerPresence.problem(SeekerProof("not-a-key"), "s", policy, 0, emptySet()))
-    assertEquals("This host is a test Seeker from a developer build.",
-      SeekerPresence.problem(SeekerProof(key, simulated = true), "s", policy, 0, emptySet()))
-    assertNull(SeekerPresence.problem(SeekerProof(key, simulated = true), "s",
-      SeekerPolicy(PACKAGE, emptySet(), allowSimulated = true), 0, null))
+  fun needsARevocationListAndAWholeChain() {
     assertEquals("Connect to the internet once so this phone can check Seekers.",
-      SeekerPresence.problem(SeekerProof(key, listOf("MAA=")), "s", policy, 0, null))
-    assertEquals("The attestation chain is too short",
-      SeekerPresence.problem(SeekerProof(key, listOf("MAA=")), "s", policy, 0, emptySet()))
+      SeekerPresence.problem(listOf("MAA="), challenge, policy, 0, null))
+    assertEquals("The attestation chain is too short", SeekerPresence.problem(listOf("MAA="), challenge, policy, 0, emptySet()))
   }
 
   private companion object {

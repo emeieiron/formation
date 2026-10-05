@@ -149,7 +149,7 @@
     <string name="game_needs_seeker">You play this with a Seeker. When its owner starts a Formation near you, join it from Home.</string>
     <string name="action_game_details">View %1$s instructions</string>
     <string name="join_intro_overline">Needs a Seeker</string>
-    <string name="join_intro_title">Formations start on a Seeker</string>
+    <string name="join_intro_title">Seeker owners start Formations</string>
     <string name="join_intro_body">Ask someone with a Seeker to start one near you. This phone joins in, plays its part and earns a share of the reward.</string>
     <string name="join_intro_searching">Looking for Formations on this network…</string>
     <string name="action_pretend_seeker">Pretend to be a Seeker</string>
@@ -160,14 +160,11 @@
     <string name="seeker_can_host">Start Formations for the phones around you</string>
     <string name="seeker_can_practice">Practice every game on this Seeker</string>
     <string name="seeker_can_earn">Unlock SKR rewards, paid to this Seeker's wallet</string>
-    <string name="seeker_hardware_verified">Seeker hardware verified</string>
-    <string name="seeker_hardware_checking">Checking this Seeker…</string>
-    <string name="seeker_hardware_failed">Seeker hardware not verified</string>
     <string name="seeker_wallet_linked">Wallet linked · %1$s</string>
     <string name="seeker_wallet_link">Link the wallet that holds its Genesis Token</string>
     <string name="seeker_wallet_waiting">Waiting for your wallet…</string>
     <string name="seeker_rewards_none">No rewards are funded for this Seeker yet. Practice any game meanwhile.</string>
     <string name="action_link">Link</string>
     <string name="action_link_seeker">Link this Seeker</string>
-    <string name="action_check_again">Check again</string>
+    <string name="action_link_wallet">Have a Seeker? Link its wallet</string>
 </resources>

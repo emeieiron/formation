@@ -19,6 +19,7 @@ import xyz.mcxross.formation.crypto.Ed25519
 import xyz.mcxross.formation.crypto.Ed25519KeyPair
 import xyz.mcxross.formation.crypto.secureRandomBytes
 import xyz.mcxross.formation.link.LinkChannel
+import xyz.mcxross.formation.model.Opportunity
 import xyz.mcxross.formation.model.PlayerId
 
 class PlayerIdentity(
@@ -84,7 +85,8 @@ class FormationClient(
   private var reportedStage: DiagnosticCode? = null
   private var completionCheckpoint: (SessionSnapshot) -> Unit = {}
   private var hostSession: String? = null
-  private var hostKey: ByteArray? = null
+  private var sessionKey: ByteArray? = null
+  private var reward: Opportunity? = null
   private var presence = ""
 
   fun checkpointCompletions(save: (SessionSnapshot) -> Unit) { completionCheckpoint = save }
@@ -181,7 +183,8 @@ class FormationClient(
     // Moves made while the link was down are stale; drop them.
     while (outbox.tryReceive().isSuccess) {}
     sealedMessage = null
-    hostKey = null
+    sessionKey = null
+    reward = null
     hostSession = null
     sync.reset()
     val writer = launch { for (message in outbox) if (!channel.send(encode(message))) break }
@@ -212,8 +215,9 @@ class FormationClient(
     when (message) {
       is ToPlayer.Authenticate -> {
         val session = message.challenge.session
-        if (verifier != null) verifier.problem(session, message.seeker)?.let { return untrusted(it) }
-        hostKey = message.seeker?.sessionKey?.let { runCatching { Base58.decode(it) }.getOrNull() }
+        if (verifier != null) verifier.problem(session, message.host)?.let { return untrusted(it) }
+        sessionKey = message.host?.sessionKey?.let { runCatching { Base58.decode(it) }.getOrNull() }
+        reward = message.host?.opportunity
         hostSession = session
         presence = Base58.encode(secureRandomBytes(32))
         val hello = ToHost.Hello(PROTOCOL_VERSION, identity.device, name, light, identity.claimKey, wallet,
@@ -221,11 +225,11 @@ class FormationClient(
         send(hello.copy(signature = Base58.encode(identity.key.sign(admissionMessage(message.challenge, hello)))))
       }
       is ToPlayer.Signed -> {
-        val key = hostKey
+        val key = sessionKey
         val session = hostSession
         if (verifier != null) {
           val valid = key != null && session != null && runCatching {
-            Ed25519.verify(Base58.decode(message.signature), SeekerPresence.signed(session, message.message), key)
+            Ed25519.verify(Base58.decode(message.signature), HostChecks.update(session, message.message), key)
           }.getOrDefault(false)
           if (!valid) return untrusted("The Seeker's updates couldn't be verified.")
         }
@@ -259,6 +263,8 @@ class FormationClient(
         observe(DiagnosticEvent(DiagnosticCode.CLOCK_RTT, sync.rttMs))
       }
       is ToPlayer.Session -> {
+        if (verifier != null && message.snapshot.formation.opportunity != reward)
+          return untrusted("The Seeker's updates don't match the reward it showed.")
         var snapshot = message.snapshot
         val completed = snapshot.stage as? Stage.Won
         if (completed != null) {

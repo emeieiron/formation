@@ -97,7 +97,7 @@ import xyz.mcxross.formation.model.Opportunity
 import xyz.mcxross.formation.model.OpportunityState
 import xyz.mcxross.formation.model.Skr
 import xyz.mcxross.formation.session.NearbyFormation
-import xyz.mcxross.formation.state.HardwareCheck
+import xyz.mcxross.formation.state.SeekerStatus
 import xyz.mcxross.formation.state.PhoneRole
 import xyz.mcxross.formation.state.Links
 import xyz.mcxross.formation.state.ChallengeCatalog
@@ -161,7 +161,6 @@ fun HomeScreen(presentation: HomePresentation) {
     } else entrance.snapTo(1f)
   }
   val status by graph.seeker.status.collectAsState()
-  val hardware by graph.hardware.local.collectAsState()
   val role by graph.role.collectAsState()
   val developer = graph.platform.config.developer
   val pendingWins by graph.pending.pending.collectAsState()
@@ -209,7 +208,7 @@ fun HomeScreen(presentation: HomePresentation) {
             )
             .padding(6.dp)
         ) {
-          PlayerLight(p.name, c.light(p.light), size = 36.dp, seeker = seeker != null && role != PhoneRole.PLAYER)
+          PlayerLight(p.name, c.light(p.light), size = 36.dp, seeker = seeker != null)
         }
       }
     }
@@ -282,9 +281,13 @@ fun HomeScreen(presentation: HomePresentation) {
         if (role == PhoneRole.PLAYER && nearby.isEmpty()) item(key = "join-intro") {
           JoinIntro(
             searching = discovery !is xyz.mcxross.formation.link.DiscoveryStatus.Failed,
+            onLink = { scope.launch { graph.seeker.link() } },
             onPretend = if (developer) {{ graph.seeker.pretend(true, graph.identity.claimAddress) }} else null,
             modifier = Modifier.padding(horizontal = Space.gutter, vertical = Space.s),
           )
+        }
+        if (role == PhoneRole.PLAYER) linkProblem(status)?.let { (title, text) ->
+          item { Notice(text, Modifier.padding(horizontal = Space.gutter, vertical = Space.s), title = title, tone = Tone.Warning) }
         }
         items(nearby, key = { it.beacon.session }) { formation ->
           NearbyCard(formation, onJoin = { join(formation) }, presentation = presentation,
@@ -299,26 +302,20 @@ fun HomeScreen(presentation: HomePresentation) {
         }
       }
       val hostable = gameRewards.values.sumOf { it.size }
-      fun LazyListScope.games() = gameCatalog(ChallengeCatalog.all, canHost = me != null && role != PhoneRole.PLAYER,
+      fun LazyListScope.games() = gameCatalog(ChallengeCatalog.all, canHost = me != null,
         seekerPhone = role != PhoneRole.PLAYER,
-        playable = gameRewards.filterValues { it.isNotEmpty() }.keys, testHost = role == PhoneRole.TEST_SEEKER,
+        playable = gameRewards.filterValues { it.isNotEmpty() }.keys, testHost = role == PhoneRole.TEST_HOST,
         motionActive = active && coverVisible,
         entrance = { entrance.value },
         onOpen = { gameActions = it })
 
       if (role == PhoneRole.PLAYER) {
         nearbySection()
-        // A wallet linked here before Seekers had to prove their hardware still collects rewards.
-        if (me != null) item {
-          Notice((hardware as? HardwareCheck.Failed)?.message ?: "Only a Seeker can host Formations.",
-            Modifier.padding(horizontal = Space.gutter, vertical = Space.s), title = "This phone isn't a Seeker")
-        }
         games()
       } else {
-        if (role == PhoneRole.SEEKER && (hardware != HardwareCheck.Proven || me == null || hostable == 0)) item(key = "seeker-setup") {
-          SeekerSetup(hardware, status, me?.wallet, hostable,
+        if (role != PhoneRole.TEST_HOST && (me == null || hostable == 0)) item(key = "seeker-setup") {
+          SeekerSetup(status, me?.wallet, hostable,
             onLink = { scope.launch { graph.seeker.link() } },
-            onCheck = { scope.launch { graph.hardware.proveThisPhone() } },
             modifier = Modifier.padding(horizontal = Space.gutter, vertical = Space.s))
         }
         games()
@@ -460,6 +457,13 @@ private fun NearbyCard(formation: NearbyFormation, onJoin: () -> Unit, presentat
       }
     }
   }
+}
+
+// A failed link from the join panel, as a title and a message.
+private fun linkProblem(status: SeekerStatus): Pair<String, String>? = when (status) {
+  is SeekerStatus.NeedsApproval -> "Not linked yet" to status.message
+  is SeekerStatus.NoToken -> "No Seeker Genesis Token" to "${shortAddress(status.wallet)} doesn't hold a Seeker Genesis Token."
+  else -> null
 }
 
 @Composable

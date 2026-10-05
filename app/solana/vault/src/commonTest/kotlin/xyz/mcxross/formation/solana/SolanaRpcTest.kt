@@ -180,7 +180,7 @@ class SolanaRpcTest {
             ),
         )
       )
-    val found = assertNotNull(SgtFinder(node.rpc()).find(Mainnet.holder))
+    val found = assertNotNull(SgtFinder(node.rpc(), SeekerGenesis.MAINNET_GROUP).find(Mainnet.holder))
     assertEquals(Mainnet.sgt, found.mint)
     assertEquals(Mainnet.sgtAccount, found.account)
     assertNull(SgtFinder(node.rpc(), group = SolanaPublicKey(ByteArray(32))).find(Mainnet.holder))

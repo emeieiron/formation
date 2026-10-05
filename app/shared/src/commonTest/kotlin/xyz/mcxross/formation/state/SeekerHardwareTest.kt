@@ -2,16 +2,12 @@ package xyz.mcxross.formation.state
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
-import xyz.mcxross.formation.crypto.Base58
-import xyz.mcxross.formation.crypto.Ed25519KeyPair
 import xyz.mcxross.formation.platform.DeviceAttestation
 import xyz.mcxross.formation.platform.KeyValueStore
-import xyz.mcxross.formation.session.SeekerProof
 
 class SeekerHardwareTest {
   private class Store : KeyValueStore {
@@ -40,7 +36,7 @@ class SeekerHardwareTest {
     """{"entries":{"C35747A0":{"status":"REVOKED"},"8350192447815228107":{"status":"SUSPENDED"}}}""".takeIf { online }
   }
 
-  private fun hardware(phone: DeviceAttestation, developer: Boolean = false) = SeekerHardware(phone, revocations(), developer, { clock })
+  private fun hardware(phone: DeviceAttestation) = SeekerHardware(phone, revocations(), { clock })
 
   @Test
   fun revocationsAreFetchedOnceADayAndKeptOffline() = runTest {
@@ -64,10 +60,9 @@ class SeekerHardwareTest {
   }
 
   @Test
-  fun phonesThatCantAttestCantHost() = runTest {
+  fun aPhoneThatCantAttestIsReportedNotBlocked() = runTest {
     val hardware = hardware(Phone { throw IllegalStateException("This phone can't attest its model.") })
-    val error = assertFailsWith<IllegalStateException> { hardware.host("session-1", simulated = false) }
-    assertEquals("Only a Seeker can host. This phone can't attest its model.", error.message)
+    assertEquals(false, hardware.proveThisPhone())
     assertEquals(HardwareCheck.Failed("This phone can't attest its model."), hardware.local.value)
   }
 
@@ -77,20 +72,5 @@ class SeekerHardwareTest {
     assertEquals(false, hardware.proveThisPhone())
     val failed = assertIs<HardwareCheck.Failed>(hardware.local.value)
     assertTrue("can't be read" in failed.message, failed.message)
-  }
-
-  @Test
-  fun onlyDebugBuildsPretend() = runTest {
-    val phone = Phone { error("never asked") }
-    val proof = hardware(phone, developer = true).host("session-1", simulated = true).proof
-    assertEquals(true, proof.simulated)
-    assertEquals(32, Base58.decode(proof.sessionKey).size)
-    assertFailsWith<IllegalStateException> { hardware(phone).host("session-1", simulated = true) }
-
-    val key = Base58.encode(Ed25519KeyPair.generate().publicKey)
-    assertNull(hardware(phone, developer = true).verifier.problem("session-1", SeekerProof(key, simulated = true)))
-    assertEquals("This host is a test Seeker from a developer build.",
-      hardware(phone).verifier.problem("session-1", SeekerProof(key, simulated = true)))
-    assertEquals("This host didn't prove it's a Seeker.", hardware(phone).verifier.problem("session-1", null))
   }
 }

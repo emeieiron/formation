@@ -1,5 +1,6 @@
 package xyz.mcxross.formation.state
 
+import kotlin.time.Clock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -8,14 +9,26 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 import xyz.mcxross.formation.crypto.Base58
 import xyz.mcxross.formation.crypto.Ed25519
-import xyz.mcxross.formation.crypto.secureRandomBytes
+import xyz.mcxross.formation.crypto.Ed25519KeyPair
+import xyz.mcxross.formation.model.Opportunity
 import xyz.mcxross.formation.platform.KeyValueStore
+import xyz.mcxross.formation.platform.SecretStore
 import xyz.mcxross.formation.platform.WalletPort
 import xyz.mcxross.formation.platform.WalletResult
 import xyz.mcxross.formation.session.FormationJson
+import xyz.mcxross.formation.session.HostChecks
+import xyz.mcxross.formation.session.HostCredentials
 
+// A wallet holding a Seeker Genesis Token, and its signed [authorization] for this phone's host key.
+// A developer build's pretend Seeker has neither.
 @Serializable
-data class SeekerIdentity(val wallet: String, val sgt: String?, val simulated: Boolean)
+data class SeekerIdentity(
+  val wallet: String,
+  val sgt: String?,
+  val simulated: Boolean,
+  val authorization: String = "",
+  val signature: String = "",
+)
 
 fun interface SeekerCheck {
   suspend fun sgtOf(wallet: String): Result<String?>
@@ -37,9 +50,11 @@ sealed interface SeekerStatus {
 
 class SeekerState(
   private val store: KeyValueStore,
+  private val secrets: SecretStore,
   private val wallet: WalletPort,
   private val isSeeker: Boolean,
   private val developer: Boolean,
+  private val network: String,
   private val check: SeekerCheck,
 ) {
   private val _identity = MutableStateFlow(load())
@@ -82,16 +97,26 @@ class SeekerState(
 
   fun forget() = store(null)
 
-  /** Hosting requires the identity produced by verification, not an onboarding choice. */
+  // Hosting needs a linked wallet, not particular hardware: any phone it authorized can host for it.
   fun requireHostIdentity(): SeekerIdentity = checkNotNull(identity.value) {
-    "Link a Seeker to unlock play, or join someone who has one."
+    "Link a wallet that holds a Seeker Genesis Token to host, or join someone who has one."
   }
 
-  // Solana Mobile's Genesis Token check needs the wallet to sign, not just name an address that holds one.
+  fun credentials(session: String, opportunity: Opportunity): HostCredentials {
+    val owner = requireHostIdentity()
+    if (owner.simulated) return HostChecks.simulated(opportunity)
+    val key = secrets.get(HOST_KEY)?.let(Ed25519KeyPair::fromSeed) ?: error("Link this wallet again to host from this phone.")
+    return HostChecks.credentials(session, opportunity, owner.wallet, key, owner.authorization, owner.signature)
+  }
+
+  // One wallet approval does both jobs Solana Mobile's Genesis Token check asks for: the signature proves the
+  // wallet holds its key, and the signed text authorizes a fresh host key kept on this phone.
   private suspend fun connectAndCheck() {
     _status.value = SeekerStatus.Checking
-    val message = ("Formation will check this wallet holds your Seeker Genesis Token.\n" +
-      "Nonce: ${Base58.encode(secureRandomBytes(16))}").encodeToByteArray()
+    val key = Ed25519KeyPair.generate()
+    val authorization = HostChecks.authorization(Base58.encode(key.publicKey), network,
+      Clock.System.now().toString().substringBefore('T'))
+    val message = authorization.encodeToByteArray()
     _status.value =
       when (val signed = wallet.signIn(message)) {
         WalletResult.NoWallet -> SeekerStatus.NeedsApproval("No Seed Vault or wallet app answered.")
@@ -106,7 +131,8 @@ class SeekerState(
               onSuccess = { sgt ->
                 if (sgt == null) SeekerStatus.NoToken(address)
                 else {
-                  store(SeekerIdentity(address, sgt, simulated = false))
+                  secrets.put(HOST_KEY, key.seed)
+                  store(SeekerIdentity(address, sgt, simulated = false, authorization, Base58.encode(signed.value.signature)))
                   return
                 }
               },
@@ -134,8 +160,10 @@ class SeekerState(
 
   private fun store(identity: SeekerIdentity?) {
     store.put(KEY, identity?.let { FormationJson.encodeToString(SeekerIdentity.serializer(), it) })
+    // Without its key, an old authorization can't sign a session on this phone.
+    if (identity == null) runCatching { secrets.remove(HOST_KEY) }
     _identity.value = identity
-    _status.value = identity?.let { SeekerStatus.Verified(it) } ?: SeekerStatus.NotASeeker
+    _status.value = identity?.let { SeekerStatus.Verified(it) } ?: if (isSeeker) SeekerStatus.NotLinked else SeekerStatus.NotASeeker
   }
 
   // A pretend Seeker from a developer build never carries over into a release build.
@@ -149,5 +177,6 @@ class SeekerState(
 
   private companion object {
     const val KEY = "seeker"
+    const val HOST_KEY = "host-key"
   }
 }

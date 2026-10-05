@@ -34,7 +34,7 @@ class FormationHost(
   recovery: SessionSnapshot? = null,
   private val checkpoint: (SessionSnapshot) -> Unit = {},
   private val observe: (DiagnosticEvent) -> Unit = {},
-  private val presence: HostPresence? = null,
+  private val host: HostCredentials? = null,
 ) {
   private val info = formation
   private val screenRequirement = rules.screenRequirement(info.opportunity.players)
@@ -73,7 +73,7 @@ class FormationHost(
 
   // Only the Seeker's own in-process link ([local]) can take the Seeker's seat.
   suspend fun serve(channel: LinkChannel, local: Boolean = false) {
-    val conn = HostConnection(channel, local, admissionChallenge(info, rules), presence?.proof, json)
+    val conn = HostConnection(channel, local, admissionChallenge(info, rules), host?.proof, json)
     conn.run(received = { events.send(Event.Received(conn, it)) },
       closed = { events.trySend(Event.Closed(conn)) },
       timedOut = { command { if (seatOf(conn) == null) reject(conn, Rejection.IDENTITY) } })
@@ -512,9 +512,9 @@ class FormationHost(
   private fun encode(message: ToPlayer) = json.encodeToString(ToPlayer.serializer(), message)
 
   private fun signed(message: ToPlayer): String {
-    val key = presence?.key ?: return encode(message)
+    val key = host?.sessionKey ?: return encode(message)
     val text = encode(message)
-    return encode(ToPlayer.Signed(text, Base58.encode(key.sign(SeekerPresence.signed(info.session, text)))))
+    return encode(ToPlayer.Signed(text, Base58.encode(key.sign(HostChecks.update(info.session, text)))))
   }
 
 

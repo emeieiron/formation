@@ -1,36 +1,17 @@
 package xyz.mcxross.formation.session
 
-import kotlinx.serialization.Serializable
 import xyz.mcxross.formation.crypto.AttestationException
 import xyz.mcxross.formation.crypto.AttestedKey
-import xyz.mcxross.formation.crypto.Base58
 import xyz.mcxross.formation.crypto.Base64
-import xyz.mcxross.formation.crypto.Ed25519KeyPair
 import xyz.mcxross.formation.crypto.KeyAttestation
 import xyz.mcxross.formation.crypto.Sha256
 import xyz.mcxross.formation.crypto.VerifiedBootState
 
-// What a Seeker shows every phone that connects. The hardware attestation's challenge commits to the
-// session and to [sessionKey], and the Seeker signs its welcome and every snapshot with that key, so a phone
-// that isn't the attested Seeker can neither replay the proof nor relay it into a game it runs itself.
-@Serializable
-data class SeekerProof(
-  val sessionKey: String,
-  // Base64 DER certificates, leaf first.
-  val chain: List<String> = emptyList(),
-  // A debug build's pretend Seeker; only debug builds accept it.
-  val simulated: Boolean = false,
-)
-
-class HostPresence(val proof: SeekerProof, val key: Ed25519KeyPair)
-
-fun interface HostVerifier {
-  // Null when [proof] shows a Seeker holds [proof.sessionKey] for [session]; otherwise why not, in words for the player.
-  suspend fun problem(session: String, proof: SeekerProof?): String?
-}
-
+// Hardware proof that a phone is a Seeker. It never gates hosting: the wallet does that (see HostProof).
+// It is kept for a "Seeker present" badge, once attestation has been confirmed on a real Seeker.
+//
 // [signers] are lowercase-hex SHA-256 digests of the signing certificates a genuine host may carry.
-class SeekerPolicy(val packageName: String, val signers: Set<String>, val allowSimulated: Boolean)
+class SeekerPolicy(val packageName: String, val signers: Set<String>)
 
 object SeekerPresence {
   const val BRAND = "solanamobile"
@@ -40,22 +21,17 @@ object SeekerPresence {
   fun challenge(session: String, sessionKey: String): ByteArray =
     Sha256.digest("formation.seeker.v1\n$session\n$sessionKey".encodeToByteArray())
 
-  fun signed(session: String, message: String): ByteArray = "formation.host.v1\n$session\n$message".encodeToByteArray()
-
-  // [revoked] is Google's revocation list; null when this phone has never fetched it.
-  fun problem(proof: SeekerProof?, session: String, policy: SeekerPolicy, now: Long, revoked: Set<String>?): String? {
-    if (proof == null) return "This host didn't prove it's a Seeker."
-    if (runCatching { Base58.decode(proof.sessionKey).size }.getOrNull() != 32) return "This host's proof is malformed."
-    if (proof.simulated) return if (policy.allowSimulated) null else "This host is a test Seeker from a developer build."
+  // [chain] is Base64 DER, leaf first. [revoked] is Google's revocation list; null when this phone has never fetched it.
+  fun problem(chain: List<String>, challenge: ByteArray, policy: SeekerPolicy, now: Long, revoked: Set<String>?): String? {
     revoked ?: return "Connect to the internet once so this phone can check Seekers."
     val attested = try {
-      KeyAttestation.verify(proof.chain.map(Base64::decode), now, revoked)
+      KeyAttestation.verify(chain.map(Base64::decode), now, revoked)
     } catch (e: AttestationException) {
       return e.message
     } catch (e: IllegalArgumentException) {
-      return "This host's proof is malformed."
+      return "The proof is malformed."
     }
-    return problem(attested, challenge(session, proof.sessionKey), policy)
+    return problem(attested, challenge, policy)
   }
 
   fun problem(attested: AttestedKey, challenge: ByteArray, policy: SeekerPolicy): String? {

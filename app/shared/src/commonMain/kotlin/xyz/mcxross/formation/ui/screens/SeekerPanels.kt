@@ -32,8 +32,8 @@ import xyz.mcxross.formation.design.icons.Icons
 import xyz.mcxross.formation.design.tokens.Space
 import xyz.mcxross.formation.design.tokens.Tone
 import xyz.mcxross.formation.resources.Res
-import xyz.mcxross.formation.resources.action_check_again
 import xyz.mcxross.formation.resources.action_link
+import xyz.mcxross.formation.resources.action_link_wallet
 import xyz.mcxross.formation.resources.action_pretend_seeker
 import xyz.mcxross.formation.resources.join_intro_body
 import xyz.mcxross.formation.resources.join_intro_overline
@@ -43,9 +43,6 @@ import xyz.mcxross.formation.resources.label_developer_build
 import xyz.mcxross.formation.resources.seeker_can_earn
 import xyz.mcxross.formation.resources.seeker_can_host
 import xyz.mcxross.formation.resources.seeker_can_practice
-import xyz.mcxross.formation.resources.seeker_hardware_checking
-import xyz.mcxross.formation.resources.seeker_hardware_failed
-import xyz.mcxross.formation.resources.seeker_hardware_verified
 import xyz.mcxross.formation.resources.seeker_rewards_none
 import xyz.mcxross.formation.resources.seeker_rewards_ready
 import xyz.mcxross.formation.resources.seeker_setup_body
@@ -53,13 +50,12 @@ import xyz.mcxross.formation.resources.seeker_setup_title
 import xyz.mcxross.formation.resources.seeker_wallet_link
 import xyz.mcxross.formation.resources.seeker_wallet_linked
 import xyz.mcxross.formation.resources.seeker_wallet_waiting
-import xyz.mcxross.formation.state.HardwareCheck
 import xyz.mcxross.formation.state.SeekerStatus
 import xyz.mcxross.formation.ui.components.shortAddress
 
 // Shown to phones that aren't Seekers while no Formation is nearby: what they need, and how to join.
 @Composable
-internal fun JoinIntro(searching: Boolean, onPretend: (() -> Unit)?, modifier: Modifier = Modifier) {
+internal fun JoinIntro(searching: Boolean, onLink: () -> Unit, onPretend: (() -> Unit)?, modifier: Modifier = Modifier) {
   val c = Theme.colors
   Panel(modifier.fillMaxWidth()) {
     Column(Modifier.padding(Space.l)) {
@@ -80,6 +76,8 @@ internal fun JoinIntro(searching: Boolean, onPretend: (() -> Unit)?, modifier: M
           Text(stringResource(Res.string.join_intro_searching), style = Theme.type.footnote, color = c.contentSecondary)
         }
       }
+      Spacer(Modifier.height(Space.s))
+      TextButton(stringResource(Res.string.action_link_wallet), onLink)
       // Developer builds play without a Seeker; release builds never show this.
       onPretend?.let {
         Spacer(Modifier.height(Space.m))
@@ -94,15 +92,13 @@ internal fun JoinIntro(searching: Boolean, onPretend: (() -> Unit)?, modifier: M
   }
 }
 
-// What a Seeker still needs before it can host, and what it unlocks. Hidden once nothing is left to do.
+// What a Seeker owner still needs before hosting, and what it unlocks. Hidden once nothing is left to do.
 @Composable
 internal fun SeekerSetup(
-  hardware: HardwareCheck,
   status: SeekerStatus,
   wallet: String?,
   rewards: Int,
   onLink: () -> Unit,
-  onCheck: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
   val c = Theme.colors
@@ -118,12 +114,6 @@ internal fun SeekerSetup(
       Spacer(Modifier.height(Space.m))
       Hairline()
       Spacer(Modifier.height(Space.s))
-      when (hardware) {
-        HardwareCheck.Proven -> Step(Mark.DONE, stringResource(Res.string.seeker_hardware_verified))
-        is HardwareCheck.Failed -> Step(Mark.PROBLEM, stringResource(Res.string.seeker_hardware_failed), hardware.message,
-          stringResource(Res.string.action_check_again), onCheck)
-        else -> Step(Mark.BUSY, stringResource(Res.string.seeker_hardware_checking))
-      }
       when {
         wallet != null -> Step(Mark.DONE, stringResource(Res.string.seeker_wallet_linked, shortAddress(wallet)))
         status == SeekerStatus.Checking -> Step(Mark.BUSY, stringResource(Res.string.seeker_wallet_waiting))
@@ -139,16 +129,6 @@ internal fun SeekerSetup(
         else Step(Mark.TODO, stringResource(Res.string.seeker_rewards_none))
       }
     }
-  }
-}
-
-// The hardware check on its own, for onboarding: a Seeker sees it pass, not just fail.
-@Composable
-internal fun HardwareStatus(hardware: HardwareCheck) {
-  when (hardware) {
-    HardwareCheck.Proven -> Step(Mark.DONE, stringResource(Res.string.seeker_hardware_verified))
-    is HardwareCheck.Failed -> Step(Mark.PROBLEM, stringResource(Res.string.seeker_hardware_failed), hardware.message)
-    else -> Step(Mark.BUSY, stringResource(Res.string.seeker_hardware_checking))
   }
 }
 

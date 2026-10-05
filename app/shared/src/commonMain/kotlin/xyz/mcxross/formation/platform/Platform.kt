@@ -89,7 +89,6 @@ data class AppConfig(
   val developer: Boolean,
   val rpcUrl: String,
   val cluster: String,
-  val sgtRpcUrl: String = "https://api.mainnet-beta.solana.com",
 )
 
 data class DeviceInfo(val model: String, val emulator: Boolean, val seeker: Boolean = false)

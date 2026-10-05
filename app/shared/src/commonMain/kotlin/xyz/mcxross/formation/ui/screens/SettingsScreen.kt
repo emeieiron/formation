@@ -1,7 +1,9 @@
 package xyz.mcxross.formation.ui.screens
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -29,6 +31,7 @@ import xyz.mcxross.formation.resources.label_sound_effects
 import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.components.LiveryRule
 import xyz.mcxross.formation.design.components.Button
+import xyz.mcxross.formation.design.components.TextButton
 import xyz.mcxross.formation.design.components.ButtonSize
 import xyz.mcxross.formation.design.components.ButtonStyle
 import xyz.mcxross.formation.design.components.LocalToaster
@@ -135,7 +138,7 @@ fun SettingsScreen() {
             title =
               when {
                 s?.simulated == true -> "Pretend Seeker"
-                s != null -> "Seeker verified"
+                s != null -> "Wallet linked"
                 status == SeekerStatus.Checking -> "Checking…"
                 graph.platform.device.seeker -> "Seeker not linked"
                 else -> "Not a Seeker"
@@ -144,48 +147,27 @@ fun SettingsScreen() {
               when {
                 s?.simulated == true ->
                   "Testing only. Hosts with this phone's claim key instead of a Seeker Genesis Token."
-                s != null -> "Wallet ${shortAddress(s.wallet)} · SGT ${shortAddress(s.sgt ?: "")}"
-                graph.platform.device.seeker ->
-                  "Approve Formation in your Seed Vault to host Formations."
-                else -> "This phone can join any Formation. Hosting needs a Seeker."
+                s != null -> "${shortAddress(s.wallet)} holds Genesis Token ${shortAddress(s.sgt ?: "")}. This phone hosts for it."
+                graph.platform.device.seeker -> "Link the wallet that holds its Genesis Token to host Formations."
+                else -> "This phone joins Formations that Seeker owners start."
               },
             icon = Icons.Seeker,
           )
-          if (s?.simulated != true && (graph.platform.device.seeker || s != null)) {
+          if (s?.simulated != true) {
             Hairline()
-            Box(Modifier.padding(Space.l)) {
-              Button(
-                if (s == null) "Link this Seeker" else "Check again",
-                {
-                  scope.launch { if (s == null) graph.seeker.link() else graph.seeker.autoVerify() }
-                },
-                style = if (s == null) ButtonStyle.Reward else ButtonStyle.Secondary,
-                size = ButtonSize.Medium,
-                loading = status == SeekerStatus.Checking,
-              )
+            Row(Modifier.padding(Space.l), horizontalArrangement = Arrangement.spacedBy(Space.m)) {
+              when {
+                s != null -> {
+                  Button("Check again", { scope.launch { graph.seeker.autoVerify() } }, style = ButtonStyle.Secondary,
+                    size = ButtonSize.Medium, fillWidth = false, loading = status == SeekerStatus.Checking)
+                  Button("Unlink", { graph.seeker.forget() }, style = ButtonStyle.Ghost, size = ButtonSize.Medium, fillWidth = false)
+                }
+                graph.platform.device.seeker ->
+                  Button("Link this Seeker", { scope.launch { graph.seeker.link() } }, style = ButtonStyle.Reward,
+                    size = ButtonSize.Medium, loading = status == SeekerStatus.Checking)
+                else -> TextButton("Have a Seeker? Link its wallet", { scope.launch { graph.seeker.link() } })
+              }
             }
-          }
-          // Developer builds show the check on any phone, so emulators exercise the real attestation path.
-          if (graph.platform.device.seeker || (s != null && !s.simulated) || graph.platform.config.developer) {
-            Hairline()
-            SettingRow(
-              title = when (hardware) {
-                HardwareCheck.Proven -> "Seeker hardware verified"
-                HardwareCheck.Checking -> "Checking this phone…"
-                is HardwareCheck.Failed -> "Seeker hardware not verified"
-                HardwareCheck.Unknown -> "Seeker hardware"
-              },
-              detail = when (val check = hardware) {
-                HardwareCheck.Proven -> "Secure hardware shows a Seeker with a locked bootloader running this app."
-                is HardwareCheck.Failed -> check.message
-                else -> "Phones that join check this proof before they play."
-              },
-              icon = Icons.Lock,
-              trailing = {
-                Button("Check", { scope.launch { graph.hardware.proveThisPhone() } }, style = ButtonStyle.Secondary,
-                  size = ButtonSize.Small, fillWidth = false, loading = hardware == HardwareCheck.Checking)
-              },
-            )
           }
         }
       }
@@ -243,10 +225,29 @@ fun SettingsScreen() {
               },
             )
             Hairline()
+            SettingRow(
+              title = when (hardware) {
+                HardwareCheck.Proven -> "Seeker hardware attested"
+                HardwareCheck.Checking -> "Checking this phone…"
+                is HardwareCheck.Failed -> "Seeker hardware not attested"
+                HardwareCheck.Unknown -> "Seeker hardware attestation"
+              },
+              detail = when (val check = hardware) {
+                HardwareCheck.Proven -> "Secure hardware shows a Seeker with a locked bootloader running this app."
+                is HardwareCheck.Failed -> check.message
+                else -> "For a future Seeker present badge. Hosting never depends on it."
+              },
+              icon = Icons.Lock,
+              trailing = {
+                Button("Check", { scope.launch { graph.hardware.proveThisPhone() } }, style = ButtonStyle.Secondary,
+                  size = ButtonSize.Small, fillWidth = false, loading = hardware == HardwareCheck.Checking)
+              },
+            )
+            Hairline()
             var seekerHardware by remember { mutableStateOf(graph.platform.store.get(KEY_DEV_SEEKER_HARDWARE) == "true") }
             SettingRow(
               "Act as Seeker hardware",
-              detail = "Shows a Seeker's setup and onboarding on this phone. Its hardware check still fails off a real Seeker." +
+              detail = "Shows a Seeker's onboarding on this phone." +
                 if (seekerHardware != graph.platform.device.seeker) " Restart Formation to apply." else "",
               icon = Icons.Phone,
               trailing = {

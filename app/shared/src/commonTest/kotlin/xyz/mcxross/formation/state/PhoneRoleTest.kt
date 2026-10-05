@@ -8,21 +8,20 @@ class PhoneRoleTest {
   private val pretend = SeekerIdentity("Claim111", null, simulated = true)
 
   @Test
-  fun otherPhonesPlayEvenWithAnOldLink() {
+  fun aLinkedWalletHostsOnAnyPhone() {
+    assertEquals(PhoneRole.HOST, phoneRole(seekerHardware = false, identity = linked))
+    assertEquals(PhoneRole.HOST, phoneRole(seekerHardware = true, identity = linked))
+  }
+
+  @Test
+  fun unlinkedPhonesJoinOrAreLedToLinking() {
     assertEquals(PhoneRole.PLAYER, phoneRole(seekerHardware = false, identity = null))
-    // A wallet linked before hosting needed the hardware proof doesn't make the phone a Seeker.
-    assertEquals(PhoneRole.PLAYER, phoneRole(seekerHardware = false, identity = linked))
-  }
-
-  @Test
-  fun seekerHardwareIsASeekerBeforeAndAfterLinking() {
     assertEquals(PhoneRole.SEEKER, phoneRole(seekerHardware = true, identity = null))
-    assertEquals(PhoneRole.SEEKER, phoneRole(seekerHardware = true, identity = linked))
   }
 
   @Test
-  fun aPretendSeekerIsATestSeekerAnywhere() {
-    assertEquals(PhoneRole.TEST_SEEKER, phoneRole(seekerHardware = false, identity = pretend))
-    assertEquals(PhoneRole.TEST_SEEKER, phoneRole(seekerHardware = true, identity = pretend))
+  fun aPretendSeekerIsATestHostAnywhere() {
+    assertEquals(PhoneRole.TEST_HOST, phoneRole(seekerHardware = false, identity = pretend))
+    assertEquals(PhoneRole.TEST_HOST, phoneRole(seekerHardware = true, identity = pretend))
   }
 }

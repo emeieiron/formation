@@ -45,7 +45,6 @@ import xyz.mcxross.formation.resources.label_funded_rewards
 import xyz.mcxross.formation.resources.story_practice_locked
 import xyz.mcxross.formation.resources.game_needs_seeker
 import xyz.mcxross.formation.resources.action_link_seeker
-import xyz.mcxross.formation.state.HardwareCheck
 import xyz.mcxross.formation.state.PhoneRole
 import xyz.mcxross.formation.ui.LocalGraph
 import xyz.mcxross.formation.ui.components.timeLeft
@@ -60,15 +59,13 @@ internal fun GameActionSheet(
   val graph = LocalGraph.current
   val scope = rememberCoroutineScope()
   val seeker by graph.seeker.identity.collectAsState()
-  val hardware by graph.hardware.local.collectAsState()
   val role by graph.role.collectAsState()
   if (game.introduction == null && rewards.isEmpty()) {
     LaunchedEffect(game.id) { onDismiss() }
     return
   }
-  // Practice runs on this phone alone, so this phone must be the Seeker; a developer build's pretend Seeker is exempt.
-  val pretend = role == PhoneRole.TEST_SEEKER
-  if (role == PhoneRole.SEEKER && seeker != null) LaunchedEffect(Unit) { graph.hardware.proveThisPhone() }
+  // Practice follows the same rule as hosting: a linked wallet holding a Genesis Token.
+  val canPractice = role == PhoneRole.HOST || role == PhoneRole.TEST_HOST
   ModalSheet(onDismiss) {
     Column(Modifier.fillMaxWidth().weight(1f, fill = false)
       .verticalScroll(rememberScrollState()).padding(horizontal = Space.xxl)) {
@@ -76,21 +73,15 @@ internal fun GameActionSheet(
       Text(game.info.title, style = Theme.type.title2)
       game.introduction?.let { introduction ->
         Spacer(Modifier.height(Space.xl))
-        if (pretend || (role == PhoneRole.SEEKER && seeker != null && hardware == HardwareCheck.Proven)) introduction() else {
+        if (canPractice) introduction() else {
           HowToPlay(game.info)
           Spacer(Modifier.height(Space.m))
-          val failed = hardware as? HardwareCheck.Failed
           Text(
-            when {
-              role == PhoneRole.PLAYER -> stringResource(Res.string.game_needs_seeker)
-              seeker == null -> stringResource(Res.string.story_practice_locked)
-              failed != null -> "Only a Seeker can practice. ${failed.message}"
-              else -> "Checking this Seeker…"
-            },
+            stringResource(if (role == PhoneRole.PLAYER) Res.string.game_needs_seeker else Res.string.story_practice_locked),
             style = Theme.type.footnote,
             color = Theme.colors.contentSecondary,
           )
-          if (role == PhoneRole.SEEKER && seeker == null) {
+          if (role == PhoneRole.SEEKER) {
             Spacer(Modifier.height(Space.m))
             Button(stringResource(Res.string.action_link_seeker), { scope.launch { graph.seeker.link() } },
               style = ButtonStyle.Reward, size = ButtonSize.Small, fillWidth = false, leadingIcon = Icons.Seeker)

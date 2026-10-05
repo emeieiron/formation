@@ -31,10 +31,14 @@ import xyz.mcxross.formation.sensors.capabilities.Assessment
 import xyz.mcxross.formation.session.FormationClient
 import xyz.mcxross.formation.session.FormationHost
 import xyz.mcxross.formation.session.FormationInfo
+import xyz.mcxross.formation.session.HostChecks
+import xyz.mcxross.formation.session.HostVerifier
 import xyz.mcxross.formation.session.MonotonicClock
 import xyz.mcxross.formation.session.NearbyScanner
 import xyz.mcxross.formation.session.ScreenRequirement
+import xyz.mcxross.formation.solana.FormationVault
 import xyz.mcxross.formation.solana.SgtFinder
+import xyz.mcxross.formation.solana.VaultConfig
 import xyz.mcxross.formation.solana.SolanaRpc
 import xyz.mcxross.formation.session.DiagnosticCode
 import xyz.mcxross.formation.session.DiagnosticEvent
@@ -63,13 +67,20 @@ class AppGraph(
   val seeker =
     SeekerState(
       platform.store,
+      platform.secrets,
       platform.wallet,
       platform.device.seeker,
       platform.config.developer,
-      seekerCheck ?: sgtCheck(SolanaRpc(platform.network.http, platform.config.sgtRpcUrl)),
+      platform.config.cluster,
+      seekerCheck ?: sgtCheck(SolanaRpc(platform.network.http, platform.config.rpcUrl)),
     )
   val revocations = AttestationRevocations(platform.store, platform.network.http, ::now)
-  val hardware = SeekerHardware(platform.attestation, revocations, platform.config.developer, ::now)
+  val hardware = SeekerHardware(platform.attestation, revocations, ::now)
+  // Every phone but the host's own checks who the host plays for, and that its reward is on chain for them.
+  private val hostVerifier = HostVerifier { session, proof ->
+    HostChecks.problem(proof, session, platform.config.cluster, allowSimulated = platform.config.developer)
+      ?: proof?.takeUnless { it.simulated }?.let { this.ledger.rewardProblem(it.opportunity, it.wallet) }
+  }
   val role: StateFlow<PhoneRole> = seeker.identity.map { phoneRole(platform.device.seeker, it) }
     .stateIn(scope, SharingStarted.Eagerly, phoneRole(platform.device.seeker, seeker.identity.value))
 
@@ -141,12 +152,11 @@ class AppGraph(
   val autoplay = MutableStateFlow(false)
 
   suspend fun host(opportunity: Opportunity, recovery: xyz.mcxross.formation.session.SessionSnapshot? = null): Result<ActiveSession> = runCatching {
-    val owner = seeker.requireHostIdentity()
+    seeker.requireHostIdentity()
     check(identity.claims.status.value is xyz.mcxross.formation.state.recovery.ClaimKeyState.Ready) { "Restore this phone's claim key first" }
     val info =
       recovery?.formation ?: FormationInfo(newUuid(), FormationHost.newCode(), identity.player().name, opportunity)
-    // The hardware proof comes before anything that would end the current session.
-    val presence = hardware.host(info.session, simulated = owner.simulated)
+    val credentials = seeker.credentials(info.session, opportunity)
     endSession()
     val challenge =
       ChallengeCatalog[opportunity.challenge] ?: error("This app doesn't know that challenge yet")
@@ -166,7 +176,7 @@ class AppGraph(
     val sessionScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val tag = diagnostics.nextSession()
     val host = FormationHost(info, challenge, sessionScope, recovery = recovery,
-      checkpoint = { completed.remember(it) }, observe = diagnostics.sink(TraceSource.HOST, tag), presence = presence)
+      checkpoint = { completed.remember(it) }, observe = diagnostics.sink(TraceSource.HOST, tag), host = credentials)
     val port = server.start(LinkDefaults.PORTS, host::beacon) { channel -> host.serve(channel) }
     platform.network.advertiser?.advertise("Formation ${info.code}", port)
     val client =
@@ -211,7 +221,7 @@ class AppGraph(
     val tag = diagnostics.nextSession()
     val client =
       FormationClient(identity.player(), connect = { connector.connect(address) }, sessionScope,
-        observe = diagnostics.sink(TraceSource.CLIENT, tag), recovery = recovery, verifier = hardware.verifier)
+        observe = diagnostics.sink(TraceSource.CLIENT, tag), recovery = recovery, verifier = hostVerifier)
     client.start()
     return ActiveSession(
         client,
@@ -294,12 +304,6 @@ class AppGraph(
   init {
     runCatching { recovery.resumePending() }.onFailure { recoveryProblem.value = it.message ?: "Recovery could not finish" }
     scope.launch { sounds.prepare() }
-    scope.launch { revocations.current() }
-    // Seeker hardware learns at launch whether it can host; other phones only check once they link a wallet.
-    scope.launch {
-      val owner = seeker.identity.value
-      if (owner?.simulated != true && (platform.device.seeker || owner != null)) hardware.proveThisPhone()
-    }
     scope.launch {
       platform.network.finder.status.collect { state ->
         diagnostics.sink(TraceSource.DISCOVERY)(DiagnosticEvent(
@@ -326,8 +330,12 @@ class AppGraph(
   }
 }
 
+// The vault names the token group it accepts on this network, so the app checks the same one.
 private fun sgtCheck(rpc: SolanaRpc) = SeekerCheck { wallet ->
-  runCatching { SgtFinder(rpc).find(SolanaPublicKey.from(wallet))?.mint?.base58() }
+  runCatching {
+    val config = rpc.account(FormationVault().config())?.data ?: error("The Formation vault isn't set up on this network")
+    SgtFinder(rpc, VaultConfig.decode(config).sgtGroup).find(SolanaPublicKey.from(wallet))?.mint?.base58()
+  }
 }
 
 const val NO_WALLET = "No Solana wallet on this phone"

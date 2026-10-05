@@ -167,6 +167,24 @@ class SolanaLedger(
     signature
   } }
 
+  override suspend fun rewardProblem(opportunity: Opportunity, wallet: String): String? {
+    val address = vault.opportunity(opportunity.id.bytes())
+    val account = try {
+      rpc.account(address)
+    } catch (e: CancellationException) {
+      throw e
+    } catch (_: Exception) {
+      return null
+    } ?: return "This Formation's reward isn't on chain."
+    val onChain = VaultOpportunity.decode(address, account.data)
+    return when {
+      onChain.seeker.base58() != wallet -> "This Formation's reward belongs to another Seeker."
+      onChain.state != VaultState.OPEN -> "This Formation's reward has already been unlocked or closed."
+      onChain.toOpportunity() != opportunity -> "This Formation's reward doesn't match what the host shows."
+      else -> null
+    }
+  }
+
   override suspend fun stillLocked(opportunity: Opportunity): Boolean? = runCatching {
     val address = vault.opportunity(opportunity.id.bytes())
     rpc.account(address)?.let { VaultOpportunity.decode(address, it.data).state == VaultState.OPEN }

@@ -76,6 +76,10 @@ interface RewardLedger {
 
   // Null when it can't tell, such as while offline.
   suspend fun stillLocked(opportunity: Opportunity): Boolean?
+
+  // Why [opportunity], as a host shows it, isn't an open reward for [wallet] on chain. Null when it is, and
+  // when this phone can't reach the chain to tell; the guest's claim checks again later.
+  suspend fun rewardProblem(opportunity: Opportunity, wallet: String): String? = null
 }
 
 

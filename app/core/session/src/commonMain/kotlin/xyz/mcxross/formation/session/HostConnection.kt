@@ -12,7 +12,7 @@ internal class HostConnection(
   private val channel: LinkChannel,
   val local: Boolean,
   val challenge: AdmissionChallenge,
-  private val proof: SeekerProof?,
+  private val proof: HostProof?,
   private val json: Json,
 ) {
   // The nonce this phone sent in its hello; the Seeker echoes it in the signed welcome.

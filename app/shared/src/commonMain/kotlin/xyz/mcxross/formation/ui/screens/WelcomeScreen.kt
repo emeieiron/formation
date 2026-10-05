@@ -148,9 +148,7 @@ private fun LinkSeeker(onBack: () -> Unit, onDone: () -> Unit) {
   val graph = LocalGraph.current
   val scope = rememberCoroutineScope()
   val status by graph.seeker.status.collectAsState()
-  val hardware by graph.hardware.local.collectAsState()
   LaunchedEffect(status) { if (status is SeekerStatus.Verified) onDone() }
-  LaunchedEffect(Unit) { graph.hardware.proveThisPhone() }
   Column(Modifier.fillMaxSize()) {
     TopBar(onBack = onBack)
     Column(
@@ -169,9 +167,7 @@ private fun LinkSeeker(onBack: () -> Unit, onDone: () -> Unit) {
       }
       Spacer(Modifier.height(Space.x3l))
       SeekerAbilities()
-      Spacer(Modifier.height(Space.l))
-      HardwareStatus(hardware)
-      Spacer(Modifier.height(Space.m))
+      Spacer(Modifier.height(Space.xl))
       when (val s = status) {
         is SeekerStatus.NeedsApproval ->
           Notice(s.message, tone = Tone.Warning, title = "Not linked yet")

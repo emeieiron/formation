@@ -91,7 +91,7 @@ For the emulator journey or chain provisioning scripts, set `FORMATION_REWARDS` 
 ]
 ```
 
-`amount` is whole SKR; difficulty `0..3` corresponds to Easy, Normal, Hard, and Extreme. Use the ID and code assigned to the actual game. Local validator setup creates no rewards without a fixture file. Testnet reward creation requires one.
+`amount` is whole SKR; difficulty `0..3` corresponds to Easy, Normal, Hard, and Extreme. Use the ID and code assigned to the actual game. Local validator setup creates no rewards without a fixture file. Devnet reward creation requires one.
 
 After implementing duo support and an optional autopilot, run the journey with the game's visible title and code:
 
@@ -104,4 +104,4 @@ For asymmetric games, use an external driver that coordinates visible clues acro
 
 Ricochet provides public-state debug assistance and `scripts/fixtures/ricochet.json`, registered with code `7`. Use `--driver manual` to prepare a duo and operate its controls yourself. The default autoplay driver closes the debug control panel before capturing the playfields; assisted play retains its visible tag.
 
-The journey defaults to testnet; `--chain simulated` explicitly selects an isolated simulation. Localnet and simulation use the supplied fixture file. Testnet uses an open reward or provisions the configured fixtures through the existing test authority. Chain runs verify the configured mint, committed roster, confirmed signatures, and exact token changes for paid shares. Test tokens do not represent mainnet SKR value. The journey restores ledger, wallet, and reward-fixture preferences afterward. Human play, physical sensor quality, and network interruptions still need device testing.
+The journey defaults to devnet; `--chain simulated` explicitly selects an isolated simulation. Localnet and simulation use the supplied fixture file. Devnet uses an open reward or provisions the configured fixtures through the existing test authority. Chain runs verify the configured mint, committed roster, confirmed signatures, and exact token changes for paid shares. Test tokens do not represent mainnet SKR value. The journey restores ledger, wallet, and reward-fixture preferences afterward. Human play, physical sensor quality, and network interruptions still need device testing.
