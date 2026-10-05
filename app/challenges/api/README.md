@@ -62,7 +62,7 @@ Channels share acquisition and release it when collection stops. Collect them in
 
 A game whose pieces must match across phones declares `screenRequirement(players)` with the smallest usable area it accepts. Phones then need the `display.physical.v1` capability to join. Readiness waits until every phone reports an accepted `ScreenProfile`: its full-screen window in portrait, safe insets for cutouts and rounded corners in millimetres, and pixels per millimetre. `setup.screens` freezes the profiles at start; rules must treat them as the only physical measurements. The stage reads its own profile from `scope.screen` to convert millimetres to pixels.
 
-Override `fullScreen = true` to hide the system bars and the session bar during play; players leave with the system back gesture. Android counts full-screen requests, so a stage composed twice during a transition stays full screen. iOS reports no physical size, so iOS phones are turned away from such games. Mosaic is the reference implementation; see [its guide](../../../docs/mosaic.md).
+Override `fullScreen = true` to hide the system bars and the session bar during play; players leave with the system back gesture. Android counts full-screen requests, so a stage composed twice during a transition stays full screen. iOS reports no physical size, so iOS phones are turned away from such games. Mosaic is the reference implementation.
 
 ## Preserve compatibility
 
@@ -72,7 +72,7 @@ Supported player counts must stay within `2..32`. `groupSizes` defaults to every
 
 ## Configure development rewards
 
-The app does not invent rewards. A test can inject explicit `Opportunity` fixtures into `SimulatedLedger(store, fixtures)` and pass that ledger to `AppGraph`. Fixtures initialize fresh simulated storage; settled rewards do not reappear after relaunch.
+The app does not invent rewards. A test can inject explicit `Budget` fixtures into `SimulatedLedger(store, fixtures)` and pass that ledger to `AppGraph`. Fixtures initialize fresh simulated storage; settled rewards do not reappear after relaunch.
 
 For the emulator journey or chain provisioning scripts, set `FORMATION_REWARDS` to a JSON file containing fixtures for registered games. An illustrative record is:
 
@@ -91,7 +91,7 @@ For the emulator journey or chain provisioning scripts, set `FORMATION_REWARDS` 
 ]
 ```
 
-`amount` is whole SKR; difficulty `0..3` corresponds to Easy, Normal, Hard, and Extreme. Use the ID and code assigned to the actual game. Local validator setup creates no rewards without a fixture file. Devnet reward creation requires one.
+`amount` is whole SKR; it becomes a budget any registered game can play. The other fields describe the game the journey exercises. The local validator funds no contests without a fixture file; on devnet the journey funds a contest only the pretend Seeker's test token can unlock.
 
 After implementing duo support and an optional autopilot, run the journey with the game's visible title and code:
 

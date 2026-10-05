@@ -4,15 +4,15 @@ Formation is a local multiplayer Android app for unlocking shared SKR rewards on
 
 Play runs over a local network. Funding, unlocks and claims use Solana. Guests can connect a wallet before play or keep their entitlement on the phone and claim later.
 
-Home adapts to the phone. A phone that isn't a Seeker opens on **Nearby**: until a Formation appears there, a panel explains that Seeker owners start Formations and that this phone joins one to play and earn a share. Seeker hardware opens on its games, with a short checklist until it can host: wallet linked and a reward funded. Any phone can host once a wallet holding a Genesis Token is linked; see [Hosting, joining and rewards](docs/hosting.md).
+Home adapts to the phone. A phone that isn't a Seeker opens on **Nearby**: until a Formation appears there, a panel explains that Seeker owners start Formations and that this phone joins one to play and earn a share. Seeker hardware opens on its games, with a short checklist until it can host: wallet linked and a reward funded. Any phone can host once a wallet holding a Genesis Token is linked; see [Rewards and deployment](#rewards-and-deployment).
 
 Home's **Games** section presents installed games in a horizontal card deck without requiring a wallet or funded reward. Each card shows **Playable** when a linked Seeker has a valid funded reward, **No reward** when funding is missing, **Link to host** on Seeker hardware that hasn't linked a wallet, or **Join a Seeker** on any other phone. Swipe or use the arrows to select a game; brief instructions follow beneath the deck. Cards with an open arrow offer matching funded rewards or interactive practice. Ricochet includes aiming practice and Mosaic includes pinch practice. Guests join through Nearby, QR or code.
 
 The app includes three cooperative games:
 
 - **Overdrive:** each player sees their partner's target symbol and calls it out while rotating their own square to catch a pulse. Both catches complete a shared wave. The group needs 12 successful waves before the clock runs out (36 seconds on Easy down to 25 on Extreme); three failed waves end the attempt.
-- **Ricochet:** two phones show halves of one arena. Each player moves an outer paddle to keep a shared pulse in play and aim it at six targets. Alternating catches build speed up to 1.9×; two exchanges charge a return that pierces one target. Deadlines range from 60 seconds on Easy to 40 on Extreme, with three shared misses. An interactive briefing introduces aiming. Touch controls work on emulators without sensors. See [the implementation and demo](docs/ricochet.md).
-- **Mosaic:** 6 or 9 phones each show one piece of the Solana logomark at true physical size. Players lay them in three rows, one per bar, then pinch across every seam to seal it. Every piece has the same physical size: the narrowest usable width and shortest usable height among the phones. Deadlines run from 20 seconds plus 9 per seam on Easy to 20 plus 4 on Extreme, and three wrong pairs end the attempt. See [the implementation and demo](docs/mosaic.md).
+- **Ricochet:** two phones show halves of one arena. Each player moves an outer paddle to keep a shared pulse in play and aim it at six targets. Alternating catches build speed up to 1.9×; two exchanges charge a return that pierces one target. Deadlines range from 60 seconds on Easy to 40 on Extreme, with three shared misses. An interactive briefing introduces aiming. Touch controls work on emulators without sensors.
+- **Mosaic:** 6 or 9 phones each show one piece of the Solana logomark at true physical size. Players lay them in three rows, one per bar, then pinch across every seam to seal it. Every piece has the same physical size: the narrowest usable width and shortest usable height among the phones. Deadlines run from 20 seconds plus 9 per seam on Easy to 20 plus 4 on Extreme, and three wrong pairs end the attempt.
 
 In Overdrive, each successful wave makes both pulses fall 8% faster, so by the final wave they move about two and a half times as fast as the first. A failed wave keeps the pace. The pause between cleared waves shrinks as the group progresses.
 
@@ -21,10 +21,6 @@ Prototype games remain removed. All three games use the same [game API](app/chal
 Saved claims and reward history remain available. An incomplete result from a removed format cannot resume sealing without that game installed; its saved record is retained.
 
 ## Architecture
-
-![Formation architecture: guest phones exchange inputs, seals, state and clock samples with the Seeker over a local network. The Seeker submits recoverable unlock and payout transactions to the Solana vault. Guests retain a proof and claim key for deferred claims. Sponsors fund the vault, which pays the owner and helpers.](docs/images/architecture.png)
-
-[Vector diagram](docs/images/architecture.svg)
 
 The Seeker runs the authoritative session. Guests send inputs and render the state it broadcasts. The shared session framework handles admission, readiness, clock synchronization, disconnects and sealing; each challenge module supplies its rules and stage UI. Session logic and Compose UI use Kotlin Multiplatform, with Android integrations for wallets, protected storage and networking.
 
@@ -93,7 +89,7 @@ The app has two flavors, one for each path through it:
 
 Build either flavor as debug or release. `prodDebug` behaves like the store app but stays debuggable, which helps when checking a real Seeker.
 
-The default cluster is devnet, where a verifiable randomness provider is available for [sponsor contests](docs/sponsor-contests-plan.md). Override `formation.rpcUrl` and `formation.cluster` when building for another cluster. An Android emulator reaches a validator on the host machine through `10.0.2.2`:
+The default cluster is devnet, where a verifiable randomness provider is available for [sponsor contests](#sponsor-contests). Override `formation.rpcUrl` and `formation.cluster` when building for another cluster. An Android emulator reaches a validator on the host machine through `10.0.2.2`:
 
 ```sh
 ./gradlew :androidApp:assembleDevDebug \
@@ -159,7 +155,7 @@ FORMATION_REWARDS="$PWD/scripts/fixtures/ricochet.json" \
 
 Devnet is the journey's default chain. It uses an open reward or provisions the explicit fixture through the configured test authority. Complete the [devnet setup](#devnet) first. These are real chain transactions with test tokens, which have no mainnet SKR value. Add `--wallet ADDRESS` to bind the guest payout; otherwise its share remains reserved for a later claim. Add `--chain simulated` for an isolated run without transactions.
 
-Append `--driver manual` to operate Ricochet's paddles yourself. Its debug assistance sends normal inputs and is visibly marked **AUTOPLAY**. The [format 3 verification](docs/ricochet-escalation-verification.md) records the aiming introduction, charged pulse, compact display, and confirmed testnet payouts.
+Append `--driver manual` to operate Ricochet's paddles yourself. Its debug assistance sends normal inputs and is visibly marked **AUTOPLAY**.
 
 Mosaic's six-emulator journey needs six running emulators; give two of them smaller displays with `adb shell wm size` to vary the shared piece size:
 
@@ -168,7 +164,7 @@ FORMATION_REWARDS="$PWD/scripts/fixtures/mosaic.json" \
   python3 scripts/e2e.py --title Mosaic --code 8 --players 6 --chain simulated --driver mosaic
 ```
 
-The Mosaic driver reads each phone's piece and seam strips from its accessibility tree and swipes both phones of every seam toward it at once. Omit `--driver` for debug assistance. The [verification record](docs/mosaic-verification.md) lists the executed checks and what still needs physical phones.
+The Mosaic driver reads each phone's piece and seam strips from its accessibility tree and swipes both phones of every seam toward it at once. Omit `--driver` for debug assistance.
 
 For other registered formats and chain configurations:
 
@@ -183,7 +179,7 @@ The journey hosts a duo, or the `--players` group size with one guest per extra 
 
 `--wallet connect` opens the guest's wallet flow. `--approve` taps its connection approval; otherwise the script waits for manual approval. It never enters a wallet password. The default layout reader uses UI Automator. `--layout android` starts the Android CLI's instrumentation server and reuses its bundled protocol and serializer for fast, non-idle reads. Set `ANDROID_CLI_JAR` if its `main.jar` is installed outside `~/.android/cli/bundles`.
 
-See the [documentation index](docs/README.md), [session verification](docs/session-hardening-verification.md), [Overdrive verification](docs/overdrive-verification.md), [Ricochet's plan and roadmap](docs/ricochet-plan.md), and [Mosaic verification](docs/mosaic-verification.md). Emulator automation verifies rules and the session flow; it does not establish the quality of human play or physical-network reliability.
+Emulator automation verifies rules and the session flow; it does not establish the quality of human play or physical-network reliability.
 
 ## Rewards and deployment
 
@@ -198,29 +194,48 @@ solana program deploy program/target/deploy/formation_vault.so \
 
 scripts/devnet.py setup
 scripts/devnet.py seeker SEEKER_WALLET
-FORMATION_REWARDS=/absolute/path/rewards.json scripts/devnet.py drops SEEKER_WALLET
+scripts/devnet.py contest --only SEEKER_WALLET --budget 120
 ```
 
-The provisioning script stores addresses in `program/devnet.json`. `FORMATION_RPC` overrides its endpoint. The program ID is `3AzZbKhGFcnaBRRenDDdNSdVumjKoXSkNHsPVeo5q6GW`; preserve the deployment keypair and upgrade authority when maintaining a deployment.
+`scripts/devnet.py contest --help` lists the contests it funds: first come for every Genesis Token (`--budget`, `--budgets`, `--wins`), one token (`--only`), and draws (`--draw BPS --pool SKR`). `scripts/devnet.py draw CONTEST` requests a draw's randomness from ORAO once entry closes, then finalizes it. `scripts/devnet.py settings` shows the vault's settings, and `settings KEY=VALUE` changes them as the admin. The script stores addresses in `program/devnet.json`; `FORMATION_RPC` overrides its endpoint. The program ID is `9NqxUaDuCrk92aDXEvhVppRVW1EmvygXKvtLm6LR5uy7`; keep its deployment keypair and upgrade authority.
 
 ### Real Seeker
 
-A Seeker owner links the wallet that holds its Seeker Genesis Token, on the Seeker or on any other phone. The wallet signs one message that proves it holds its key and authorizes a key kept on the phone to host for it. Formation checks the token in the group the vault accepts on its network and rechecks it on every launch. Each joining phone checks that authorization and the reward on chain. [Hosting, joining and rewards](docs/hosting.md) describes the rules; the hardware attestation is kept for a later [Seeker present badge](docs/seeker-presence.md).
+A Seeker owner links the wallet that holds its Seeker Genesis Token, on the Seeker or on any other phone. The wallet signs one message that proves it holds its key and authorizes a key kept on the phone to host for it. Formation checks the token in the group the vault accepts on its network and rechecks it on every launch. Each joining phone checks that authorization and the reward on chain. The hardware attestation code is kept for a later Seeker present badge.
 
-For devnet rewards, provision the linked wallet with `scripts/devnet.py seeker SEED_VAULT_ADDRESS`, then `FORMATION_REWARDS=/absolute/path/rewards.json scripts/devnet.py drops SEED_VAULT_ADDRESS`. This creates a token in the test SGT group and funds the wallet with devnet SOL for fees.
+For devnet rewards, give the linked wallet a test token with `scripts/devnet.py seeker SEED_VAULT_ADDRESS`, then fund a contest it can unlock with `scripts/devnet.py contest --only SEED_VAULT_ADDRESS`. The first command also sends the wallet devnet SOL for fees.
 
 ### Local validator
 
-`scripts/localnet.py SEEKER_CLAIM_KEY GUEST_CLAIM_KEY` starts a validator with the program and test state preloaded, then funds the given keys. It creates no game rewards by default. Set `FORMATION_REWARDS` to seed rewards for registered formats, and build the app with the localnet properties above.
+`scripts/localnet.py SEEKER_CLAIM_KEY GUEST_CLAIM_KEY` starts a validator with the program and test state preloaded, then funds the given keys. It funds no contests by default. Set `FORMATION_REWARDS` to fund one contest for SEEKER_CLAIM_KEY's test token per fixture amount, and build the app with the localnet properties above.
 
-### Vault instructions
+### Sponsor contests
 
-| Instruction | Enforced behavior |
-| --- | --- |
-| `create` | A sponsor deposits SKR for a designated Seeker wallet. The program validates SGT membership against the configured Token-2022 group. |
-| `unlock` | The designated Seeker wallet commits the roster and result before the reward expires. The owner receives their configured share plus rounding dust. |
-| `claim` | Each committed helper slot pays once. A wallet-bound slot pays only its recorded wallet; an unbound slot requires the claim key's signature. The transaction payer covers fees and recipient token-account creation. |
-| `close` | Remaining SKR returns to the sponsor after an unopened reward expires, after all helpers claim, or after the 30-day claim window ends. |
+A sponsor funds a contest with a pool of SKR. Each Seeker Genesis Token that unlocks takes one budget and plays it with any game whose group fits the budget's guest limit; the host picks the game and group size. The owner gets `W` times each guest's share plus rounding dust, and the total never exceeds the budget, so invented guests only split it more ways.
+
+- **First come.** No registration: each token takes the next budget until the pool runs out. `only` limits a contest to one token, which is how a reward for one Seeker is made. `wins_per_sgt` sets how many budgets one token may take; 1 means strictly once.
+- **Draw.** Tokens register before `enter_until`. Anyone then requests ORAO's verifiable randomness, and `finalize_draw` selects `⌈n · bps / 10 000⌉` entries (fewer if the pool can't give each a minimum budget) through a keyed permutation; Home offers **Enter** while a draw is open. A request can be retried after `draw_timeout`, but only while the last one is unanswered.
+
+Entries are keyed by the token's mint and round, so moving a token to another wallet doesn't earn another budget. The wallet holding the token at unlock signs and receives the owner's share. A claim key is paid at most `max_per_key` times per contest. After `play_until` plus the claim window, whatever is left returns to the sponsor.
+
+Every number lives in the vault's settings: the modes offered, a pause switch, owner weight, minimum guest share, minimum pool in budgets, payments per claim key, budgets per token, guest ceiling, claim window, play and entry windows, and draw timeout. Only the admin changes them, within fixed bounds, and each contest keeps a copy from when it was funded.
+
+| Instruction | Who | Enforced behavior |
+| --- | --- | --- |
+| `init_config` | Upgrade authority | Creates the config with the SKR mint, SGT group, VRF program and settings. |
+| `set_settings`, `set_sgt_group`, `set_vrf_program`, `set_admin` | Admin | Changes within bounds; funded contests keep their snapshot. |
+| `create_contest` | Sponsor | Deposits the pool, measuring what arrived, and checks the mode, budget, windows and minimum pool. |
+| `register` | Token holder | Enters a draw before `enter_until`. |
+| `request_draw`, `finalize_draw` | Anyone | Asks ORAO for randomness after entry closes, then reads its answer. |
+| `unlock`, `unlock_drawn` | Token holder | Takes a budget while the contest is in play, commits the roster and result, and pays the owner. |
+| `claim` | Anyone | Pays a committed guest once: a wallet-bound slot pays only its wallet; an unbound slot needs the claim key's signature. |
+| `close_entry`, `close_receipt`, `close_contest` | Anyone | After the claim window, return rent to whoever paid it and what's left to the sponsor. |
+
+Verified on devnet on 5 October 2026:
+
+- A 50% draw over three registered test tokens took ORAO's answer, selected two at 200 SKR each, paid both winners and refused the third with `NotSelected`.
+- In the two-emulator Ricochet journey, a pretend Seeker hosted a 120 SKR single-token contest; the unlock settled with the owner paid 90 SKR.
+- The Overdrive journey hosted and played, but its driver lost the game on headless emulators, so that run didn't reach an unlock.
 
 ## Releasing the Android app
 
@@ -258,6 +273,6 @@ Release builds are shrunk and obfuscated by R8; keep rules for code reached only
 
 ## Trust boundaries
 
-Joining phones accept a host only with its wallet's authorization and a matching reward on chain, and only take the session state it signs; see [Hosting, joining and rewards](docs/hosting.md). Client admission proves control of a claim key, not that each phone belongs to a different person. Local seal verification preserves agreement on a result, but the current vault program does not verify every participant's seal signature or the challenge execution on chain. A modified host can fabricate a roster and result.
+Joining phones accept a host only with its wallet's authorization and a matching reward on chain, and only take the session state it signs; see [Rewards and deployment](#rewards-and-deployment). Client admission proves control of a claim key, not that each phone belongs to a different person. Local seal verification preserves agreement on a result, but the current vault program does not verify every participant's seal signature or the challenge execution on chain. A modified host can fabricate a roster and result.
 
 The current enforcement is reward ownership, committed payout destinations, the split, one claim per helper slot and refund conditions. Before distributing rewards with material value, evaluate stronger host and participant verification against the intended reward size and abuse model.
