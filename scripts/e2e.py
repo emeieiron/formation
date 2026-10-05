@@ -29,7 +29,9 @@ from chain_verification import configured_mint, mint_balance, verify_settlement
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ADB = os.path.join(os.environ.get("ANDROID_HOME", os.path.expanduser("~/Library/Android/sdk")), "platform-tools", "adb")
-APP = "xyz.mcxross.formation"
+# Journeys run the dev flavor: it plays without a Seeker, and installs beside the release app.
+APP = "xyz.mcxross.formation.dev"
+ACTIVITY = "xyz.mcxross.formation.MainActivity"
 OUT = os.path.join(ROOT, "program", "target", "e2e")
 PROGRAM = "3AzZbKhGFcnaBRRenDDdNSdVumjKoXSkNHsPVeo5q6GW"
 TOKEN = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
@@ -158,7 +160,7 @@ class Phone:
 
     def launch(self):
         self.shell(f"am force-stop {APP}")
-        self.shell(f"am start -S --activity-clear-task -n {APP}/.MainActivity")
+        self.shell(f"am start -S --activity-clear-task -n {APP}/{ACTIVITY}")
         time.sleep(3)
 
     def foreground(self):
@@ -194,7 +196,7 @@ def open_rewards(chain, seeker, code):
 
 
 def build(chain):
-    args = ["./gradlew", "-q", ":androidApp:assembleDebug"]
+    args = ["./gradlew", "-q", ":androidApp:assembleDevDebug"]
     if chain in APP_RPC:
         url, cluster = APP_RPC[chain]
         args += [f"-Pformation.rpcUrl={url}", f"-Pformation.cluster={cluster}"]
@@ -282,7 +284,10 @@ def host_group(seeker, title, players):
 
 
 def scroll_until(phone, text, timeout=30):
+    # Searches down the screen, then back up from the top: content that arrives while scrolling, such as a
+    # Formation appearing at the top of Nearby, can land above the part already passed.
     deadline = time.time() + timeout
+    down, last = True, None
     while time.time() < deadline:
         root = phone.nodes()
         node = phone.find(text, root=root)
@@ -293,7 +298,12 @@ def scroll_until(phone, text, timeout=30):
         if area is not None:
             left, top, right, bottom = bounds(area)
             x, height = (left + right) // 2, bottom - top
-            phone.shell(f"input swipe {x} {top + height * 3 // 4} {x} {top + height // 4} 400")
+            frm, to = (top + height * 3 // 4, top + height // 4) if down else (top + height // 4, top + height * 3 // 4)
+            phone.shell(f"input swipe {x} {frm} {x} {to} 400")
+            screen = [n.get("text") for n in root.iter("node")]
+            if screen == last:
+                down = not down
+            last = screen
         time.sleep(1)
     phone.screenshot(f"missing-{text[:24]}")
     raise Failed(f"{phone.role}: never showed {text!r}")
@@ -397,7 +407,7 @@ def main():
     try:
         if not args.no_build:
             build(args.chain)
-        apk = os.path.join(ROOT, "app", "androidApp", "build", "outputs", "apk", "debug", "androidApp-debug.apk")
+        apk = os.path.join(ROOT, "app", "androidApp", "build", "outputs", "apk", "dev", "debug", "androidApp-dev-debug.apk")
         for i, phone in enumerate(phones):
             phone.adb("install", "-r", apk)
             phone.adb("forward", f"tcp:{47000 + i}", "tcp:47000")

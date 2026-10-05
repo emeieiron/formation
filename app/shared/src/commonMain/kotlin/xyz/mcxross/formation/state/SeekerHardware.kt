@@ -33,7 +33,7 @@ sealed interface HardwareCheck {
 class SeekerHardware(
   private val attestation: DeviceAttestation,
   private val revocations: AttestationRevocations,
-  private val debug: Boolean,
+  private val developer: Boolean,
   private val now: () -> Long,
 ) {
   private val _local = MutableStateFlow<HardwareCheck>(HardwareCheck.Unknown)
@@ -44,16 +44,16 @@ class SeekerHardware(
 
   val verifier = HostVerifier { session, proof ->
     val revoked = if (proof == null || proof.simulated) emptySet() else revocations.current()
-    SeekerPresence.problem(proof, session, policy(allowSimulated = debug), now(), revoked)
+    SeekerPresence.problem(proof, session, policy(allowSimulated = developer), now(), revoked)
   }
 
-  // A proof for one hosted session, bound to a fresh session key. A debug build's pretend Seeker gets a
-  // simulated proof that only other debug builds accept.
+  // A proof for one hosted session, bound to a fresh session key. A developer build's pretend Seeker gets a
+  // simulated proof that only other developer builds accept.
   suspend fun host(session: String, simulated: Boolean): HostPresence {
     val key = Ed25519KeyPair.generate()
     val sessionKey = Base58.encode(key.publicKey)
     if (simulated) {
-      check(debug) { "Only a Seeker can host." }
+      check(developer) { "Only a Seeker can host." }
       return HostPresence(SeekerProof(sessionKey, simulated = true), key)
     }
     val proof = SeekerProof(sessionKey, attest(SeekerPresence.challenge(session, sessionKey)).map(Base64::encode))

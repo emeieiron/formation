@@ -39,7 +39,7 @@ class SeekerState(
   private val store: KeyValueStore,
   private val wallet: WalletPort,
   private val isSeeker: Boolean,
-  private val debug: Boolean,
+  private val developer: Boolean,
   private val check: SeekerCheck,
 ) {
   private val _identity = MutableStateFlow(load())
@@ -76,7 +76,7 @@ class SeekerState(
   }
 
   fun pretend(on: Boolean, claimAddress: String) {
-    if (!debug) return
+    if (!developer) return
     store(if (on) SeekerIdentity(claimAddress, null, simulated = true) else null)
   }
 
@@ -138,14 +138,14 @@ class SeekerState(
     _status.value = identity?.let { SeekerStatus.Verified(it) } ?: SeekerStatus.NotASeeker
   }
 
-  // A pretend Seeker from a debug build never carries over into a release build.
+  // A pretend Seeker from a developer build never carries over into a release build.
   private fun load(): SeekerIdentity? =
     store
       .get(KEY)
       ?.let {
         runCatching { FormationJson.decodeFromString(SeekerIdentity.serializer(), it) }.getOrNull()
       }
-      ?.takeUnless { it.simulated && !debug }
+      ?.takeUnless { it.simulated && !developer }
 
   private companion object {
     const val KEY = "seeker"

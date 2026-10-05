@@ -40,7 +40,7 @@ class SeekerHardwareTest {
     """{"entries":{"C35747A0":{"status":"REVOKED"},"8350192447815228107":{"status":"SUSPENDED"}}}""".takeIf { online }
   }
 
-  private fun hardware(phone: DeviceAttestation, debug: Boolean = false) = SeekerHardware(phone, revocations(), debug, { clock })
+  private fun hardware(phone: DeviceAttestation, developer: Boolean = false) = SeekerHardware(phone, revocations(), developer, { clock })
 
   @Test
   fun revocationsAreFetchedOnceADayAndKeptOffline() = runTest {
@@ -82,13 +82,13 @@ class SeekerHardwareTest {
   @Test
   fun onlyDebugBuildsPretend() = runTest {
     val phone = Phone { error("never asked") }
-    val proof = hardware(phone, debug = true).host("session-1", simulated = true).proof
+    val proof = hardware(phone, developer = true).host("session-1", simulated = true).proof
     assertEquals(true, proof.simulated)
     assertEquals(32, Base58.decode(proof.sessionKey).size)
     assertFailsWith<IllegalStateException> { hardware(phone).host("session-1", simulated = true) }
 
     val key = Base58.encode(Ed25519KeyPair.generate().publicKey)
-    assertNull(hardware(phone, debug = true).verifier.problem("session-1", SeekerProof(key, simulated = true)))
+    assertNull(hardware(phone, developer = true).verifier.problem("session-1", SeekerProof(key, simulated = true)))
     assertEquals("This host is a test Seeker from a developer build.",
       hardware(phone).verifier.problem("session-1", SeekerProof(key, simulated = true)))
     assertEquals("This host didn't prove it's a Seeker.", hardware(phone).verifier.problem("session-1", null))

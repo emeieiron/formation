@@ -22,7 +22,7 @@ class IosPlatform : PlatformServices {
   override val config =
     AppConfig(
       version = "0.1.0",
-      debug = true,
+      developer = true,
       rpcUrl = "https://api.testnet.solana.com",
       cluster = "testnet",
     )

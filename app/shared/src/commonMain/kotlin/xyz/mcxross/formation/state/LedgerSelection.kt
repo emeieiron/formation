@@ -1,5 +1,5 @@
 package xyz.mcxross.formation.state
 
-internal fun selectLedger(saved: String?, debug: Boolean): LedgerMode =
-  if (debug) LedgerMode.entries.firstOrNull { it.name == saved } ?: LedgerMode.SOLANA
+internal fun selectLedger(saved: String?, developer: Boolean): LedgerMode =
+  if (developer) LedgerMode.entries.firstOrNull { it.name == saved } ?: LedgerMode.SOLANA
   else LedgerMode.SOLANA

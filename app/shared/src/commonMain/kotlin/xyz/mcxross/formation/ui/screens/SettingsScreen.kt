@@ -48,6 +48,7 @@ import xyz.mcxross.formation.design.tokens.Sizes
 import xyz.mcxross.formation.design.tokens.Space
 import xyz.mcxross.formation.link.EmulatorBridge
 import xyz.mcxross.formation.state.HardwareCheck
+import xyz.mcxross.formation.state.KEY_DEV_SEEKER_HARDWARE
 import xyz.mcxross.formation.state.LedgerMode
 import xyz.mcxross.formation.state.Profile
 import xyz.mcxross.formation.state.SeekerStatus
@@ -164,8 +165,8 @@ fun SettingsScreen() {
               )
             }
           }
-          // Debug builds show the check on any phone, so emulators exercise the real attestation path.
-          if (graph.platform.device.seeker || (s != null && !s.simulated) || graph.platform.config.debug) {
+          // Developer builds show the check on any phone, so emulators exercise the real attestation path.
+          if (graph.platform.device.seeker || (s != null && !s.simulated) || graph.platform.config.developer) {
             Hairline()
             SettingRow(
               title = when (hardware) {
@@ -225,7 +226,7 @@ fun SettingsScreen() {
 
       DiagnosticsSettings()
 
-      if (graph.platform.config.debug) {
+      if (graph.platform.config.developer) {
         SectionHeader("Developer")
         Panel(Modifier.fillMaxWidth().padding(horizontal = Space.gutter)) {
           Column {
@@ -239,6 +240,21 @@ fun SettingsScreen() {
                   seeker?.simulated == true,
                   { on -> graph.seeker.pretend(on, graph.identity.claimAddress) },
                 )
+              },
+            )
+            Hairline()
+            var seekerHardware by remember { mutableStateOf(graph.platform.store.get(KEY_DEV_SEEKER_HARDWARE) == "true") }
+            SettingRow(
+              "Act as Seeker hardware",
+              detail = "Shows a Seeker's setup and onboarding on this phone. Its hardware check still fails off a real Seeker." +
+                if (seekerHardware != graph.platform.device.seeker) " Restart Formation to apply." else "",
+              icon = Icons.Phone,
+              trailing = {
+                Toggle(seekerHardware, { on ->
+                  seekerHardware = on
+                  graph.platform.store.put(KEY_DEV_SEEKER_HARDWARE, if (on) "true" else null)
+                  toaster.show("Restart Formation to apply")
+                })
               },
             )
             Hairline()

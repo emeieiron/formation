@@ -91,7 +91,7 @@ internal fun Play(
   val now = rememberHostNow(session.client.sync)
   val counting by remember(stage.goAt) { derivedStateOf { now.value < stage.goAt } }
   val announcing by remember(stage.goAt) { derivedStateOf { now.value < stage.goAt + GO_MS } }
-  val debug = graph.platform.config.debug
+  val developer = graph.platform.config.developer
   val autoplay by graph.autoplay.collectAsState()
   if (challenge == null) {
     Problem(
@@ -114,7 +114,7 @@ internal fun Play(
         challenge.info.title,
         challenge.info.light,
         session.client.sync.rttMs,
-        autoplay && debug,
+        autoplay && developer,
         onLeave,
       )
       Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -132,7 +132,7 @@ internal fun Play(
             graph.challengeAudio,
             (graph.platform.screen.measurement.value as? ScreenMeasurement.Measured)?.profile,
             c,
-            autoplay = autoplay && debug,
+            autoplay = autoplay && developer,
           )
         }
       }
@@ -166,7 +166,7 @@ internal fun Play(
         }
       }
     }
-    if (debug && graph.simulator != null) {
+    if (developer && graph.simulator != null) {
       MotionPad(
         graph.simulator,
         autoplay = autoplay,

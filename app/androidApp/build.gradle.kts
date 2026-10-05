@@ -31,6 +31,22 @@ android {
     buildConfigField("String", "SOLANA_CLUSTER", "\"${cluster.get()}\"")
   }
 
+  // Two paths through the app. dev plays without a Seeker: a phone can pretend to be one, rewards can be
+  // simulated and emulators get simulated motion. prod is what people install: only a Seeker hosts.
+  flavorDimensions += "path"
+  productFlavors {
+    create("dev") {
+      dimension = "path"
+      applicationIdSuffix = ".dev"
+      versionNameSuffix = "-dev"
+      buildConfigField("boolean", "DEVELOPER", "true")
+    }
+    create("prod") {
+      dimension = "path"
+      buildConfigField("boolean", "DEVELOPER", "false")
+    }
+  }
+
   signingConfigs {
     if (releaseSigned) {
       create("release") {

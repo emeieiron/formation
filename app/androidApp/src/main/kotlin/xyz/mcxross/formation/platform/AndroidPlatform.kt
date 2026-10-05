@@ -25,6 +25,7 @@ import xyz.mcxross.formation.link.linkHttpClient
 import xyz.mcxross.formation.sensors.AndroidHaptics
 import xyz.mcxross.formation.sensors.AndroidSensorBackend
 import xyz.mcxross.formation.wallet.MwaWallet
+import xyz.mcxross.formation.state.KEY_DEV_SEEKER_HARDWARE
 
 interface ActivityBridge {
   val walletSender: ActivityResultSender
@@ -40,7 +41,7 @@ class AndroidPlatform(private val context: Context) : PlatformServices {
   override val config =
     AppConfig(
       version = BuildConfig.VERSION_NAME,
-      debug = BuildConfig.DEBUG,
+      developer = BuildConfig.DEVELOPER,
       rpcUrl = BuildConfig.SOLANA_RPC_URL,
       cluster = BuildConfig.SOLANA_CLUSTER,
     )
@@ -68,8 +69,8 @@ class AndroidPlatform(private val context: Context) : PlatformServices {
       model = "${Build.MANUFACTURER} ${Build.MODEL}",
       emulator = isEmulator(),
       seeker =
-        Build.MODEL.equals("Seeker", ignoreCase = true) &&
-          Build.MANUFACTURER.contains("Solana", ignoreCase = true),
+        (Build.MODEL.equals("Seeker", ignoreCase = true) && Build.MANUFACTURER.contains("Solana", ignoreCase = true)) ||
+          (BuildConfig.DEVELOPER && store.get(KEY_DEV_SEEKER_HARDWARE) == "true"),
     )
 
   override val sensorBackend = AndroidSensorBackend(context)

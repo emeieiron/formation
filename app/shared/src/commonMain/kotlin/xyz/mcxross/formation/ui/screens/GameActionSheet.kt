@@ -15,6 +15,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -22,6 +24,7 @@ import org.jetbrains.compose.resources.stringResource
 import xyz.mcxross.formation.challenge.Challenge
 import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.components.Button
+import xyz.mcxross.formation.design.components.ButtonSize
 import xyz.mcxross.formation.design.components.ButtonStyle
 import xyz.mcxross.formation.design.components.ModalSheet
 import xyz.mcxross.formation.design.components.Overline
@@ -40,7 +43,10 @@ import xyz.mcxross.formation.resources.action_done
 import xyz.mcxross.formation.resources.action_view_reward
 import xyz.mcxross.formation.resources.label_funded_rewards
 import xyz.mcxross.formation.resources.story_practice_locked
+import xyz.mcxross.formation.resources.game_needs_seeker
+import xyz.mcxross.formation.resources.action_link_seeker
 import xyz.mcxross.formation.state.HardwareCheck
+import xyz.mcxross.formation.state.PhoneRole
 import xyz.mcxross.formation.ui.LocalGraph
 import xyz.mcxross.formation.ui.components.timeLeft
 
@@ -52,15 +58,17 @@ internal fun GameActionSheet(
   onReward: (Opportunity) -> Unit,
 ) {
   val graph = LocalGraph.current
+  val scope = rememberCoroutineScope()
   val seeker by graph.seeker.identity.collectAsState()
   val hardware by graph.hardware.local.collectAsState()
+  val role by graph.role.collectAsState()
   if (game.introduction == null && rewards.isEmpty()) {
     LaunchedEffect(game.id) { onDismiss() }
     return
   }
-  // Practice runs on this phone alone, so this phone must be the Seeker; a debug build's pretend Seeker is exempt.
-  val pretend = seeker?.simulated == true
-  if (seeker != null && !pretend) LaunchedEffect(Unit) { graph.hardware.proveThisPhone() }
+  // Practice runs on this phone alone, so this phone must be the Seeker; a developer build's pretend Seeker is exempt.
+  val pretend = role == PhoneRole.TEST_SEEKER
+  if (role == PhoneRole.SEEKER && seeker != null) LaunchedEffect(Unit) { graph.hardware.proveThisPhone() }
   ModalSheet(onDismiss) {
     Column(Modifier.fillMaxWidth().weight(1f, fill = false)
       .verticalScroll(rememberScrollState()).padding(horizontal = Space.xxl)) {
@@ -68,19 +76,25 @@ internal fun GameActionSheet(
       Text(game.info.title, style = Theme.type.title2)
       game.introduction?.let { introduction ->
         Spacer(Modifier.height(Space.xl))
-        if (seeker != null && (pretend || hardware == HardwareCheck.Proven)) introduction() else {
+        if (pretend || (role == PhoneRole.SEEKER && seeker != null && hardware == HardwareCheck.Proven)) introduction() else {
           HowToPlay(game.info)
           Spacer(Modifier.height(Space.m))
           val failed = hardware as? HardwareCheck.Failed
           Text(
             when {
+              role == PhoneRole.PLAYER -> stringResource(Res.string.game_needs_seeker)
               seeker == null -> stringResource(Res.string.story_practice_locked)
-              failed != null -> "Only a Seeker can practise. ${failed.message}"
+              failed != null -> "Only a Seeker can practice. ${failed.message}"
               else -> "Checking this Seeker…"
             },
             style = Theme.type.footnote,
             color = Theme.colors.contentSecondary,
           )
+          if (role == PhoneRole.SEEKER && seeker == null) {
+            Spacer(Modifier.height(Space.m))
+            Button(stringResource(Res.string.action_link_seeker), { scope.launch { graph.seeker.link() } },
+              style = ButtonStyle.Reward, size = ButtonSize.Small, fillWidth = false, leadingIcon = Icons.Seeker)
+          }
         }
       }
       if (rewards.isNotEmpty()) {

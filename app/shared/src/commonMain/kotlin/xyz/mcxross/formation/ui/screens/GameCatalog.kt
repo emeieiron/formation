@@ -62,10 +62,13 @@ import xyz.mcxross.formation.resources.state_no_games
 import xyz.mcxross.formation.resources.state_game_playable
 import xyz.mcxross.formation.resources.state_game_no_reward
 import xyz.mcxross.formation.resources.state_game_join
+import xyz.mcxross.formation.resources.state_game_link
 
 internal fun LazyListScope.gameCatalog(
   games: List<Challenge<*, *>>,
   canHost: Boolean,
+  // A Seeker that can't host yet is told to link; any other phone is told it plays with a Seeker.
+  seekerPhone: Boolean,
   playable: Set<ChallengeId>,
   testHost: Boolean,
   motionActive: Boolean,
@@ -81,12 +84,12 @@ internal fun LazyListScope.gameCatalog(
     if (games.isEmpty()) {
       Text(stringResource(Res.string.state_no_games), Modifier.padding(horizontal = Space.gutter),
         style = Theme.type.subhead, color = Theme.colors.contentSecondary)
-    } else GameCatalog(games, canHost, playable, motionActive, entrance, onOpen)
+    } else GameCatalog(games, canHost, seekerPhone, playable, motionActive, entrance, onOpen)
   }
 }
 
 @Composable
-private fun GameCatalog(games: List<Challenge<*, *>>, canHost: Boolean, playable: Set<ChallengeId>, motionActive: Boolean,
+private fun GameCatalog(games: List<Challenge<*, *>>, canHost: Boolean, seekerPhone: Boolean, playable: Set<ChallengeId>, motionActive: Boolean,
   entrance: () -> Float, onOpen: (Challenge<*, *>) -> Unit) {
   val state = rememberPagerState { games.size }
   val scope = rememberCoroutineScope()
@@ -102,7 +105,7 @@ private fun GameCatalog(games: List<Challenge<*, *>>, canHost: Boolean, playable
     }) { page, modifier ->
       val game = games[page]
       val focused = page == state.settledPage
-      GameCard(game, canHost, game.id in playable, focused,
+      GameCard(game, canHost, seekerPhone, game.id in playable, focused,
         motionActive && focused && !state.isScrollInProgress,
         { if (moves) (state.currentPage - page + state.currentPageOffsetFraction).coerceIn(-1f, 1f) else 0f }, modifier) {
         if (!state.isScrollInProgress) {
@@ -128,7 +131,7 @@ private fun GameCatalog(games: List<Challenge<*, *>>, canHost: Boolean, playable
 }
 
 @Composable
-private fun GameCard(game: Challenge<*, *>, canHost: Boolean, playable: Boolean, focused: Boolean,
+private fun GameCard(game: Challenge<*, *>, canHost: Boolean, seekerPhone: Boolean, playable: Boolean, focused: Boolean,
   motionActive: Boolean, offset: () -> Float, modifier: Modifier, onOpen: () -> Unit) {
   val c = Theme.colors
   val info = game.info
@@ -150,6 +153,7 @@ private fun GameCard(game: Challenge<*, *>, canHost: Boolean, playable: Boolean,
           Tag(stringResource(when {
             playable -> Res.string.state_game_playable
             canHost -> Res.string.state_game_no_reward
+            seekerPhone -> Res.string.state_game_link
             else -> Res.string.state_game_join
           }), tone = if (playable) Tone.Positive else Tone.Neutral,
             icon = if (playable) Icons.Check else null)

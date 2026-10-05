@@ -7,7 +7,10 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -48,7 +51,7 @@ class AppGraph(
   val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
   val navigator = Navigator()
   val diagnostics = LocalDiagnostics(platform.store, ::now)
-  val simulator = if (platform.config.debug && platform.device.emulator) MotionSimulator(scope) else null
+  val simulator = if (platform.config.developer && platform.device.emulator) MotionSimulator(scope) else null
   val sensors = SensorHub(simulator ?: platform.sensorBackend, scope, MonotonicClock::now)
   val motion = MotionSense(sensors, scope, simulator)
   val identity = Identity(platform) {
@@ -62,13 +65,15 @@ class AppGraph(
       platform.store,
       platform.wallet,
       platform.device.seeker,
-      platform.config.debug,
+      platform.config.developer,
       seekerCheck ?: sgtCheck(SolanaRpc(platform.network.http, platform.config.sgtRpcUrl)),
     )
   val revocations = AttestationRevocations(platform.store, platform.network.http, ::now)
-  val hardware = SeekerHardware(platform.attestation, revocations, platform.config.debug, ::now)
+  val hardware = SeekerHardware(platform.attestation, revocations, platform.config.developer, ::now)
+  val role: StateFlow<PhoneRole> = seeker.identity.map { phoneRole(platform.device.seeker, it) }
+    .stateIn(scope, SharingStarted.Eagerly, phoneRole(platform.device.seeker, seeker.identity.value))
 
-  val ledgerChoice = selectLedger(platform.store.get(KEY_LEDGER), platform.config.debug)
+  val ledgerChoice = selectLedger(platform.store.get(KEY_LEDGER), platform.config.developer)
   val ledger: RewardLedger =
     ledger
       ?: when (ledgerChoice) {
@@ -115,7 +120,7 @@ class AppGraph(
   }
 
   fun chooseLedger(mode: LedgerMode) =
-    platform.store.put(KEY_LEDGER, selectLedger(mode.name, platform.config.debug).name)
+    platform.store.put(KEY_LEDGER, selectLedger(mode.name, platform.config.developer).name)
 
   suspend fun connectWallet(): String? =
     when (val connected = platform.wallet.connect()) {
@@ -290,7 +295,11 @@ class AppGraph(
     runCatching { recovery.resumePending() }.onFailure { recoveryProblem.value = it.message ?: "Recovery could not finish" }
     scope.launch { sounds.prepare() }
     scope.launch { revocations.current() }
-    scope.launch { if (seeker.identity.value?.simulated == false) hardware.proveThisPhone() }
+    // Seeker hardware learns at launch whether it can host; other phones only check once they link a wallet.
+    scope.launch {
+      val owner = seeker.identity.value
+      if (owner?.simulated != true && (platform.device.seeker || owner != null)) hardware.proveThisPhone()
+    }
     scope.launch {
       platform.network.finder.status.collect { state ->
         diagnostics.sink(TraceSource.DISCOVERY)(DiagnosticEvent(

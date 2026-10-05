@@ -248,7 +248,7 @@ private fun ClaimSheet(ticket: ClaimTicket, onDismiss: () -> Unit) {
   var noWallet by remember { mutableStateOf(false) }
   var done by remember { mutableStateOf<String?>(null) }
   val onPhone = graph.identity.claimAddress
-  val canKeepOnPhone = graph.ledger.mode == LedgerMode.SIMULATED || graph.platform.config.debug
+  val canKeepOnPhone = graph.ledger.mode == LedgerMode.SIMULATED || graph.platform.config.developer
   val walletReady = rememberWalletInstalled(graph.platform)
   val needsWallet = noWallet || !walletReady
   LaunchedEffect(walletReady) { if (walletReady) noWallet = false }

@@ -58,7 +58,8 @@
     <string name="state_no_locked_rewards">No locked rewards</string>
     <string name="state_game_playable">Playable</string>
     <string name="state_game_no_reward">No reward</string>
-    <string name="state_game_join">Join to play</string>
+    <string name="state_game_join">Join a Seeker</string>
+    <string name="state_game_link">Link to host</string>
     <string name="state_connect_wifi">Connect to Wi-Fi</string>
 
     <string name="headline_play_together">Play together</string>
@@ -84,6 +85,10 @@
     <plurals name="player_count">
         <item quantity="one">%1$d player</item>
         <item quantity="other">%1$d players</item>
+    </plurals>
+    <plurals name="seeker_rewards_ready">
+        <item quantity="one">%1$d reward ready to host</item>
+        <item quantity="other">%1$d rewards ready to host</item>
     </plurals>
     <plurals name="ready_reward_count">
         <item quantity="one">%1$d reward ready</item>
@@ -138,10 +143,31 @@
     <string name="story_next">Next</string>
     <string name="story_previous">Previous</string>
     <string name="story_link_later">Link later</string>
-    <string name="story_host_help">Link your Seeker to host and unlock games for the people around you.</string>
     <string name="story_link_title">Link your Seeker</string>
-    <string name="story_link_body">Approve the wallet connection so Formation can verify your Seeker. This unlocks hosting; nothing is spent or moved.</string>
-    <string name="story_verify_help">Formation checks your wallet for a Seeker Genesis Token.</string>
-    <string name="story_practice_locked">Link a Seeker to unlock practice, or join someone who has one to play.</string>
+    <string name="story_link_body">Approve the request in your wallet so Formation can confirm this Seeker's Genesis Token. Nothing is spent or moved.</string>
+    <string name="story_practice_locked">Link this Seeker to practice and host.</string>
+    <string name="game_needs_seeker">You play this with a Seeker. When its owner starts a Formation near you, join it from Home.</string>
     <string name="action_game_details">View %1$s instructions</string>
+    <string name="join_intro_overline">Needs a Seeker</string>
+    <string name="join_intro_title">Formations start on a Seeker</string>
+    <string name="join_intro_body">Ask someone with a Seeker to start one near you. This phone joins in, plays its part and earns a share of the reward.</string>
+    <string name="join_intro_searching">Looking for Formations on this network…</string>
+    <string name="action_pretend_seeker">Pretend to be a Seeker</string>
+    <string name="label_developer_build">Developer build</string>
+    <string name="label_dev">Dev</string>
+    <string name="seeker_setup_title">Your Seeker</string>
+    <string name="seeker_setup_body">Once it's set up, this Seeker can:</string>
+    <string name="seeker_can_host">Start Formations for the phones around you</string>
+    <string name="seeker_can_practice">Practice every game on this Seeker</string>
+    <string name="seeker_can_earn">Unlock SKR rewards, paid to this Seeker's wallet</string>
+    <string name="seeker_hardware_verified">Seeker hardware verified</string>
+    <string name="seeker_hardware_checking">Checking this Seeker…</string>
+    <string name="seeker_hardware_failed">Seeker hardware not verified</string>
+    <string name="seeker_wallet_linked">Wallet linked · %1$s</string>
+    <string name="seeker_wallet_link">Link the wallet that holds its Genesis Token</string>
+    <string name="seeker_wallet_waiting">Waiting for your wallet…</string>
+    <string name="seeker_rewards_none">No rewards are funded for this Seeker yet. Practice any game meanwhile.</string>
+    <string name="action_link">Link</string>
+    <string name="action_link_seeker">Link this Seeker</string>
+    <string name="action_check_again">Check again</string>
 </resources>

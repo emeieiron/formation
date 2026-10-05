@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
@@ -55,6 +56,7 @@ import xyz.mcxross.formation.resources.action_join
 import xyz.mcxross.formation.resources.action_scan
 import xyz.mcxross.formation.resources.action_unlock
 import xyz.mcxross.formation.resources.copy_offline_unlock
+import xyz.mcxross.formation.resources.label_dev
 import xyz.mcxross.formation.resources.label_nearby
 import xyz.mcxross.formation.resources.label_profile
 import xyz.mcxross.formation.resources.label_rewards
@@ -78,7 +80,6 @@ import xyz.mcxross.formation.design.components.Page
 import xyz.mcxross.formation.design.components.PlayerLight
 import xyz.mcxross.formation.design.components.SectionHeader
 import xyz.mcxross.formation.design.components.SkrAmount
-import xyz.mcxross.formation.design.components.Spinner
 import xyz.mcxross.formation.design.components.Tag
 import xyz.mcxross.formation.design.components.liveryCard
 import xyz.mcxross.formation.design.effects.FormationMark
@@ -97,8 +98,8 @@ import xyz.mcxross.formation.model.OpportunityState
 import xyz.mcxross.formation.model.Skr
 import xyz.mcxross.formation.session.NearbyFormation
 import xyz.mcxross.formation.state.HardwareCheck
+import xyz.mcxross.formation.state.PhoneRole
 import xyz.mcxross.formation.state.Links
-import xyz.mcxross.formation.state.SeekerStatus
 import xyz.mcxross.formation.state.ChallengeCatalog
 import xyz.mcxross.formation.ui.LocalGraph
 import xyz.mcxross.formation.ui.components.Slots
@@ -161,6 +162,8 @@ fun HomeScreen(presentation: HomePresentation) {
   }
   val status by graph.seeker.status.collectAsState()
   val hardware by graph.hardware.local.collectAsState()
+  val role by graph.role.collectAsState()
+  val developer = graph.platform.config.developer
   val pendingWins by graph.pending.pending.collectAsState()
   val completed by graph.completed.entries.collectAsState()
 
@@ -191,7 +194,12 @@ fun HomeScreen(presentation: HomePresentation) {
     ) {
       FormationMark(Modifier.size(width = 40.dp, height = 24.dp), progress = { entrance.value })
       Spacer(Modifier.width(Space.s))
-      Text("Formation", style = Theme.type.title3, modifier = Modifier.weight(1f))
+      Text("Formation", style = Theme.type.title3)
+      if (developer) {
+        Spacer(Modifier.width(Space.s))
+        Tag(stringResource(Res.string.label_dev), tone = Tone.Warning)
+      }
+      Spacer(Modifier.weight(1f))
       profile?.let { p ->
         Box(
           Modifier.pressable(
@@ -201,7 +209,7 @@ fun HomeScreen(presentation: HomePresentation) {
             )
             .padding(6.dp)
         ) {
-          PlayerLight(p.name, c.light(p.light), size = 36.dp, seeker = seeker != null)
+          PlayerLight(p.name, c.light(p.light), size = 36.dp, seeker = seeker != null && role != PhoneRole.PLAYER)
         }
       }
     }
@@ -263,43 +271,63 @@ fun HomeScreen(presentation: HomePresentation) {
           )
         }
       }
-      gameCatalog(ChallengeCatalog.all, canHost = me != null,
-        playable = gameRewards.filterValues { it.isNotEmpty() }.keys, testHost = me?.simulated == true,
+      // A phone that isn't a Seeker plays by joining one, so joining comes first. A Seeker hosts, so its
+      // setup and games come first.
+      fun LazyListScope.nearbySection() {
+        item { SectionHeader(stringResource(Res.string.label_nearby)) }
+        (discovery as? xyz.mcxross.formation.link.DiscoveryStatus.Failed)?.let { failure ->
+          item { Notice(failure.reason.message, Modifier.padding(horizontal = Space.gutter, vertical = Space.s),
+            title = "Nearby unavailable", tone = Tone.Warning, action = "Retry", onAction = { scanAttempt++ }) }
+        }
+        if (role == PhoneRole.PLAYER && nearby.isEmpty()) item(key = "join-intro") {
+          JoinIntro(
+            searching = discovery !is xyz.mcxross.formation.link.DiscoveryStatus.Failed,
+            onPretend = if (developer) {{ graph.seeker.pretend(true, graph.identity.claimAddress) }} else null,
+            modifier = Modifier.padding(horizontal = Space.gutter, vertical = Space.s),
+          )
+        }
+        items(nearby, key = { it.beacon.session }) { formation ->
+          NearbyCard(formation, onJoin = { join(formation) }, presentation = presentation,
+            active = active && formation.beacon.session in visibleKeys)
+        }
+        item {
+          JoinControls(
+            onScan = { scan() },
+            onCode = { enteringCode = true },
+            modifier = Modifier.padding(horizontal = Space.gutter, vertical = Space.m),
+          )
+        }
+      }
+      val hostable = gameRewards.values.sumOf { it.size }
+      fun LazyListScope.games() = gameCatalog(ChallengeCatalog.all, canHost = me != null && role != PhoneRole.PLAYER,
+        seekerPhone = role != PhoneRole.PLAYER,
+        playable = gameRewards.filterValues { it.isNotEmpty() }.keys, testHost = role == PhoneRole.TEST_SEEKER,
         motionActive = active && coverVisible,
         entrance = { entrance.value },
         onOpen = { gameActions = it })
 
-      if (me != null) {
-        (hardware as? HardwareCheck.Failed)?.takeIf { !me.simulated }?.let { failed ->
-          item {
-            Notice(failed.message, Modifier.padding(horizontal = Space.gutter, vertical = Space.s),
-              title = "This phone can't host", tone = Tone.Warning)
-          }
+      if (role == PhoneRole.PLAYER) {
+        nearbySection()
+        // A wallet linked here before Seekers had to prove their hardware still collects rewards.
+        if (me != null) item {
+          Notice((hardware as? HardwareCheck.Failed)?.message ?: "Only a Seeker can host Formations.",
+            Modifier.padding(horizontal = Space.gutter, vertical = Space.s), title = "This phone isn't a Seeker")
         }
-        problem?.let {
+        games()
+      } else {
+        if (role == PhoneRole.SEEKER && (hardware != HardwareCheck.Proven || me == null || hostable == 0)) item(key = "seeker-setup") {
+          SeekerSetup(hardware, status, me?.wallet, hostable,
+            onLink = { scope.launch { graph.seeker.link() } },
+            onCheck = { scope.launch { graph.hardware.proveThisPhone() } },
+            modifier = Modifier.padding(horizontal = Space.gutter, vertical = Space.s))
+        }
+        games()
+        if (me != null) problem?.let {
           item {
             Notice(it, Modifier.padding(horizontal = Space.gutter, vertical = Space.s), tone = Tone.Warning)
           }
         }
-      } else {
-        item { SeekerStatusRow(status, onRetry = { scope.launch { graph.seeker.link() } }) }
-      }
-
-      item { SectionHeader(stringResource(Res.string.label_nearby)) }
-      (discovery as? xyz.mcxross.formation.link.DiscoveryStatus.Failed)?.let { failure ->
-        item { Notice(failure.reason.message, Modifier.padding(horizontal = Space.gutter, vertical = Space.s),
-          title = "Nearby unavailable", tone = Tone.Warning, action = "Retry", onAction = { scanAttempt++ }) }
-      }
-      items(nearby, key = { it.beacon.session }) { formation ->
-        NearbyCard(formation, onJoin = { join(formation) }, presentation = presentation,
-          active = active && formation.beacon.session in visibleKeys)
-      }
-      item {
-        JoinControls(
-          onScan = { scan() },
-          onCode = { enteringCode = true },
-          modifier = Modifier.padding(horizontal = Space.gutter, vertical = Space.m),
-        )
+        nearbySection()
       }
       item {
         Spacer(Modifier.height(Space.xl))
@@ -431,47 +459,6 @@ private fun NearbyCard(formation: NearbyFormation, onJoin: () -> Unit, presentat
         }
       }
     }
-  }
-}
-
-@Composable
-private fun SeekerStatusRow(status: SeekerStatus, onRetry: () -> Unit) {
-  val c = Theme.colors
-  val modifier = Modifier.padding(horizontal = Space.gutter, vertical = Space.l)
-  when (status) {
-    SeekerStatus.Checking ->
-      Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        Spinner(16.dp, color = c.contentSecondary)
-        Spacer(Modifier.width(Space.s))
-        Text("Checking your Seeker…", style = Theme.type.subheadStrong, color = c.contentSecondary)
-      }
-    SeekerStatus.NotLinked ->
-      Notice(
-        "Locked SKR for this Seeker reaches it once you link. Seed Vault asks you to approve; nothing is spent.",
-        modifier,
-        title = "Link your Seeker",
-        action = "Link",
-        onAction = onRetry,
-      )
-    is SeekerStatus.NeedsApproval ->
-      Notice(
-        "Approve Formation in your Seed Vault so this Seeker can host Formations. ${status.message}",
-        modifier,
-        tone = Tone.Warning,
-        title = "Link your Seeker",
-        action = "Try again",
-        onAction = onRetry,
-      )
-    is SeekerStatus.NoToken ->
-      Notice(
-        "${shortAddress(status.wallet)} doesn't hold a Seeker Genesis Token. Choose the wallet that came with this Seeker.",
-        modifier,
-        tone = Tone.Warning,
-        title = "No Seeker Genesis Token",
-        action = "Try another wallet",
-        onAction = onRetry,
-      )
-    else -> Unit
   }
 }
 

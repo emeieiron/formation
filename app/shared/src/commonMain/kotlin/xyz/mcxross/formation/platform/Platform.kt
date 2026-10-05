@@ -85,7 +85,8 @@ interface ScreenPort {
 
 data class AppConfig(
   val version: String,
-  val debug: Boolean,
+  // The developer path: pretend Seekers, simulated rewards and test tools. Never set in a release build.
+  val developer: Boolean,
   val rpcUrl: String,
   val cluster: String,
   val sgtRpcUrl: String = "https://api.mainnet-beta.solana.com",

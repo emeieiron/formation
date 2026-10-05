@@ -98,15 +98,6 @@ fun WelcomeScreen(onDone: (Profile) -> Unit) {
 }
 
 @Composable
-private fun Point(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) {
-  Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-    Icon(icon, null, tint = Theme.colors.contentSecondary, size = 24.dp)
-    Spacer(Modifier.width(Space.l))
-    Text(text, style = Theme.type.body, color = Theme.colors.content, modifier = Modifier.weight(1f))
-  }
-}
-
-@Composable
 private fun Introduce(
   name: String,
   onName: (String) -> Unit,
@@ -157,7 +148,9 @@ private fun LinkSeeker(onBack: () -> Unit, onDone: () -> Unit) {
   val graph = LocalGraph.current
   val scope = rememberCoroutineScope()
   val status by graph.seeker.status.collectAsState()
+  val hardware by graph.hardware.local.collectAsState()
   LaunchedEffect(status) { if (status is SeekerStatus.Verified) onDone() }
+  LaunchedEffect(Unit) { graph.hardware.proveThisPhone() }
   Column(Modifier.fillMaxSize()) {
     TopBar(onBack = onBack)
     Column(
@@ -175,11 +168,10 @@ private fun LinkSeeker(onBack: () -> Unit, onDone: () -> Unit) {
         OnboardingScene({ 3f }, reduced = true, modifier = Modifier.fillMaxWidth().height(210.dp))
       }
       Spacer(Modifier.height(Space.x3l))
-      Column(verticalArrangement = Arrangement.spacedBy(Space.l)) {
-        Point(Icons.Seeker, stringResource(Res.string.story_verify_help))
-        Point(Icons.Users, stringResource(Res.string.story_host_help))
-      }
-      Spacer(Modifier.height(Space.xl))
+      SeekerAbilities()
+      Spacer(Modifier.height(Space.l))
+      HardwareStatus(hardware)
+      Spacer(Modifier.height(Space.m))
       when (val s = status) {
         is SeekerStatus.NeedsApproval ->
           Notice(s.message, tone = Tone.Warning, title = "Not linked yet")
