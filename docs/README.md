@@ -26,6 +26,7 @@ The [project overview](../README.md) explains the app, architecture, builds, and
 | Document | Contents |
 | --- | --- |
 | [Sensor management](sensor-management.md) | Availability, acquisition, processed inputs, and lifecycle |
+| [Seeker and player paths](seeker-paths.md) | The dev and prod flavors, what each phone sees, and developer tools |
 | [Seeker presence](seeker-presence.md) | Hardware attestation that the host is a Seeker, signed session state, and what is left to check on a real Seeker |
 | [Session hardening plan](session-hardening-plan.md) | Recovery, admission, discovery, claims, and diagnostics |
 | [Session verification](session-hardening-verification.md) | Executed interruption and recovery checks |

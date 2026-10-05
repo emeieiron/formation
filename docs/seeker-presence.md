@@ -48,9 +48,9 @@ After the proof checks out, the phone sends a fresh nonce in its hello. The Seek
 
 Practice runs on the Seeker alone, so the game sheet proves this phone with the same check before it opens a game's interactive introduction. Settings → Seeker → **Check** runs the check on demand and shows the verdict.
 
-## Debug builds
+## Developer builds
 
-**Pretend to be a Seeker** sends a simulated proof that has no certificate chain. Only debug builds accept it, so emulator journeys still run, and a release build refuses it with "This host is a test Seeker from a developer build."
+**Pretend to be a Seeker** sends a simulated proof that has no certificate chain. Only the `dev` flavor offers or accepts it, so emulator journeys still run. A `prod` build refuses it with "This host is a test Seeker from a developer build." [Seeker and player paths](seeker-paths.md) describes both flavors.
 
 ## What this stops
 

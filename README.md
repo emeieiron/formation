@@ -4,7 +4,9 @@ Formation is a local multiplayer Android app for unlocking shared SKR rewards on
 
 Play runs over a local network. Funding, unlocks and claims use Solana. Guests can connect a wallet before play or keep their entitlement on the phone and claim later.
 
-Home's **Games** section presents installed games in a horizontal card deck without requiring a wallet or funded reward. Each card shows **Playable** when a linked host has a valid funded reward, **No reward** when funding is missing, or **Join to play** for guests. Swipe or use the arrows to select a game; brief instructions follow beneath the deck. Cards with an open arrow offer matching funded rewards or interactive practice. Ricochet includes aiming practice and Mosaic includes pinch practice. Guests join through Nearby, QR or code.
+Home adapts to the phone. A phone that isn't a Seeker opens on **Nearby**: until a Formation appears there, a panel explains that Formations start on a Seeker and that this phone joins one to play and earn a share. A Seeker opens on its games, with a short checklist until it can host: hardware verified, wallet linked and a reward funded.
+
+Home's **Games** section presents installed games in a horizontal card deck without requiring a wallet or funded reward. Each card shows **Playable** when a linked Seeker has a valid funded reward, **No reward** when funding is missing, **Link to host** on a Seeker that hasn't linked its wallet, or **Join a Seeker** on any other phone. Swipe or use the arrows to select a game; brief instructions follow beneath the deck. Cards with an open arrow offer matching funded rewards or interactive practice. Ricochet includes aiming practice and Mosaic includes pinch practice. Guests join through Nearby, QR or code.
 
 The app includes three cooperative games:
 
@@ -42,7 +44,7 @@ Each game supplies its rules and stage UI in a separate module. Registration con
 
 ## Recovery and connectivity
 
-Completed wins retain their original roster and verified seal acknowledgements. The app can reopen a saved completion, authenticate returning players and collect missing acknowledgements. A real Seeker's pending unlock waits for the owner's action; a debug Seeker can retry automatically because it signs with its own claim key.
+Completed wins retain their original roster and verified seal acknowledgements. The app can reopen a saved completion, authenticate returning players and collect missing acknowledgements. A real Seeker's pending unlock waits for the owner's action; a pretend Seeker in a `dev` build can retry automatically because it signs with its own claim key.
 
 Each Android installation creates an Ed25519 claim key for session signatures and wallet-free claims. The key is distinct from the user's wallet. Android protects it with Keystore encryption and an independently encrypted local recovery copy. On launch, a usable recovery copy can repair damaged primary storage after its public identity is checked. An unreadable existing key is never silently replaced.
 
@@ -79,13 +81,22 @@ The Android build uses Gradle and an installed Android SDK. Anchor and the Solan
 
 ```sh
 cd app
-./gradlew :androidApp:assembleDebug
+./gradlew :androidApp:assembleDevDebug
 ```
+
+The app has two flavors, one for each path through it:
+
+| Flavor | Who it's for | Seekers |
+| --- | --- | --- |
+| `dev` | Development and testing. Installs as **Formation Dev** (`xyz.mcxross.formation.dev`) beside the release app. | Any phone can pretend to be a Seeker. Rewards can be simulated, and emulators get simulated motion. |
+| `prod` | What people install. | Only a real Seeker hosts, and every phone checks it. Developer tools aren't in the interface. |
+
+Build either flavor as debug or release. `prodDebug` behaves like the store app but stays debuggable, which helps when checking a real Seeker.
 
 The default cluster is testnet. Override `formation.rpcUrl` and `formation.cluster` when building for another cluster. An Android emulator reaches a validator on the host machine through `10.0.2.2`:
 
 ```sh
-./gradlew :androidApp:assembleDebug \
+./gradlew :androidApp:assembleDevDebug \
   -Pformation.rpcUrl=http://10.0.2.2:8899 \
   -Pformation.cluster=localnet
 ```
@@ -107,7 +118,7 @@ emulator -avd YOUR_AVD -gpu swiftshader -no-snapshot-load
 
 Software graphics preserved the app's frames during the catalogue checks on this development machine; changing the Android UI renderer alone was insufficient. See [Android's graphics acceleration options](https://developer.android.com/studio/run/emulator-acceleration). These settings affect the emulator, not the APK.
 
-In Profile → Developer, enable **Pretend to be a Seeker** on the host. This option is limited to debug builds. A debug Seeker supplies a test host identity and signs with its own claim key; it can still submit real testnet transactions. Solana is the default ledger. Turn off **Solana ledger** explicitly for isolated simulation; release builds ignore a saved simulated-ledger preference.
+On the host, tap **Pretend to be a Seeker** on Home, or turn it on in Profile → Developer. Only the dev flavor has it. A pretend Seeker supplies a test host identity and signs with its own claim key; it can still submit real testnet transactions, and only other dev builds join it. Solana is the default ledger. Turn off **Solana ledger** explicitly for isolated simulation; the prod flavor ignores a saved simulated-ledger preference.
 
 Browse games immediately from Home. Configure explicit development reward fixtures to host: choose a game, select its funded reward and tap **Start Formation**. Join from another emulator's Nearby list. The motion pad supplies debug sensor simulation when a game needs it. Overdrive uses touch; its test driver supplies the partner communication that normally comes from a second person.
 
@@ -215,9 +226,9 @@ For testnet rewards, provision the linked wallet with `scripts/testnet.py seeker
 
 ## Releasing the Android app
 
-[Verify](.github/workflows/verify.yml) runs on every push to `main` and on pull requests: host tests, release lint and a debug build; shared iOS tests and the Xcode simulator build; the vault program build and tests; dependency review; and a secret scan.
+[Verify](.github/workflows/verify.yml) runs on every push to `main` and on pull requests: host tests, `prodRelease` lint and both debug flavors; shared iOS tests and the Xcode simulator build; the vault program build and tests; dependency review; and a secret scan.
 
-[Release Android](.github/workflows/release-android.yml) runs when a `v1.2.3` tag on `main` is pushed. It tests, builds an APK signed with the release key, checks the certificate, version and that it isn't debuggable, attests its provenance and publishes a GitHub Release with `formation-android.apk`, a versioned copy, `SHA256SUMS` and the R8 mapping that turns a release crash's obfuscated stack trace back into source lines (`retrace mapping-1.2.3.txt stacktrace.txt`). Running the workflow by hand rehearses the same build and checks with a throwaway key and uploads the APK as a run artifact, without publishing. The tag sets the version: `v1.2.3` builds versionName `1.2.3` and versionCode `10203`.
+[Release Android](.github/workflows/release-android.yml) runs when a `v1.2.3` tag on `main` is pushed. It tests, builds a `prodRelease` APK signed with the release key, checks the certificate, version, that it isn't debuggable and that it is the `prod` flavor, attests its provenance and publishes a GitHub Release with `formation-android.apk`, a versioned copy, `SHA256SUMS` and the R8 mapping that turns a release crash's obfuscated stack trace back into source lines (`retrace mapping-1.2.3.txt stacktrace.txt`). Running the workflow by hand rehearses the same build and checks with a throwaway key and uploads the APK as a run artifact, without publishing. The tag sets the version: `v1.2.3` builds versionName `1.2.3` and versionCode `10203`.
 
 One-time setup, in a GitHub environment named `android-release` limited to `v*` tags with a required reviewer:
 
@@ -245,7 +256,7 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
-Release builds are shrunk and obfuscated by R8; keep rules for code reached only by reflection go in `app/androidApp/proguard-rules.pro`. Locally, `./gradlew :androidApp:assembleRelease` in `app` builds an unsigned release. Signed builds take `-PformationKeystoreFile`, `-PformationKeystorePassword`, `-PformationKeyAlias` and `-PformationKeyPassword`, and refuse a non-HTTPS `formation.rpcUrl` or a local cluster.
+Release builds are shrunk and obfuscated by R8; keep rules for code reached only by reflection go in `app/androidApp/proguard-rules.pro`. Locally, `./gradlew :androidApp:assembleProdRelease` in `app` builds an unsigned release. Signed builds take `-PformationKeystoreFile`, `-PformationKeystorePassword`, `-PformationKeyAlias` and `-PformationKeyPassword`, and refuse a non-HTTPS `formation.rpcUrl` or a local cluster.
 
 ## Trust boundaries
 
