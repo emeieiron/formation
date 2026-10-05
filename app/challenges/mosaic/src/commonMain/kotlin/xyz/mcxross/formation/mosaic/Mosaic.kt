@@ -30,7 +30,7 @@ object Mosaic : Challenge<MosaicState, Pinch>() {
       Step(Icons.Pinch, "Pinch across every seam to seal it before time runs out. Three wrong pairs end the attempt."),
     ),
     icon = Icons.Tiles, light = 0, senses = listOf(Sense.Touch, Sense.Voice),
-    players = 6..18, groupSizes = Layouts.groupSizes,
+    players = 6..9, groupSizes = Layouts.groupSizes,
   )
   override val stateSerializer = MosaicState.serializer()
   override val inputSerializer = Pinch.serializer()

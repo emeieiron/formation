@@ -126,7 +126,7 @@ class MosaicGameTest {
 
   @Test
   fun debugAssistanceCompletesEverySizeAndDifficulty() {
-    for (players in Layouts.groupSizes) for (difficulty in Difficulty.entries) for (seed in 1L..3L) {
+    for (players in Layouts.sizes) for (difficulty in Difficulty.entries) for (seed in 1L..3L) {
       val play = MosaicGame(setup(players, difficulty, seed))
       val sent = mutableSetOf<String>()
       var now = START

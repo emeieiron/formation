@@ -69,7 +69,7 @@ class LayoutTest {
 
   @Test
   fun theQuietStripLeavesRoomForTheHudBesideEveryBar() {
-    for (players in Layouts.groupSizes) {
+    for (players in Layouts.sizes) {
       val grid = Layouts.grid(players)
       val canvas = Canvas(grid, Layouts.fragment(listOf(phone()), grid.placement), Layouts.gaps(grid.placement))
       for (position in 0 until grid.size) {

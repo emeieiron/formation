@@ -45,7 +45,7 @@ internal class MosaicGame(setup: ChallengeSetup) : ChallengeGame<MosaicState, Pi
     private set
 
   init {
-    require(setup.players.size in Layouts.groupSizes && setup.players.distinct().size == setup.players.size) {
+    require(setup.players.size in Layouts.sizes && setup.players.distinct().size == setup.players.size) {
       "Mosaic needs 6, 9 or 18 distinct phones"
     }
     require(setup.players.all { it in setup.screens }) { "Mosaic needs every phone's screen" }

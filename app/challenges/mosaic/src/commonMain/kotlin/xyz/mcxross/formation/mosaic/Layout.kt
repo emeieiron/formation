@@ -80,7 +80,10 @@ data class Grid(val rows: Int, val columns: Int, val placement: Placement) {
 }
 
 object Layouts {
-  val groupSizes = setOf(6, 9, 18)
+  // Every layout the rules support.
+  val sizes = setOf(6, 9, 18)
+  // The sizes rewards can fund. Eighteen phones wait for an eighteen-phone playtest.
+  val groupSizes = setOf(6, 9)
 
   // Bezels and cases meet at each seam; long phone edges are thinner than the ends with speakers and cameras.
   const val LONG_EDGE_GAP_MM = 6.0
