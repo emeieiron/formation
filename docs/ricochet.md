@@ -98,11 +98,11 @@ Start two Android emulators. From the repository root, run:
 
 ```sh
 FORMATION_REWARDS="$PWD/scripts/fixtures/ricochet.json" \
-  python3 scripts/e2e.py --title Ricochet --code 7 --chain testnet \
+  python3 scripts/e2e.py --title Ricochet --code 7 --chain devnet \
   --layout android
 ```
 
-The journey builds and installs the debug app, connects the emulator session ports, joins the two phones, and enables their debug assistance. Testnet is the default chain. If no suitable reward is open, it provisions the explicit 120-token fixture through `scripts/testnet.py`, using the existing test authority and vault configuration. That authority needs testnet SOL and mint funding; see the [testnet setup](../README.md#testnet). Test tokens do not represent mainnet SKR value. The stage visibly marks assisted play as **AUTOPLAY**. Assistance reads public state and sends ordinary paddle commands; collisions and completion still run on the host.
+The journey builds and installs the debug app, connects the emulator session ports, joins the two phones, and enables their debug assistance. Devnet is the default chain. If no suitable reward is open, it provisions the explicit 120-token fixture through `scripts/devnet.py`, using the test authority and vault configuration. That authority needs devnet SOL and mint funding; see the [devnet setup](../README.md#devnet). Test tokens do not represent mainnet SKR value. The stage visibly marks assisted play as **AUTOPLAY**. Assistance reads public state and sends ordinary paddle commands; collisions and completion still run on the host.
 
 To operate both paddles yourself, append `--driver manual`. The journey handles setup and waits for your game result before continuing through sealing and chain unlock. Add `--wallet ADDRESS` to bind the guest payout, or `--wallet connect` to connect an installed wallet. With neither, the helper share remains reserved for a later claim. Use `--no-build` after building the current APK to shorten repeated runs. The layout reader needs the Android CLI and a JDK, as described in the [project README](../README.md#verification).
 

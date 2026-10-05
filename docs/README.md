@@ -26,8 +26,9 @@ The [project overview](../README.md) explains the app, architecture, builds, and
 | Document | Contents |
 | --- | --- |
 | [Sensor management](sensor-management.md) | Availability, acquisition, processed inputs, and lifecycle |
-| [Seeker and player paths](seeker-paths.md) | The dev and prod flavors, what each phone sees, and developer tools |
-| [Seeker presence](seeker-presence.md) | Hardware attestation that the host is a Seeker, signed session state, and what is left to check on a real Seeker |
+| [Hosting, joining and rewards](hosting.md) | Who hosts, the wallet authorization guests check, rewards, what each phone sees, builds and devnet |
+| [Sponsor contests plan](sponsor-contests-plan.md) | Tentative program design for contests funded for many Genesis Token owners, with ORAO randomness on devnet |
+| [Seeker present badge](seeker-presence.md) | The kept hardware attestation verifier, its status and how to confirm it on a real Seeker |
 | [Session hardening plan](session-hardening-plan.md) | Recovery, admission, discovery, claims, and diagnostics |
 | [Session verification](session-hardening-verification.md) | Executed interruption and recovery checks |
 | [UI plan](apex-red-plan.md) | Shared visual direction and implementation phases |

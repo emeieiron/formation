@@ -4,9 +4,9 @@ Formation is a local multiplayer Android app for unlocking shared SKR rewards on
 
 Play runs over a local network. Funding, unlocks and claims use Solana. Guests can connect a wallet before play or keep their entitlement on the phone and claim later.
 
-Home adapts to the phone. A phone that isn't a Seeker opens on **Nearby**: until a Formation appears there, a panel explains that Formations start on a Seeker and that this phone joins one to play and earn a share. A Seeker opens on its games, with a short checklist until it can host: hardware verified, wallet linked and a reward funded.
+Home adapts to the phone. A phone that isn't a Seeker opens on **Nearby**: until a Formation appears there, a panel explains that Seeker owners start Formations and that this phone joins one to play and earn a share. Seeker hardware opens on its games, with a short checklist until it can host: wallet linked and a reward funded. Any phone can host once a wallet holding a Genesis Token is linked; see [Hosting, joining and rewards](docs/hosting.md).
 
-Home's **Games** section presents installed games in a horizontal card deck without requiring a wallet or funded reward. Each card shows **Playable** when a linked Seeker has a valid funded reward, **No reward** when funding is missing, **Link to host** on a Seeker that hasn't linked its wallet, or **Join a Seeker** on any other phone. Swipe or use the arrows to select a game; brief instructions follow beneath the deck. Cards with an open arrow offer matching funded rewards or interactive practice. Ricochet includes aiming practice and Mosaic includes pinch practice. Guests join through Nearby, QR or code.
+Home's **Games** section presents installed games in a horizontal card deck without requiring a wallet or funded reward. Each card shows **Playable** when a linked Seeker has a valid funded reward, **No reward** when funding is missing, **Link to host** on Seeker hardware that hasn't linked a wallet, or **Join a Seeker** on any other phone. Swipe or use the arrows to select a game; brief instructions follow beneath the deck. Cards with an open arrow offer matching funded rewards or interactive practice. Ricochet includes aiming practice and Mosaic includes pinch practice. Guests join through Nearby, QR or code.
 
 The app includes three cooperative games:
 
@@ -73,7 +73,7 @@ Diagnostics stay on the device. The app records a bounded set of session, discov
 | `app/androidApp` | Android entry point, Mobile Wallet Adapter, Keystore storage and hotspot lifecycle |
 | `app/iosApp` | iOS shell; secure recovery and wallet support do not have Android feature parity |
 | `program/formation-vault` | Anchor program holding and distributing locked SKR |
-| `scripts` | Emulator linking, local validator setup, testnet provisioning and end-to-end journeys |
+| `scripts` | Emulator linking, local validator setup, devnet provisioning and end-to-end journeys |
 
 ## Build and run
 
@@ -93,7 +93,7 @@ The app has two flavors, one for each path through it:
 
 Build either flavor as debug or release. `prodDebug` behaves like the store app but stays debuggable, which helps when checking a real Seeker.
 
-The default cluster is testnet. Override `formation.rpcUrl` and `formation.cluster` when building for another cluster. An Android emulator reaches a validator on the host machine through `10.0.2.2`:
+The default cluster is devnet, where a verifiable randomness provider is available for [sponsor contests](docs/sponsor-contests-plan.md). Override `formation.rpcUrl` and `formation.cluster` when building for another cluster. An Android emulator reaches a validator on the host machine through `10.0.2.2`:
 
 ```sh
 ./gradlew :androidApp:assembleDevDebug \
@@ -118,7 +118,7 @@ emulator -avd YOUR_AVD -gpu swiftshader -no-snapshot-load
 
 Software graphics preserved the app's frames during the catalogue checks on this development machine; changing the Android UI renderer alone was insufficient. See [Android's graphics acceleration options](https://developer.android.com/studio/run/emulator-acceleration). These settings affect the emulator, not the APK.
 
-On the host, tap **Pretend to be a Seeker** on Home, or turn it on in Profile → Developer. Only the dev flavor has it. A pretend Seeker supplies a test host identity and signs with its own claim key; it can still submit real testnet transactions, and only other dev builds join it. Solana is the default ledger. Turn off **Solana ledger** explicitly for isolated simulation; the prod flavor ignores a saved simulated-ledger preference.
+On the host, tap **Pretend to be a Seeker** on Home, or turn it on in Profile → Developer. Only the dev flavor has it. A pretend Seeker supplies a test host identity and signs with its own claim key; it can still submit real devnet transactions, and only other dev builds join it. Solana is the default ledger. Turn off **Solana ledger** explicitly for isolated simulation; the prod flavor ignores a saved simulated-ledger preference.
 
 Browse games immediately from Home. Configure explicit development reward fixtures to host: choose a game, select its funded reward and tap **Start Formation**. Join from another emulator's Nearby list. The motion pad supplies debug sensor simulation when a game needs it. Overdrive uses touch; its test driver supplies the partner communication that normally comes from a second person.
 
@@ -139,25 +139,25 @@ cargo test -p formation-vault
 
 After changing the program, copy `program/target/idl/formation_vault.json` to `program/formation-vault/idl/`. The Kotlin `IdlContractTest` checks the client against that interface.
 
-Run Overdrive's two-emulator journey on testnet with the Android CLI, a JDK and two running emulators:
+Run Overdrive's two-emulator journey on devnet with the Android CLI, a JDK and two running emulators:
 
 ```sh
 FORMATION_REWARDS="$PWD/scripts/fixtures/overdrive.json" \
-  scripts/e2e.py --title Overdrive --code 6 --chain testnet \
+  scripts/e2e.py --title Overdrive --code 6 --chain devnet \
   --layout android --driver overdrive
 ```
 
-The driver reads each phone's visible partner clue and taps the other phone's dial. It exercises the actual game through sealing and confirmed on-chain unlock. The fixture provisions a 120-token testnet reward split equally between the two players when no matching open reward exists. Complete the [testnet setup](#testnet) first. Add `--wallet ADDRESS` to pay the guest's committed share to a testnet recipient; otherwise that share remains reserved for a later claim. Test tokens have no mainnet SKR value. Add `--chain simulated` for an isolated run without transactions.
+The driver reads each phone's visible partner clue and taps the other phone's dial. It exercises the actual game through sealing and confirmed on-chain unlock. The fixture provisions a 120-token devnet reward split equally between the two players when no matching open reward exists. Complete the [devnet setup](#devnet) first. Add `--wallet ADDRESS` to pay the guest's committed share to a devnet recipient; otherwise that share remains reserved for a later claim. Test tokens have no mainnet SKR value. Add `--chain simulated` for an isolated run without transactions.
 
-Ricochet's two-emulator journey uses testnet and its optional autopilot:
+Ricochet's two-emulator journey uses devnet and its optional autopilot:
 
 ```sh
 FORMATION_REWARDS="$PWD/scripts/fixtures/ricochet.json" \
-  python3 scripts/e2e.py --title Ricochet --code 7 --chain testnet \
+  python3 scripts/e2e.py --title Ricochet --code 7 --chain devnet \
   --layout android
 ```
 
-Testnet is the journey's default chain. It uses an open reward or provisions the explicit fixture through the configured test authority. Complete the [testnet setup](#testnet) first. These are real chain transactions with test tokens, which have no mainnet SKR value. Add `--wallet ADDRESS` to bind the guest payout; otherwise its share remains reserved for a later claim. Add `--chain simulated` for an isolated run without transactions.
+Devnet is the journey's default chain. It uses an open reward or provisions the explicit fixture through the configured test authority. Complete the [devnet setup](#devnet) first. These are real chain transactions with test tokens, which have no mainnet SKR value. Add `--wallet ADDRESS` to bind the guest payout; otherwise its share remains reserved for a later claim. Add `--chain simulated` for an isolated run without transactions.
 
 Append `--driver manual` to operate Ricochet's paddles yourself. Its debug assistance sends normal inputs and is visibly marked **AUTOPLAY**. The [format 3 verification](docs/ricochet-escalation-verification.md) records the aiming introduction, charged pulse, compact display, and confirmed testnet payouts.
 
@@ -176,7 +176,7 @@ For other registered formats and chain configurations:
 export FORMATION_REWARDS=/absolute/path/rewards.json
 scripts/e2e.py --title "My game" --code 6 --chain simulated
 scripts/e2e.py --title "My game" --code 6 --chain localnet --wallet GUEST_WALLET
-scripts/e2e.py --title "My game" --code 6 --chain testnet --wallet connect --approve
+scripts/e2e.py --title "My game" --code 6 --chain devnet --wallet connect --approve
 ```
 
 The journey hosts a duo, or the `--players` group size with one guest per extra emulator, then joins, plays, seals and unlocks. `--title` and `--code` identify the registered game; there is no default format. Simulated runs seed only the supplied fixtures. Chain runs verify the configured mint, unlocked vault, committed roster, confirmed transaction signatures, and exact token changes for paid shares. They save public verification records under `program/target/e2e`. `--offline` interrupts the host's network at unlock and checks recovery after relaunch.
@@ -187,29 +187,27 @@ See the [documentation index](docs/README.md), [session verification](docs/sessi
 
 ## Rewards and deployment
 
-### Testnet
+### Devnet
 
 Deploy the program with its upgrade authority, then provision a test SKR mint, test SGT group and vault configuration. From the repository root:
 
 ```sh
 solana program deploy program/target/deploy/formation_vault.so \
   --program-id program/target/deploy/formation_vault-keypair.json \
-  -u testnet -k ~/.config/solana/seekers-testnet.json
+  -u devnet -k ~/.config/solana/seekers-devnet.json
 
-scripts/testnet.py setup
-scripts/testnet.py seeker SEEKER_WALLET
-FORMATION_REWARDS=/absolute/path/rewards.json scripts/testnet.py drops SEEKER_WALLET
+scripts/devnet.py setup
+scripts/devnet.py seeker SEEKER_WALLET
+FORMATION_REWARDS=/absolute/path/rewards.json scripts/devnet.py drops SEEKER_WALLET
 ```
 
-The provisioning script stores addresses in `program/testnet.json`. `FORMATION_RPC` overrides its endpoint. The program ID is `3AzZbKhGFcnaBRRenDDdNSdVumjKoXSkNHsPVeo5q6GW`; preserve the deployment keypair and upgrade authority when maintaining a deployment.
+The provisioning script stores addresses in `program/devnet.json`. `FORMATION_RPC` overrides its endpoint. The program ID is `3AzZbKhGFcnaBRRenDDdNSdVumjKoXSkNHsPVeo5q6GW`; preserve the deployment keypair and upgrade authority when maintaining a deployment.
 
 ### Real Seeker
 
-The owner explicitly links a Seeker through the app's wallet flow. The wallet signs a one-time message to prove it holds the key for its address, then Formation checks that address's Seeker Genesis Token on mainnet and rechecks it on later launches. Remembered wallet authorization supports subsequent requests; new signing requests still go through the wallet.
+A Seeker owner links the wallet that holds its Seeker Genesis Token, on the Seeker or on any other phone. The wallet signs one message that proves it holds its key and authorizes a key kept on the phone to host for it. Formation checks the token in the group the vault accepts on its network and rechecks it on every launch. Each joining phone checks that authorization and the reward on chain. [Hosting, joining and rewards](docs/hosting.md) describes the rules; the hardware attestation is kept for a later [Seeker present badge](docs/seeker-presence.md).
 
-A Genesis Token shows who owns a Seeker, not that the phone in hand is one. Hosting and practice also need the phone's secure hardware to attest that it is a Seeker with a locked bootloader running Formation, and every joining phone checks that attestation itself. [Seeker presence](docs/seeker-presence.md) describes the proof; Settings → Seeker → **Check** runs it on the phone.
-
-For testnet rewards, provision the linked wallet with `scripts/testnet.py seeker SEED_VAULT_ADDRESS`, then `FORMATION_REWARDS=/absolute/path/rewards.json scripts/testnet.py drops SEED_VAULT_ADDRESS`. This creates a token in the test SGT group and funds the wallet with testnet SOL for fees.
+For devnet rewards, provision the linked wallet with `scripts/devnet.py seeker SEED_VAULT_ADDRESS`, then `FORMATION_REWARDS=/absolute/path/rewards.json scripts/devnet.py drops SEED_VAULT_ADDRESS`. This creates a token in the test SGT group and funds the wallet with devnet SOL for fees.
 
 ### Local validator
 
@@ -237,7 +235,7 @@ One-time setup, in a GitHub environment named `android-release` limited to `v*` 
 | Secret | `ANDROID_KEYSTORE_B64` | The release keystore, base64-encoded |
 | Secret | `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD` | Its passwords and alias |
 | Variable | `ANDROID_CERT_SHA256` | The signing certificate's SHA-256, lowercase hex without colons |
-| Variable | `FORMATION_CLUSTER` | `testnet`, `devnet` or `mainnet-beta` |
+| Variable | `FORMATION_CLUSTER` | `devnet`, `testnet` or `mainnet-beta`; devnet when unset |
 | Variable | `FORMATION_RPC_URL` | An `https://` RPC endpoint for that cluster |
 
 Create the keystore once and keep it, with its passwords, outside the repository; losing it means existing installs can't update:
@@ -260,6 +258,6 @@ Release builds are shrunk and obfuscated by R8; keep rules for code reached only
 
 ## Trust boundaries
 
-Joining phones accept a host only with a hardware attestation of a Seeker, and only take the session state it signs; see [Seeker presence](docs/seeker-presence.md). Client admission proves control of a claim key, not that each phone belongs to a different person. Local seal verification preserves agreement on a result, but the current vault program does not verify every participant's seal signature or the challenge execution on chain. A modified host can fabricate a roster and result.
+Joining phones accept a host only with its wallet's authorization and a matching reward on chain, and only take the session state it signs; see [Hosting, joining and rewards](docs/hosting.md). Client admission proves control of a claim key, not that each phone belongs to a different person. Local seal verification preserves agreement on a result, but the current vault program does not verify every participant's seal signature or the challenge execution on chain. A modified host can fabricate a roster and result.
 
 The current enforcement is reward ownership, committed payout destinations, the split, one claim per helper slot and refund conditions. Before distributing rewards with material value, evaluate stronger host and participant verification against the intended reward size and abuse model.
