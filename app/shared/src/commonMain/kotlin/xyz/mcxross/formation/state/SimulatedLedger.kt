@@ -8,6 +8,7 @@ import kotlinx.serialization.builtins.ListSerializer
 import xyz.mcxross.formation.crypto.Base64
 import xyz.mcxross.formation.crypto.Sha256
 import xyz.mcxross.formation.crypto.toHex
+import xyz.mcxross.formation.model.Budget
 import xyz.mcxross.formation.model.Opportunity
 import xyz.mcxross.formation.model.PlayerId
 import xyz.mcxross.formation.platform.KeyValueStore
@@ -16,14 +17,16 @@ import xyz.mcxross.formation.session.Seal
 
 class SimulatedLedger(
   private val store: KeyValueStore,
-  fixtures: List<Opportunity> = emptyList(),
+  fixtures: List<Budget> = emptyList(),
 ) : RewardLedger {
   override val mode = LedgerMode.SIMULATED
 
-  private val _opportunities =
-    MutableStateFlow(if (store.get(KEY_OPPORTUNITIES) == null) fixtures.toList()
-      else loadList(store, KEY_OPPORTUNITIES, Opportunity.serializer()))
-  override val opportunities: StateFlow<List<Opportunity>> = _opportunities.asStateFlow()
+  private val _budgets =
+    MutableStateFlow(if (store.get(KEY_BUDGETS) == null) fixtures.toList()
+      else loadList(store, KEY_BUDGETS, Budget.serializer()))
+  override val budgets: StateFlow<List<Budget>> = _budgets.asStateFlow()
+
+  override val draws: StateFlow<List<OpenDraw>> = MutableStateFlow(emptyList())
 
   override val problem: StateFlow<String?> = MutableStateFlow(null)
 
@@ -32,9 +35,11 @@ class SimulatedLedger(
 
   override suspend fun refresh(seeker: SeekerIdentity) {
     val now = now()
-    val live = _opportunities.value.filter { it.expiresAt > now }
-    save(live.sortedBy { it.expiresAt })
+    save(_budgets.value.filter { it.playUntil > now }.sortedBy { it.playUntil })
   }
+
+  override suspend fun enter(seeker: SeekerIdentity, draw: OpenDraw): Result<String> =
+    Result.failure(IllegalStateException("Draws run on Solana"))
 
   override suspend fun unlock(
     seeker: SeekerIdentity,
@@ -42,7 +47,7 @@ class SimulatedLedger(
     seal: Seal,
   ): Result<UnlockReceipt> {
     delay(1_400)
-    save(_opportunities.value.filterNot { it.id == opportunity.id })
+    save(_budgets.value.filterNot { it.id == opportunity.id })
     val receipt = "sim" + Sha256.digest(Base64.decode(seal.message)).toHex().take(40)
     return Result.success(
       UnlockReceipt(receipt, null, seal.roster.filter { it.wallet != null }.map { it.player })
@@ -53,7 +58,7 @@ class SimulatedLedger(
   override fun restore(tickets: List<ClaimTicket>) = book.merge(tickets)
 
   override suspend fun stillLocked(opportunity: Opportunity): Boolean? =
-    _opportunities.value.any { it.id == opportunity.id }
+    _budgets.value.any { it.id == opportunity.id }
 
   override suspend fun claim(ticket: ClaimTicket, recipient: String): Result<String> {
     delay(900)
@@ -64,16 +69,13 @@ class SimulatedLedger(
     return Result.success(receipt)
   }
 
-  private fun save(list: List<Opportunity>) {
-    _opportunities.value = list
-    store.put(
-      KEY_OPPORTUNITIES,
-      FormationJson.encodeToString(ListSerializer(Opportunity.serializer()), list),
-    )
+  private fun save(list: List<Budget>) {
+    _budgets.value = list
+    store.put(KEY_BUDGETS, FormationJson.encodeToString(ListSerializer(Budget.serializer()), list))
   }
 
   private companion object {
-    const val KEY_OPPORTUNITIES = "sim.opportunities"
+    const val KEY_BUDGETS = "sim.budgets"
     const val KEY_TICKETS = "sim.tickets"
   }
 }

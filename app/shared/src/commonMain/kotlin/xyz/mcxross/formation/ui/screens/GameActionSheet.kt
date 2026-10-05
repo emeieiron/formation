@@ -37,7 +37,8 @@ import xyz.mcxross.formation.design.foundation.pressable
 import xyz.mcxross.formation.design.icons.Icons
 import xyz.mcxross.formation.design.tokens.Shapes
 import xyz.mcxross.formation.design.tokens.Space
-import xyz.mcxross.formation.model.Opportunity
+import xyz.mcxross.formation.model.Budget
+import xyz.mcxross.formation.state.ChallengeCatalog
 import xyz.mcxross.formation.resources.Res
 import xyz.mcxross.formation.resources.action_done
 import xyz.mcxross.formation.resources.action_view_reward
@@ -52,9 +53,9 @@ import xyz.mcxross.formation.ui.components.timeLeft
 @Composable
 internal fun GameActionSheet(
   game: Challenge<*, *>,
-  rewards: List<Opportunity>,
+  rewards: List<Budget>,
   onDismiss: () -> Unit,
-  onReward: (Opportunity) -> Unit,
+  onReward: (Budget) -> Unit,
 ) {
   val graph = LocalGraph.current
   val scope = rememberCoroutineScope()
@@ -93,7 +94,7 @@ internal fun GameActionSheet(
         Overline(stringResource(Res.string.label_funded_rewards))
         Spacer(Modifier.height(Space.m))
         Column(verticalArrangement = Arrangement.spacedBy(Space.s)) {
-          rewards.forEach { reward -> key(reward.id) { FundedRewardRow(reward) { onReward(reward) } } }
+          rewards.forEach { reward -> key(reward.id) { FundedRewardRow(game, reward) { onReward(reward) } } }
         }
       }
     }
@@ -104,17 +105,18 @@ internal fun GameActionSheet(
 }
 
 @Composable
-private fun FundedRewardRow(reward: Opportunity, onOpen: () -> Unit) {
+private fun FundedRewardRow(game: Challenge<*, *>, reward: Budget, onOpen: () -> Unit) {
   val c = Theme.colors
   val action = stringResource(Res.string.action_view_reward)
   Panel(Modifier.fillMaxWidth().pressable(onOpen, shape = Shapes.card, onClickLabel = action)) {
     Row(Modifier.fillMaxWidth().padding(Space.m), verticalAlignment = Alignment.CenterVertically) {
-      SkrAmount(reward.reward.format(0), style = Theme.type.title2, coin = false)
+      SkrAmount(reward.amount.format(0), style = Theme.type.title2, coin = false)
       Spacer(Modifier.width(Space.m))
       Column(Modifier.weight(1f)) {
-        Text("${reward.difficulty.label} · ${gamePlayerCount(reward.players..reward.players)}",
+        val sizes = ChallengeCatalog.sizesFor(game.id, reward)
+        Text("${reward.sponsor} · ${gamePlayerCount(sizes.first()..sizes.last(), sizes.toSet())}",
           style = Theme.type.footnote, color = c.contentSecondary)
-        Text(timeLeft(reward.expiresAt, xyz.mcxross.formation.state.now()),
+        Text(timeLeft(reward.playUntil, xyz.mcxross.formation.state.now()),
           style = Theme.type.caption, color = c.contentTertiary)
       }
       Icon(Icons.ChevronRight, null, tint = c.contentSecondary, size = 18.dp)

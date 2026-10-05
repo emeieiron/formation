@@ -16,9 +16,7 @@ class CompletedSessionsTest {
     }
     val keys = List(2) { Ed25519KeyPair.generate() }
     val players = keys.mapIndexed { i, key -> Player(PlayerId("p$i"), "Phone", i, i == 0, Base58.encode(key.publicKey)) }
-    val info = FormationInfo("session", "CODE", "Host", Opportunity(
-      OpportunityId("0f8fad5b-d9cb-469f-a165-70867728950e"), ChallengeId("sync"), Skr.of(120), 2,
-      5_000, Difficulty.EASY, Long.MAX_VALUE, "Test"))
+    val info = FormationInfo("session", "CODE", "Host", Opportunity(Budget(OpportunityId("So11111111111111111111111111111111111111112"), "11111111111111111111111111111111", "sgt", Skr.of(120), 3, 31, Long.MAX_VALUE, "Test"), ChallengeId("sync"), 2))
     val result = RoundResult("Won", endedAt = 100)
     val seal = Sealing.seal(info.opportunity, info.session, players, result)
     val signatures = players.zip(keys).associate { (player, key) -> player.id to Base58.encode(key.sign(Base64.decode(seal.message))) }

@@ -1,9 +1,8 @@
 package xyz.mcxross.formation.state
 
 import xyz.mcxross.formation.crypto.toHex
-import xyz.mcxross.formation.solana.FormationVault
-import xyz.mcxross.formation.solana.VaultOpportunity
-import xyz.mcxross.formation.solana.VaultState
+import xyz.mcxross.formation.solana.EntryState
+import xyz.mcxross.formation.solana.VaultEntry
 
 internal data class ClaimChainState(
   val unlocked: Boolean,
@@ -15,10 +14,13 @@ internal data class ClaimChainState(
   val deadline: Long,
 ) {
   companion object {
-    fun from(account: VaultOpportunity, index: Int) = ClaimChainState(
-      account.state == VaultState.UNLOCKED, account.expiresAtSeconds * 1_000,
-      account.rosterRoot.toHex(), account.rosterSize, account.helperShare.toLong(), account.hasClaimed(index),
-      (account.unlockedAtSeconds + FormationVault.CLAIM_WINDOW_SECONDS) * 1_000)
+    fun from(entry: VaultEntry, index: Int, playUntil: Long?) = ClaimChainState(
+      entry.state == EntryState.UNLOCKED, playUntil ?: (entry.closesAtSeconds * 1_000),
+      entry.rosterRoot.toHex(), entry.rosterSize, entry.guestShare.toLong(), entry.hasClaimed(index),
+      entry.closesAtSeconds * 1_000)
+
+    // The budget hasn't been unlocked yet; it can be until [playUntil].
+    fun pending(playUntil: Long) = ClaimChainState(false, playUntil, "", 0, 0, false, playUntil)
   }
 }
 

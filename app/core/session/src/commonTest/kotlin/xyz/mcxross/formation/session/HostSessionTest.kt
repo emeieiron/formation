@@ -14,24 +14,15 @@ import xyz.mcxross.formation.crypto.Base58
 import xyz.mcxross.formation.crypto.Ed25519KeyPair
 import xyz.mcxross.formation.link.LinkChannel
 import xyz.mcxross.formation.link.memoryLink
+import xyz.mcxross.formation.model.Budget
 import xyz.mcxross.formation.model.ChallengeId
-import xyz.mcxross.formation.model.Difficulty
 import xyz.mcxross.formation.model.Opportunity
 import xyz.mcxross.formation.model.OpportunityId
 import xyz.mcxross.formation.model.Skr
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class HostSessionTest {
-  private val opportunity = Opportunity(
-    id = OpportunityId("0f8fad5b-d9cb-469f-a165-70867728950e"),
-    challenge = ChallengeId("tap"),
-    reward = Skr.of(600),
-    players = 3,
-    ownerBps = 5_000,
-    difficulty = Difficulty.NORMAL,
-    expiresAt = Long.MAX_VALUE,
-    sponsor = "Test",
-  )
+  private val opportunity = Opportunity(Budget(OpportunityId("entry"), "contest", "sgt", Skr.of(600), 3, 31, Long.MAX_VALUE, "Test"), ChallengeId("tap"), players = 3)
   private val wallet = Ed25519KeyPair.generate()
   private val phone = Ed25519KeyPair.generate()
 
@@ -63,7 +54,7 @@ class HostSessionTest {
     assertEquals("This host is set up for another network.", problem(authorized(network = "mainnet-beta")))
     assertEquals("The host's key didn't sign this Formation.", problem(authorized(), session = "session-2"))
     assertEquals("The host's key didn't sign this Formation.",
-      HostChecks.problem(authorized().proof.copy(opportunity = opportunity.copy(reward = Skr.of(6_000))), SESSION, NETWORK, false))
+      HostChecks.problem(authorized().proof.copy(opportunity = opportunity.copy(budget = opportunity.budget.copy(amount = Skr.of(6_000)))), SESSION, NETWORK, false))
     assertEquals("This host didn't show which Seeker it plays for.", HostChecks.problem(null, SESSION, NETWORK, false))
   }
 

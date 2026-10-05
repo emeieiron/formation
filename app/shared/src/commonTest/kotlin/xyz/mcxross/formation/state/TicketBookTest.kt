@@ -23,6 +23,7 @@ class TicketBookTest {
   private fun ticket(unlocked: Boolean, claimedTo: String? = null) =
     ClaimTicket(
       OpportunityId("o-1"),
+      "11111111111111111111111111111111",
       ChallengeId("sync"),
       "Aaron",
       Skr.of(60),

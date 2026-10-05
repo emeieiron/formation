@@ -10,7 +10,7 @@ pub mod state;
 pub use rules::*;
 pub use state::*;
 
-declare_id!("3AzZbKhGFcnaBRRenDDdNSdVumjKoXSkNHsPVeo5q6GW");
+declare_id!("9NqxUaDuCrk92aDXEvhVppRVW1EmvygXKvtLm6LR5uy7");
 
 pub const CONFIG_SEED: &[u8] = b"config";
 pub const CONTEST_SEED: &[u8] = b"contest";
@@ -137,7 +137,14 @@ pub mod formation_vault {
             vault: ctx.accounts.vault.key(),
             sgt_group: config.sgt_group,
             vrf_program: config.vrf_program,
-            mode,
+            mode: match mode {
+                Mode::FirstCome => MODE_FIRST_COME,
+                Mode::Draw { .. } => MODE_DRAW,
+            },
+            draw_bps: match mode {
+                Mode::FirstCome => 0,
+                Mode::Draw { bps } => bps,
+            },
             only,
             wins_per_sgt,
             pool: received,
@@ -274,7 +281,7 @@ pub mod formation_vault {
     /// First come: the SGT's holder takes the next budget while the pool lasts.
     pub fn unlock(ctx: Context<Unlock>, round: u8, roster_root: [u8; 32], roster_size: u8, result: [u8; 32]) -> Result<()> {
         let c = &ctx.accounts.contest;
-        require!(c.mode == Mode::FirstCome, VaultError::BadMode);
+        require!(c.mode == MODE_FIRST_COME, VaultError::BadMode);
         require!(round < c.wins_per_sgt, VaultError::BadWins);
         let a = &mut *ctx.accounts;
         a.entry.set_inner(Entry {

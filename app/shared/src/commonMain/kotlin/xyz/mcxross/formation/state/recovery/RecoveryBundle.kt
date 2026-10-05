@@ -30,7 +30,9 @@ data class RecoveryBundle(
 internal fun validateTickets(tickets: List<ClaimTicket>, key: Ed25519KeyPair) {
   require(tickets.size <= 500 && tickets.map { it.opportunity to it.index }.distinct().size == tickets.size) { "Invalid reward records" }
   tickets.forEach { ticket ->
-    require(ticket.opportunity.bytes().size == 16 && ticket.amount.units > 0 && ticket.host.length <= 128) { "Invalid reward record" }
+    require(isKey(ticket.opportunity.value) && isKey(ticket.contest) && ticket.amount.units > 0 && ticket.host.length <= 128) {
+      "Invalid reward record"
+    }
     val root = ticket.root.hexToBytes()
     require(root.size == 32 && ticket.proof.size <= 6) { "Invalid reward proof" }
     if (ticket.index < 0) require(ticket.index == -1 && ticket.claimed && ticket.proof.isEmpty()) { "A host reward must already be paid" }
@@ -43,3 +45,5 @@ internal fun validateTickets(tickets: List<ClaimTicket>, key: Ed25519KeyPair) {
     }
   }
 }
+
+private fun isKey(value: String) = runCatching { Base58.decode(value).size == 32 }.getOrDefault(false)

@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
+import xyz.mcxross.formation.model.Budget
 import xyz.mcxross.formation.model.ChallengeId
 import xyz.mcxross.formation.model.Opportunity
 import xyz.mcxross.formation.model.OpportunityId
@@ -21,7 +22,9 @@ enum class LedgerMode(val label: String) {
 
 @Serializable
 data class ClaimTicket(
+  // The vault entry the share is paid from, and its contest.
   val opportunity: OpportunityId,
+  val contest: String,
   val challenge: ChallengeId,
   val host: String,
   val amount: Skr,
@@ -49,14 +52,31 @@ data class UnlockReceipt(
   val settled: Boolean = true,
 )
 
+// A draw the linked Genesis Token can still enter.
+@Serializable
+data class OpenDraw(
+  val contest: String,
+  val pool: Skr,
+  val bps: Int,
+  val enterUntil: Long,
+  val sponsor: String,
+  val title: String? = null,
+  val entered: Boolean = false,
+)
+
 interface RewardLedger {
   val mode: LedgerMode
 
-  val opportunities: StateFlow<List<Opportunity>>
+  // What the linked Genesis Token can unlock now.
+  val budgets: StateFlow<List<Budget>>
+
+  val draws: StateFlow<List<OpenDraw>>
 
   val problem: StateFlow<String?>
 
   suspend fun refresh(seeker: SeekerIdentity)
+
+  suspend fun enter(seeker: SeekerIdentity, draw: OpenDraw): Result<String>
 
   suspend fun unlock(
     seeker: SeekerIdentity,
@@ -77,7 +97,7 @@ interface RewardLedger {
   // Null when it can't tell, such as while offline.
   suspend fun stillLocked(opportunity: Opportunity): Boolean?
 
-  // Why [opportunity], as a host shows it, isn't an open reward for [wallet] on chain. Null when it is, and
+  // Why [opportunity], as a host shows it, isn't a budget [wallet] can unlock on chain. Null when it is, and
   // when this phone can't reach the chain to tell; the guest's claim checks again later.
   suspend fun rewardProblem(opportunity: Opportunity, wallet: String): String? = null
 }

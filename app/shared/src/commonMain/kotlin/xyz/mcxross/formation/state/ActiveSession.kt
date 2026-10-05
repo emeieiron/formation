@@ -148,6 +148,7 @@ internal constructor(
         share != null ->
           ClaimTicket(
             opportunity = opportunity.id,
+            contest = opportunity.budget.contest,
             challenge = opportunity.challenge,
             host = snapshot.formation.host,
             amount = share.amount,
@@ -164,6 +165,7 @@ internal constructor(
         mine?.seeker == true && unlocked != null ->
           ClaimTicket(
             opportunity = opportunity.id,
+            contest = opportunity.budget.contest,
             challenge = opportunity.challenge,
             host = snapshot.formation.host,
             amount = won.seal.ownerAmount,

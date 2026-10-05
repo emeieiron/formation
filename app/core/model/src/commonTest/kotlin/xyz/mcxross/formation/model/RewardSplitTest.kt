@@ -5,30 +5,41 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 class RewardSplitTest {
+  // The vault's own tests pin the same splits.
   @Test
-  fun halfToTheOwnerQuarterEachToFourHelpers() {
-    val split = RewardSplit.of(Skr.of(600), ownerBps = 5_000, helpers = 4)
-    assertEquals(Skr.of(300), split.owner)
-    assertEquals(Skr.of(75), split.helper)
+  fun theOwnerGetsWeightTimesEachHelper() {
+    assertEquals(RewardSplit(Skr.of(300), Skr.of(225), Skr.of(75), 1), RewardSplit.of(Skr.of(300), 3, 1))
+    assertEquals(RewardSplit(Skr.of(300), Skr.of(150), Skr.of(50), 3), RewardSplit.of(Skr.of(300), 3, 3))
+    assertEquals(RewardSplit(Skr.of(300), Skr.of(75), Skr.of(25), 9), RewardSplit.of(Skr.of(300), 3, 9))
   }
 
   @Test
   fun roundingDustGoesToTheOwner() {
-    val split = RewardSplit.of(Skr(100), ownerBps = 5_000, helpers = 3)
-    assertEquals(Skr(16), split.helper)
-    assertEquals(Skr(52), split.owner)
+    val split = RewardSplit.of(Skr(100), ownerWeight = 3, helpers = 4)
+    assertEquals(Skr(14), split.helper)
+    assertEquals(Skr(44), split.owner)
   }
 
   @Test
   fun largeAmountsDoNotOverflow() {
-    val total = Skr(Long.MAX_VALUE / 2)
-    val split = RewardSplit.of(total, ownerBps = 9_999, helpers = 7)
-    assertEquals(total.units, split.owner.units + split.helper.units * 7)
+    val total = Skr(Long.MAX_VALUE)
+    val split = RewardSplit.of(total, ownerWeight = 100, helpers = 64)
+    assertEquals(total.units, split.owner.units + split.helper.units * 64)
   }
 
   @Test
-  fun theOwnerCannotTakeEverything() {
-    assertFailsWith<IllegalArgumentException> { RewardSplit.of(Skr.of(1), 10_000, 1) }
+  fun aSplitNeedsAnOwnerAndAHelper() {
+    assertFailsWith<IllegalArgumentException> { RewardSplit.of(Skr.of(1), 0, 1) }
+    assertFailsWith<IllegalArgumentException> { RewardSplit.of(Skr.of(1), 3, 0) }
+  }
+
+  @Test
+  fun aBudgetFitsGroupsUpToItsGuestLimit() {
+    val budget = Budget(OpportunityId("entry"), "contest", "sgt", Skr.of(300), 3, 27, 2_000, "Test")
+    assertEquals(listOf(2, 28), (1..40).filter(budget::fits).let { listOf(it.first(), it.last()) })
+    val opportunity = Opportunity(budget, ChallengeId("tap"), 3)
+    assertEquals(Skr.of(60), opportunity.split().helper)
+    assertFailsWith<IllegalArgumentException> { Opportunity(budget, ChallengeId("tap"), 29) }
   }
 
   @Test
@@ -45,13 +56,5 @@ class RewardSplitTest {
     assertEquals(Tier.SQUAD, Tier.of(5))
     assertEquals(Tier.CREW, Tier.of(10))
     assertEquals(Tier.LEGENDARY, Tier.of(20))
-  }
-
-  @Test
-  fun uuidBytesRoundTrip() {
-    val id = OpportunityId("0f8fad5b-d9cb-469f-a165-70867728950e")
-    assertEquals(16, id.bytes().size)
-    assertEquals(0x0f, id.bytes()[0].toInt())
-    assertEquals(0x0e, id.bytes()[15].toInt())
   }
 }

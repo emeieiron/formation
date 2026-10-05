@@ -52,10 +52,10 @@ class SolanaRpcTest {
     """{"lamports":2039280,"owner":"${owner.base58()}","data":["${Base64.encode(data)}","base64"],"executable":false,"rentEpoch":0}"""
 
   @Test
-  fun findsOpportunitiesForASeeker() = runTest {
-    val seeker = SolanaPublicKey(ByteArray(32) { 4 })
+  fun findsEntriesForAGenesisToken() = runTest {
+    val sgt = SolanaPublicKey(ByteArray(32) { 4 })
     val address = SolanaPublicKey(ByteArray(32) { 6 })
-    val data = opportunityBytes(seeker)
+    val data = entryBytes(sgt)
     val node =
       Node(
         mapOf(
@@ -74,16 +74,15 @@ class SolanaRpcTest {
         .programAccounts(
           FormationVault.PROGRAM_ID,
           listOf(
-            SolanaRpc.Filter.DataSize(VaultOpportunity.SIZE),
-            SolanaRpc.Filter.Memcmp(VaultOpportunity.SEEKER_OFFSET, seeker.bytes),
+            SolanaRpc.Filter.Memcmp(0, VaultEntry.DISCRIMINATOR),
+            SolanaRpc.Filter.Memcmp(VaultEntry.SGT_OFFSET, sgt.bytes),
           ),
         )
-    val o = VaultOpportunity.decode(found.single().first, found.single().second)
-    assertEquals(address, o.address)
-    assertEquals(seeker, o.seeker)
-    assertEquals(600_000_000uL, o.amount)
-    assertEquals("Night Sky", o.title)
-    assertEquals(VaultState.OPEN, o.state)
+    val entry = VaultEntry.decode(found.single().first, found.single().second)
+    assertEquals(address, entry.address)
+    assertEquals(sgt, entry.sgt)
+    assertEquals(300_000_000uL, entry.budget)
+    assertEquals(EntryState.REGISTERED, entry.state)
 
     val filters =
       Json.parseToJsonElement(node.calls.single().second)
@@ -94,11 +93,7 @@ class SolanaRpcTest {
         .getValue("filters")
         .jsonArray
     assertEquals(
-      VaultOpportunity.SIZE.toString(),
-      filters[0].jsonObject.getValue("dataSize").jsonPrimitive.content,
-    )
-    assertEquals(
-      seeker.base58(),
+      sgt.base58(),
       filters[1].jsonObject.getValue("memcmp").jsonObject.getValue("bytes").jsonPrimitive.content,
     )
   }
@@ -106,8 +101,8 @@ class SolanaRpcTest {
   @Test
   fun failedSimulationsSayWhy() = runTest {
     val error =
-      """"error":{"code":-32002,"message":"Transaction simulation failed: Error processing Instruction 0: custom program error: 0x177b",
-        "data":{"err":{"InstructionError":[0,{"Custom":6011}]},"logs":["Program log: AnchorError occurred."]}}"""
+      """"error":{"code":-32002,"message":"Transaction simulation failed: Error processing Instruction 0: custom program error: 0x1789",
+        "data":{"err":{"InstructionError":[0,{"Custom":6025}]},"logs":["Program log: AnchorError occurred."]}}"""
     val node = Node(mapOf("sendTransaction" to listOf(error)))
     val e = assertFailsWith<RpcException> { node.rpc().sendTransaction(ByteArray(10)) }
     assertEquals(VaultError.NOT_IN_ROSTER, e.vaultError)
@@ -148,7 +143,7 @@ class SolanaRpcTest {
           "getSignatureStatuses" to
             listOf(
               result(
-                """{"context":{"slot":3},"value":[{"slot":2,"err":{"InstructionError":[0,{"Custom":6012}]},"confirmationStatus":"confirmed"}]}"""
+                """{"context":{"slot":3},"value":[{"slot":2,"err":{"InstructionError":[0,{"Custom":6026}]},"confirmationStatus":"confirmed"}]}"""
               )
             )
         )
@@ -214,39 +209,30 @@ class SolanaRpcTest {
     assertNull(node.rpc().account(Mainnet.sgt))
   }
 
-  private fun opportunityBytes(seeker: SolanaPublicKey): ByteArray {
+  private fun entryBytes(sgt: SolanaPublicKey): ByteArray {
     val key = { b: Int -> SolanaPublicKey(ByteArray(32) { b.toByte() }) }
     val bytes =
       BorshWriter()
-        .bytes(VaultOpportunity.DISCRIMINATOR)
-        .bytes(ByteArray(16) { it.toByte() })
+        .bytes(VaultEntry.DISCRIMINATOR)
         .key(key(1))
-        .key(seeker)
-        .key(key(2))
-        .key(key(3))
-        .key(key(5))
-        .u64(600_000_000uL)
-        .u8(4)
-        .u16(4_000)
-        .u16(4)
-        .u8(1)
-        .bytes(FormationVault.titleBytes("Night Sky"))
-        .i64(1_700_000_000)
-        .i64(1_800_000_000)
+        .key(sgt)
         .u8(0)
+        .u32(3)
+        .key(key(2))
+        .key(key(2))
+        .u8(0)
+        .u64(300_000_000uL)
         .bytes(ByteArray(32))
         .u8(0)
+        .u64(0uL)
         .u64(0uL)
         .u64(0uL)
         .bytes(ByteArray(32))
         .i64(0)
+        .i64(1_800_000_000)
         .u8(254)
         .toByteArray()
-    assertEquals(VaultOpportunity.SIZE, bytes.size)
-    assertContentEquals(
-      seeker.bytes,
-      bytes.copyOfRange(VaultOpportunity.SEEKER_OFFSET, VaultOpportunity.SEEKER_OFFSET + 32),
-    )
+    assertContentEquals(sgt.bytes, bytes.copyOfRange(VaultEntry.SGT_OFFSET, VaultEntry.SGT_OFFSET + 32))
     return bytes
   }
 }

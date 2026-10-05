@@ -3,8 +3,8 @@ package xyz.mcxross.formation.state
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import xyz.mcxross.formation.model.Budget
 import xyz.mcxross.formation.model.ChallengeId
-import xyz.mcxross.formation.model.Difficulty
 import xyz.mcxross.formation.model.Opportunity
 import xyz.mcxross.formation.model.OpportunityId
 import xyz.mcxross.formation.model.PlayerId
@@ -23,10 +23,7 @@ class SessionSoundEventsTest {
   private val guest = Player(PlayerId("guest"), "Maya", 1, false, "guest-key")
   private val info = FormationInfo(
     "session", "A123", "Aaron",
-    Opportunity(
-      OpportunityId("reward"), ChallengeId("sync"), Skr.of(120), 2,
-      5_000, Difficulty.NORMAL, Long.MAX_VALUE, "Test",
-    ),
+    Opportunity(Budget(OpportunityId("So11111111111111111111111111111111111111112"), "11111111111111111111111111111111", "sgt", Skr.of(120), 3, 31, Long.MAX_VALUE, "Test"), ChallengeId("sync"), 2),
   )
   private val lobby = SessionSnapshot(info, listOf(host), Stage.Lobby, 0)
   private val full = lobby.copy(players = listOf(host, guest))

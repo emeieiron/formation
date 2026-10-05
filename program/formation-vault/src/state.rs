@@ -109,7 +109,9 @@ pub struct Contest {
     pub vault: Pubkey,
     pub sgt_group: Pubkey,
     pub vrf_program: Pubkey,
-    pub mode: Mode,
+    /// `MODE_FIRST_COME` or `MODE_DRAW`, kept fixed-size so every later field has one offset.
+    pub mode: u8,
+    pub draw_bps: u16,
     /// When set, only this SGT mint may unlock: a reward for one Seeker.
     pub only: Pubkey,
     pub wins_per_sgt: u8,
@@ -139,10 +141,7 @@ impl Contest {
     }
 
     pub fn draw_bps(&self) -> Option<u16> {
-        match self.mode {
-            Mode::Draw { bps } => Some(bps),
-            Mode::FirstCome => None,
-        }
+        (self.mode == MODE_DRAW).then_some(self.draw_bps)
     }
 }
 

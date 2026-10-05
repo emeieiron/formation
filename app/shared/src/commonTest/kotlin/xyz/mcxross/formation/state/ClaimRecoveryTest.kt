@@ -27,7 +27,7 @@ class ClaimRecoveryTest {
   }
   private fun ticket(key: Ed25519KeyPair): ClaimTicket {
     val tree = RosterTree(listOf(RosterTree.Entry(key.publicKey)))
-    return ClaimTicket(OpportunityId("0f8fad5b-d9cb-469f-a165-70867728950e"), ChallengeId("sync"), "Host",
+    return ClaimTicket(OpportunityId("So11111111111111111111111111111111111111112"), "11111111111111111111111111111111", ChallengeId("sync"), "Host",
       Skr.of(60), 0, tree.root.toHex(), tree.proof(0).map { it.toHex() }, 1, "unlock")
   }
 

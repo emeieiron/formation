@@ -42,6 +42,12 @@ import xyz.mcxross.formation.design.foundation.Icon
 import xyz.mcxross.formation.design.foundation.Text
 import xyz.mcxross.formation.design.icons.Icons
 import xyz.mcxross.formation.design.tokens.Space
+import xyz.mcxross.formation.challenge.Challenge
+import xyz.mcxross.formation.design.components.Chip
+import xyz.mcxross.formation.model.Budget
+import xyz.mcxross.formation.design.components.ButtonSize
+import xyz.mcxross.formation.design.foundation.Panel
+import xyz.mcxross.formation.state.OpenDraw
 import xyz.mcxross.formation.model.Opportunity
 import xyz.mcxross.formation.session.NearbyFormation
 import xyz.mcxross.formation.state.ChallengeCatalog
@@ -51,11 +57,18 @@ import xyz.mcxross.formation.ui.components.TierTag
 import xyz.mcxross.formation.ui.components.timeLeft
 
 @Composable
-internal fun OpportunitySheet(o: Opportunity, onDismiss: () -> Unit, onStart: () -> Unit) {
+internal fun OpportunitySheet(
+  game: Challenge<*, *>,
+  budget: Budget,
+  onDismiss: () -> Unit,
+  onStart: (Opportunity) -> Unit,
+) {
   val c = Theme.colors
-  val challenge = ChallengeCatalog[o.challenge]
-  val info = challenge?.info
+  val info = game.info
+  val sizes = ChallengeCatalog.sizesFor(game.id, budget)
+  var players by remember(sizes) { mutableStateOf(sizes.firstOrNull()) }
   var starting by remember { mutableStateOf(false) }
+  val o = players?.let { Opportunity(budget, game.id, it) }
   ModalSheet(onDismiss, dismissible = !starting) {
     Column(
       Modifier.fillMaxWidth()
@@ -68,50 +81,53 @@ internal fun OpportunitySheet(o: Opportunity, onDismiss: () -> Unit, onStart: ()
         ChallengeGlyph(info, size = 52.dp)
         Spacer(Modifier.width(Space.l))
         Column(Modifier.weight(1f)) {
-          Text(info?.title ?: o.challenge.value, style = Theme.type.title1)
-          Text(info?.tagline ?: "", style = Theme.type.subhead, color = c.contentSecondary)
+          Text(info.title, style = Theme.type.title1)
+          Text(info.tagline, style = Theme.type.subhead, color = c.contentSecondary)
         }
-        TierTag(o.tier)
+        o?.let { TierTag(it.tier) }
       }
       Spacer(Modifier.height(Space.xl))
       Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(Icons.Lock, null, tint = c.reward, size = 26.dp)
         Spacer(Modifier.width(Space.s))
-        SkrAmount(o.reward.format(0), style = Theme.type.numeralLarge, color = c.content)
+        SkrAmount(budget.amount.format(0), style = Theme.type.numeralLarge, color = c.content)
       }
       Text(
-        "Unlocks with ${o.players} players · ${timeLeft(o.expiresAt, xyz.mcxross.formation.state.now())}",
+        "Up to ${budget.maxGuests} guests · ${timeLeft(budget.playUntil, xyz.mcxross.formation.state.now())}",
         style = Theme.type.subhead,
         color = c.contentSecondary,
       )
-      Spacer(Modifier.height(Space.xl))
-      RewardSplitView(o.split(), ownerLabel = "You, the Seeker")
-      Spacer(Modifier.height(Space.xl))
-      challenge?.let {
+      if (sizes.size > 1) {
+        Spacer(Modifier.height(Space.l))
+        Overline("Players")
+        Spacer(Modifier.height(Space.s))
+        Row(horizontalArrangement = Arrangement.spacedBy(Space.s)) {
+          sizes.forEach { size -> Chip("$size", size == players, { players = size }) }
+        }
+      }
+      o?.let {
+        Spacer(Modifier.height(Space.xl))
+        RewardSplitView(it.split(), ownerLabel = "You, the Seeker")
+        Spacer(Modifier.height(Space.xl))
         Overline("The goal")
         Spacer(Modifier.height(Space.xs))
-        Text(it.goal(o.players, o.difficulty), style = Theme.type.bodyStrong)
-        Spacer(Modifier.height(Space.l))
-        HowToPlay(it.info)
+        Text(game.goal(it.players, it.difficulty), style = Theme.type.bodyStrong)
       }
-        ?: Text(
-          "This app doesn't know this challenge yet. Update to host it.",
-          style = Theme.type.body,
-          color = c.warning,
-        )
       Spacer(Modifier.height(Space.l))
-      Text("Sponsored by ${o.sponsor}", style = Theme.type.footnote, color = c.contentTertiary)
+      HowToPlay(info)
+      Spacer(Modifier.height(Space.l))
+      Text("Sponsored by ${budget.sponsor}", style = Theme.type.footnote, color = c.contentTertiary)
     }
     SheetActions {
       Button(
         "Start Formation",
         {
           starting = true
-          onStart()
+          o?.let(onStart)
         },
         style = ButtonStyle.Primary,
         loading = starting,
-        enabled = challenge != null,
+        enabled = o != null,
         trailingIcon = Icons.ArrowRight,
       )
     }
@@ -190,6 +206,32 @@ internal fun JoinCodeSheet(
         enabled = match != null && match.beacon.open,
         trailingIcon = Icons.ArrowRight,
       )
+    }
+  }
+}
+
+// A draw the linked Genesis Token can enter; winners each get an equal budget after it closes.
+@Composable
+internal fun OpenDrawRow(draw: OpenDraw, modifier: Modifier = Modifier, onEnter: () -> Unit) {
+  val c = Theme.colors
+  var entering by remember(draw.entered) { mutableStateOf(false) }
+  Panel(modifier.fillMaxWidth()) {
+    Row(Modifier.fillMaxWidth().padding(Space.m), verticalAlignment = Alignment.CenterVertically) {
+      Column(Modifier.weight(1f)) {
+        Text(draw.title ?: "Sponsored draw", style = Theme.type.bodyStrong)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          SkrAmount(draw.pool.format(0), style = Theme.type.footnote, coin = false)
+          Text(" · ${draw.bps / 100}% of entrants win · closes ${timeLeft(draw.enterUntil, xyz.mcxross.formation.state.now())}",
+            style = Theme.type.footnote, color = c.contentSecondary)
+        }
+        Text("Sponsored by ${draw.sponsor}", style = Theme.type.caption, color = c.contentTertiary)
+      }
+      Spacer(Modifier.width(Space.m))
+      if (draw.entered) Tag("Entered")
+      else Button("Enter", {
+        entering = true
+        onEnter()
+      }, style = ButtonStyle.Reward, size = ButtonSize.Small, fillWidth = false, loading = entering)
     }
   }
 }

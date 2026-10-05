@@ -22,8 +22,7 @@ class CompletionRecoveryTest {
     Player(PlayerId("p${i + 1}"), "Phone $i", i, i == 0, Base58.encode(key.publicKey), device = "device$i")
   }
   private val info = FormationInfo("saved-session", "K7QX", "Phone 0", Opportunity(
-    OpportunityId("0f8fad5b-d9cb-469f-a165-70867728950e"), ChallengeId("tap"), Skr.of(600), 3,
-    5_000, Difficulty.NORMAL, Long.MAX_VALUE, "Test"))
+    Budget(OpportunityId("entry"), "contest", "sgt", Skr.of(600), 3, 31, Long.MAX_VALUE, "Test"), ChallengeId("tap"), 3))
 
   private fun partial(): SessionSnapshot {
     val result = RoundResult("Everyone tapped", endedAt = 5_000)

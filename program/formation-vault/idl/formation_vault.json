@@ -1,5 +1,5 @@
 {
-  "address": "3AzZbKhGFcnaBRRenDDdNSdVumjKoXSkNHsPVeo5q6GW",
+  "address": "9NqxUaDuCrk92aDXEvhVppRVW1EmvygXKvtLm6LR5uy7",
   "metadata": {
     "name": "formation_vault",
     "version": "0.1.0",
@@ -679,7 +679,7 @@
         },
         {
           "name": "program",
-          "address": "3AzZbKhGFcnaBRRenDDdNSdVumjKoXSkNHsPVeo5q6GW"
+          "address": "9NqxUaDuCrk92aDXEvhVppRVW1EmvygXKvtLm6LR5uy7"
         },
         {
           "name": "program_data"
@@ -1812,11 +1812,14 @@
           },
           {
             "name": "mode",
-            "type": {
-              "defined": {
-                "name": "Mode"
-              }
-            }
+            "docs": [
+              "`MODE_FIRST_COME` or `MODE_DRAW`, kept fixed-size so every later field has one offset."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "draw_bps",
+            "type": "u16"
           },
           {
             "name": "only",

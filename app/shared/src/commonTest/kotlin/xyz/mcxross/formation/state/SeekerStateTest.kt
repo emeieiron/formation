@@ -13,8 +13,8 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import xyz.mcxross.formation.crypto.Base58
 import xyz.mcxross.formation.crypto.Ed25519KeyPair
+import xyz.mcxross.formation.model.Budget
 import xyz.mcxross.formation.model.ChallengeId
-import xyz.mcxross.formation.model.Difficulty
 import xyz.mcxross.formation.model.Opportunity
 import xyz.mcxross.formation.model.OpportunityId
 import xyz.mcxross.formation.model.Skr
@@ -158,8 +158,7 @@ class SeekerStateTest {
   fun linkingAuthorizesThisPhoneToHost() = runTest {
     val state = SeekerState(Store(), secrets, Wallet(seedVault), isSeeker = false, developer = false, NETWORK, check)
     state.link()
-    val opportunity = Opportunity(OpportunityId("0f8fad5b-d9cb-469f-a165-70867728950e"), ChallengeId("tap"), Skr.of(600), 3,
-      5_000, Difficulty.NORMAL, Long.MAX_VALUE, "Test")
+    val opportunity = Opportunity(Budget(OpportunityId("So11111111111111111111111111111111111111112"), "11111111111111111111111111111111", "sgt", Skr.of(600), 3, 31, Long.MAX_VALUE, "Test"), ChallengeId("tap"), 3)
     // Any phone can host once its wallet authorizes it, and every guest can check that.
     val proof = state.credentials("session-1", opportunity).proof
     assertNull(HostChecks.problem(proof, "session-1", NETWORK, allowSimulated = false))

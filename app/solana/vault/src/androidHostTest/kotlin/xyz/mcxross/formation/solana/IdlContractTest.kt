@@ -23,8 +23,24 @@ class IdlContractTest {
   private val a = SolanaPublicKey(ByteArray(32) { 1 })
   private val b = SolanaPublicKey(ByteArray(32) { 2 })
   private val c = SolanaPublicKey(ByteArray(32) { 3 })
-  private val id = ByteArray(16) { it.toByte() }
   private val proof = listOf(ByteArray(32) { 7 }, ByteArray(32) { 8 })
+  private val settings =
+    mapOf(
+      "paused" to false,
+      "modes" to 3,
+      "owner_weight" to 3,
+      "min_guest_share" to 10_000_000uL,
+      "min_budgets" to 10,
+      "max_per_key" to 3,
+      "max_wins_per_sgt" to 2,
+      "guest_ceiling" to 64,
+      "claim_window" to 2_592_000L,
+      "min_play_window" to 3_600L,
+      "max_play_window" to 7_776_000L,
+      "min_enter_window" to 3_600L,
+      "max_enter_window" to 2_592_000L,
+      "draw_timeout" to 3_600L,
+    )
 
   private fun named(section: String, name: String) =
     idl
@@ -43,72 +59,49 @@ class IdlContractTest {
 
   @Test
   fun discriminatorsMatch() {
-    assertContentEquals(named("instructions", "create").discriminator(), FormationVault.CREATE)
     assertContentEquals(named("instructions", "unlock").discriminator(), FormationVault.UNLOCK)
+    assertContentEquals(named("instructions", "unlock_drawn").discriminator(), FormationVault.UNLOCK_DRAWN)
+    assertContentEquals(named("instructions", "register").discriminator(), FormationVault.REGISTER)
     assertContentEquals(named("instructions", "claim").discriminator(), FormationVault.CLAIM)
-    assertContentEquals(named("instructions", "close").discriminator(), FormationVault.CLOSE)
     assertContentEquals(named("accounts", "Config").discriminator(), VaultConfig.DISCRIMINATOR)
-    assertContentEquals(
-      named("accounts", "Opportunity").discriminator(),
-      VaultOpportunity.DISCRIMINATOR,
-    )
+    assertContentEquals(named("accounts", "Contest").discriminator(), VaultContest.DISCRIMINATOR)
+    assertContentEquals(named("accounts", "Entry").discriminator(), VaultEntry.DISCRIMINATOR)
   }
 
-  private suspend fun instructions():
-    List<Triple<String, TransactionInstruction, Map<String, Any>>> {
-    val lock = FormationVault.Lock(id, 600_000_000uL, 5, 5_000, 3, 2, "Night Sky", 1_800_000_000L)
+  private suspend fun instructions(): List<Triple<String, TransactionInstruction, Map<String, Any>>> {
+    val holder = FormationVault.Holder(a, b, c)
     val root = ByteArray(32) { 9 }
     val result = ByteArray(32) { 10 }
     return listOf(
       Triple(
-        "create",
-        vault.create(a, b, c, a, b, lock),
-        mapOf(
-          "id" to id,
-          "amount" to 600_000_000uL,
-          "players" to 5,
-          "owner_bps" to 5_000,
-          "challenge" to 3,
-          "difficulty" to 2,
-          "title" to FormationVault.titleBytes("Night Sky"),
-          "expires_at" to 1_800_000_000L,
-        ),
+        "unlock",
+        vault.unlock(holder, c, b, 1, root, 4, result),
+        mapOf("round" to 1, "roster_root" to root, "roster_size" to 4, "result" to result),
       ),
       Triple(
-        "unlock",
-        vault.unlock(a, b, id, root, 4, result),
+        "unlock_drawn",
+        vault.unlockDrawn(holder, c, b, root, 4, result),
         mapOf("roster_root" to root, "roster_size" to 4, "result" to result),
       ),
+      Triple("register", vault.register(holder, c), emptyMap()),
       Triple(
         "claim",
-        vault.claim(a, b, c, a, id, 3, proof, claimerSigns = false),
+        vault.claim(a, b, c, a, b, c, 3, proof, claimerSigns = false),
         mapOf("index" to 3, "proof" to proof),
       ),
-      Triple("close", vault.close(a, b, c, id), emptyMap()),
     )
   }
 
   @Test
   fun accountListsMatchTheIdl() = runTest {
     for ((name, ix, _) in instructions()) {
-      val expected =
-        named("instructions", name).getValue("accounts").jsonArray.map { it.jsonObject }
-      assertEquals(expected.size, ix.accounts.size, name)
+      val expected = named("instructions", name).getValue("accounts").jsonArray.map { it.jsonObject }
+      assertEquals(expected.map { it.getValue("name").jsonPrimitive.content }.size, ix.accounts.size, name)
       expected.zip(ix.accounts).forEach { (spec, meta) ->
         val label = "$name.${spec.getValue("name").jsonPrimitive.content}"
-        assertEquals(
-          spec["signer"]?.jsonPrimitive?.content == "true",
-          meta.isSigner,
-          "$label signer",
-        )
-        assertEquals(
-          spec["writable"]?.jsonPrimitive?.content == "true",
-          meta.isWritable,
-          "$label writable",
-        )
-        spec["address"]?.let {
-          assertEquals(it.jsonPrimitive.content, meta.publicKey.base58(), "$label address")
-        }
+        assertEquals(spec["signer"]?.jsonPrimitive?.content == "true", meta.isSigner, "$label signer")
+        assertEquals(spec["writable"]?.jsonPrimitive?.content == "true", meta.isWritable, "$label writable")
+        spec["address"]?.let { assertEquals(it.jsonPrimitive.content, meta.publicKey.base58(), "$label address") }
       }
     }
   }
@@ -126,104 +119,142 @@ class IdlContractTest {
   }
 
   @Test
-  fun opportunityLayoutMatchesTheIdl() {
-    val fields = fields("Opportunity")
+  fun contestLayoutMatchesTheIdl() {
     val sample =
       mapOf(
-        "id" to id,
         "sponsor" to a,
-        "seeker" to b,
-        "sgt" to c,
-        "mint" to a,
-        "vault" to b,
-        "amount" to 600_000_000uL,
-        "players" to 5,
-        "owner_bps" to 4_000,
-        "challenge" to 4,
-        "difficulty" to 3,
-        "title" to FormationVault.titleBytes("Night Sky"),
+        "nonce" to 7uL,
+        "mint" to b,
+        "vault" to c,
+        "sgt_group" to a,
+        "vrf_program" to b,
+        "mode" to 2,
+        "draw_bps" to 2_500,
+        "only" to SolanaPublicKey(ByteArray(32)),
+        "wins_per_sgt" to 1,
+        "pool" to 3_000_000_000uL,
+        "unallocated" to 2_000_000_000uL,
+        "budget" to 300_000_000uL,
+        "max_guests" to 27,
+        "settings" to settings,
         "created_at" to 1_700_000_000L,
-        "expires_at" to 1_800_000_000L,
+        "enter_until" to 1_700_086_400L,
+        "play_until" to 1_700_172_800L,
+        "entered" to 40L,
+        "selected" to 10L,
+        "unlocks" to 3L,
+        "draw" to
+          mapOf(
+            "seed" to ByteArray(32) { 4 },
+            "requested_at" to 1_700_090_000L,
+            "attempts" to 1,
+            "randomness" to ByteArray(32) { 5 },
+            "done" to true,
+          ),
+        "title" to ByteArray(32).also { "Night Sky".encodeToByteArray().copyInto(it) },
+        "branding" to ByteArray(32) { 6 },
+        "bump" to 254,
+      )
+    val contest = VaultContest.decode(c, layout("Contest", sample))
+    assertEquals(listOf(a, b, c, a, b), listOf(contest.sponsor, contest.mint, contest.vault, contest.sgtGroup, contest.vrfProgram))
+    assertEquals(7uL, contest.nonce)
+    assertEquals(ContestMode.DRAW, contest.mode)
+    assertEquals(2_500, contest.drawBps)
+    assertEquals(null, contest.only)
+    assertEquals(listOf(3_000_000_000uL, 2_000_000_000uL, 300_000_000uL), listOf(contest.pool, contest.unallocated, contest.budget))
+    assertEquals(listOf(1, 27), listOf(contest.winsPerSgt, contest.maxGuests))
+    assertEquals(VaultSettings(false, 3, 3, 10_000_000uL, 10, 3, 2, 64, 2_592_000, 3_600, 7_776_000, 3_600, 2_592_000, 3_600), contest.settings)
+    assertEquals(listOf(1_700_000_000L, 1_700_086_400L, 1_700_172_800L), listOf(contest.createdAtSeconds, contest.enterUntilSeconds, contest.playUntilSeconds))
+    assertEquals(listOf(40L, 10L, 3L), listOf(contest.entered, contest.selected, contest.unlocks))
+    assertContentEquals(ByteArray(32) { 4 }, contest.drawSeed)
+    assertEquals(listOf(1_700_090_000L, 1L), listOf(contest.drawRequestedAtSeconds, contest.drawAttempts.toLong()))
+    assertContentEquals(ByteArray(32) { 5 }, contest.randomness)
+    assertEquals(true, contest.drawn)
+    assertEquals("Night Sky", contest.title)
+    assertEquals(254, contest.bump)
+  }
+
+  @Test
+  fun entryLayoutMatchesTheIdl() {
+    val sample =
+      mapOf(
+        "contest" to a,
+        "sgt_mint" to b,
+        "round" to 2,
+        "index" to 41L,
+        "payer" to c,
+        "owner" to a,
         "state" to 1,
+        "budget" to 300_000_000uL,
         "roster_root" to ByteArray(32) { 11 },
         "roster_size" to 4,
-        "helper_share" to 75_000_000uL,
+        "guest_share" to 42_857_142uL,
+        "owner_paid" to 128_571_432uL,
         "claimed" to 0b101uL,
         "result" to ByteArray(32) { 12 },
         "unlocked_at" to 1_750_000_000L,
+        "closes_at" to 1_760_000_000L,
         "bump" to 253,
       )
-    assertEquals(fields.map { it.first }.toSet(), sample.keys)
-
-    val out = BorshWriter().bytes(named("accounts", "Opportunity").discriminator())
-    var offset = 8
-    val offsets = mutableMapOf<String, Int>()
-    for ((field, type) in fields) {
-      offsets[field] = offset
-      val before = out.toByteArray().size
-      encode(type, sample.getValue(field), out)
-      offset += out.toByteArray().size - before
-    }
-    assertEquals(VaultOpportunity.SEEKER_OFFSET, offsets["seeker"])
-    assertEquals(VaultOpportunity.STATE_OFFSET, offsets["state"])
-    assertEquals(VaultOpportunity.SIZE, offset)
-
-    val o = VaultOpportunity.decode(c, out.toByteArray())
-    assertContentEquals(id, o.id)
-    assertEquals(listOf(a, b, c, a, b), listOf(o.sponsor, o.seeker, o.sgt, o.mint, o.vault))
-    assertEquals(600_000_000uL, o.amount)
-    assertEquals(listOf(5, 4_000, 4, 3), listOf(o.players, o.ownerBps, o.challenge, o.difficulty))
-    assertEquals("Night Sky", o.title)
-    assertEquals(
-      listOf(1_700_000_000L, 1_800_000_000L, 1_750_000_000L),
-      listOf(o.createdAtSeconds, o.expiresAtSeconds, o.unlockedAtSeconds),
-    )
-    assertEquals(VaultState.UNLOCKED, o.state)
-    assertContentEquals(ByteArray(32) { 11 }, o.rosterRoot)
-    assertEquals(4, o.rosterSize)
-    assertEquals(75_000_000uL, o.helperShare)
-    assertEquals(listOf(true, false, true), (0..2).map(o::hasClaimed))
-    assertContentEquals(ByteArray(32) { 12 }, o.result)
-    assertEquals(253, o.bump)
+    val data = layout("Entry", sample)
+    assertContentEquals(b.bytes, data.copyOfRange(VaultEntry.SGT_OFFSET, VaultEntry.SGT_OFFSET + 32))
+    val entry = VaultEntry.decode(c, data)
+    assertEquals(listOf(a, b, c, a), listOf(entry.contest, entry.sgt, entry.payer, entry.owner))
+    assertEquals(listOf(2L, 41L, 4L), listOf(entry.round.toLong(), entry.index, entry.rosterSize.toLong()))
+    assertEquals(EntryState.UNLOCKED, entry.state)
+    assertEquals(listOf(300_000_000uL, 42_857_142uL, 128_571_432uL), listOf(entry.budget, entry.guestShare, entry.ownerPaid))
+    assertEquals(listOf(true, false, true), (0..2).map(entry::hasClaimed))
+    assertContentEquals(ByteArray(32) { 11 }, entry.rosterRoot)
+    assertContentEquals(ByteArray(32) { 12 }, entry.result)
+    assertEquals(listOf(1_750_000_000L, 1_760_000_000L), listOf(entry.unlockedAtSeconds, entry.closesAtSeconds))
+    assertEquals(253, entry.bump)
   }
 
   @Test
   fun configLayoutMatchesTheIdl() {
-    val out = BorshWriter().bytes(named("accounts", "Config").discriminator())
-    val sample = mapOf("admin" to a, "mint" to b, "sgt_group" to c, "bump" to 7)
-    fields("Config").forEach { (field, type) -> encode(type, sample.getValue(field), out) }
-    assertEquals(VaultConfig(a, b, c, 7), VaultConfig.decode(out.toByteArray()))
+    val sample = mapOf("admin" to a, "mint" to b, "sgt_group" to c, "vrf_program" to a, "settings" to settings, "bump" to 7)
+    val config = VaultConfig.decode(layout("Config", sample))
+    assertEquals(listOf(a, b, c, a), listOf(config.admin, config.mint, config.sgtGroup, config.vrfProgram))
+    assertEquals(3, config.settings.ownerWeight)
+    assertEquals(7, config.bump)
   }
 
   @Test
   fun errorsMatchTheIdl() {
     val expected =
       idl.getValue("errors").jsonArray.map {
-        it.jsonObject.getValue("code").jsonPrimitive.int to
-          it.jsonObject.getValue("name").jsonPrimitive.content
+        it.jsonObject.getValue("code").jsonPrimitive.int to it.jsonObject.getValue("name").jsonPrimitive.content
       }
     val actual =
       VaultError.entries.map {
-        it.code to
-          it.name.split('_').joinToString("") { part ->
-            part.lowercase().replaceFirstChar(Char::uppercase)
-          }
+        it.code to it.name.split('_').joinToString("") { part -> part.lowercase().replaceFirstChar(Char::uppercase) }
       }
     assertEquals(expected, actual)
   }
 
-  private fun fields(type: String): List<Pair<String, JsonElement>> =
-    named("types", type).getValue("type").jsonObject.getValue("fields").jsonArray.map {
+  private fun layout(account: String, sample: Map<String, Any>): ByteArray {
+    val out = BorshWriter().bytes(named("accounts", account).discriminator())
+    encodeStruct(account, sample, out)
+    return out.toByteArray()
+  }
+
+  private fun encodeStruct(type: String, value: Map<*, *>, out: BorshWriter) {
+    val fields = named("types", type).getValue("type").jsonObject.getValue("fields").jsonArray.map {
       it.jsonObject.getValue("name").jsonPrimitive.content to it.jsonObject.getValue("type")
     }
+    assertEquals(fields.map { it.first }.toSet(), value.keys, type)
+    fields.forEach { (field, fieldType) -> encode(fieldType, value[field]!!, out) }
+  }
 
   private fun encode(type: JsonElement, value: Any, out: BorshWriter) {
     if (type is JsonPrimitive) {
       when (val t = type.content) {
         "u8" -> out.u8(value as Int)
         "u16" -> out.u16(value as Int)
+        "u32" -> out.u32((value as Long).toInt())
         "u64" -> out.u64(value as ULong)
         "i64" -> out.i64(value as Long)
+        "bool" -> out.u8(if (value as Boolean) 1 else 0)
         "pubkey" -> out.key(value as SolanaPublicKey)
         else -> error("Unhandled IDL type $t")
       }
@@ -243,11 +274,10 @@ class IdlContractTest {
       }
       "defined" in o -> {
         val name = o.getValue("defined").jsonObject.getValue("name").jsonPrimitive.content
-        check(
-          named("types", name).getValue("type").jsonObject.getValue("kind").jsonPrimitive.content ==
-            "enum"
-        )
-        out.u8(value as Int)
+        when (named("types", name).getValue("type").jsonObject.getValue("kind").jsonPrimitive.content) {
+          "struct" -> encodeStruct(name, value as Map<*, *>, out)
+          else -> out.u8(value as Int)
+        }
       }
       else -> error("Unhandled IDL type $o")
     }

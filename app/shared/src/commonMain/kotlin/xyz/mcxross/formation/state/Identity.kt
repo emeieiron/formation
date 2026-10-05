@@ -7,6 +7,7 @@ import kotlinx.serialization.Serializable
 import xyz.mcxross.formation.crypto.Base58
 import xyz.mcxross.formation.crypto.Ed25519KeyPair
 import xyz.mcxross.formation.crypto.secureRandomBytes
+import xyz.mcxross.formation.crypto.toHex
 import xyz.mcxross.formation.platform.PlatformServices
 import xyz.mcxross.formation.session.FormationJson
 import xyz.mcxross.formation.session.PlayerIdentity
@@ -66,4 +67,9 @@ fun newUuid(): String {
   b[6] = (b[6].toInt() and 0x0f or 0x40).toByte()
   b[8] = (b[8].toInt() and 0x3f or 0x80).toByte()
   return uuidOf(b)
+}
+
+private fun uuidOf(bytes: ByteArray): String {
+  val hex = bytes.toHex()
+  return "${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}"
 }

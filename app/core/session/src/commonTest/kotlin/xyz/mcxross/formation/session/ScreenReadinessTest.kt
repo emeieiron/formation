@@ -13,19 +13,15 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import xyz.mcxross.formation.crypto.Ed25519KeyPair
 import xyz.mcxross.formation.link.memoryLink
+import xyz.mcxross.formation.model.Budget
 import xyz.mcxross.formation.model.ChallengeId
-import xyz.mcxross.formation.model.Difficulty
 import xyz.mcxross.formation.model.Opportunity
 import xyz.mcxross.formation.model.OpportunityId
 import xyz.mcxross.formation.model.Skr
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ScreenReadinessTest {
-  private val opportunity = Opportunity(
-    id = OpportunityId("0f8fad5b-d9cb-469f-a165-70867728950e"), challenge = ChallengeId("tap"),
-    reward = Skr.of(600), players = 2, ownerBps = 5_000, difficulty = Difficulty.NORMAL,
-    expiresAt = Long.MAX_VALUE, sponsor = "Test",
-  )
+  private val opportunity = Opportunity(Budget(OpportunityId("entry"), "contest", "sgt", Skr.of(600), 3, 31, Long.MAX_VALUE, "Test"), ChallengeId("tap"), players = 2)
   private val phone = ScreenProfile(70.0, 150.0, 16.5, ScreenInsets(1.5, 3.0, 1.5, 2.0))
   private val tiny = ScreenProfile(40.0, 70.0, 12.0)
 

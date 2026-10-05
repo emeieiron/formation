@@ -9,10 +9,9 @@ import xyz.mcxross.formation.crypto.toHex
 import xyz.mcxross.formation.model.Opportunity
 import xyz.mcxross.formation.model.OpportunityId
 import xyz.mcxross.formation.model.PlayerId
-import xyz.mcxross.formation.model.RewardSplit
 
 object Sealing {
-  private val DOMAIN = "formation/seal/v1".encodeToByteArray()
+  private val DOMAIN = "formation/seal/v2".encodeToByteArray()
 
   // Helpers are everyone but the Seeker, in join order; that order is their roster index.
   fun seal(
@@ -22,7 +21,7 @@ object Sealing {
     result: RoundResult,
   ): Seal {
     val helpers = players.filterNot { it.seeker }
-    val split = RewardSplit.of(opportunity.reward, opportunity.ownerBps, helpers.size)
+    val split = opportunity.split(helpers.size)
     val roster = helpers.mapIndexed { i, p -> Share(p.id, p.claimKey, i, split.helper, p.wallet) }
     val tree = RosterTree(roster.map(::entry))
     val message = message(opportunity.id, session, tree.root, roster.size, resultHash(result))
@@ -43,7 +42,7 @@ object Sealing {
     result: ByteArray,
   ): ByteArray =
     DOMAIN +
-      opportunity.bytes() +
+      Sha256.digest(opportunity.value.encodeToByteArray()) +
       Sha256.digest(session.encodeToByteArray()) +
       root +
       byteArrayOf(size.toByte()) +

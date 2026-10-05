@@ -5,8 +5,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 import xyz.mcxross.formation.crypto.Base64
+import xyz.mcxross.formation.model.Budget
 import xyz.mcxross.formation.model.ChallengeId
-import xyz.mcxross.formation.model.Difficulty
 import xyz.mcxross.formation.model.Opportunity
 import xyz.mcxross.formation.model.OpportunityId
 import xyz.mcxross.formation.model.Skr
@@ -24,16 +24,16 @@ class SimulatedLedgerTest {
     val seeker = SeekerIdentity("host", null, true)
     val empty = SimulatedLedger(store)
     empty.refresh(seeker)
-    assertTrue(empty.opportunities.value.isEmpty())
+    assertTrue(empty.budgets.value.isEmpty())
     values.clear()
-    val reward = Opportunity(OpportunityId("0f8fad5b-d9cb-469f-a165-70867728950e"), ChallengeId("fixture"),
-      Skr.of(120), 2, 5_000, Difficulty.EASY, Long.MAX_VALUE, "Test")
-    val fixtures = listOf(reward)
+    val budget = Budget(OpportunityId("So11111111111111111111111111111111111111112"), "11111111111111111111111111111111", "sgt", Skr.of(120), 3, 31, Long.MAX_VALUE, "Test")
+    val reward = Opportunity(budget, ChallengeId("fixture"), 2)
+    val fixtures = listOf(budget)
     val ledger = SimulatedLedger(store, fixtures)
-    assertEquals(fixtures, ledger.opportunities.value)
+    assertEquals(fixtures, ledger.budgets.value)
     ledger.unlock(seeker, reward, Seal(emptyList(), Skr.of(60), "", Base64.encode(byteArrayOf(1)), emptyList())).getOrThrow()
     val reopened = SimulatedLedger(store, fixtures)
     reopened.refresh(seeker)
-    assertTrue(reopened.opportunities.value.isEmpty())
+    assertTrue(reopened.budgets.value.isEmpty())
   }
 }

@@ -9,11 +9,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.update
-import xyz.mcxross.formation.crypto.Base58
 import xyz.mcxross.formation.crypto.Ed25519KeyPair
 import xyz.mcxross.formation.crypto.hexToBytes
-import xyz.mcxross.formation.crypto.toHex
-import xyz.mcxross.formation.model.Difficulty
+import xyz.mcxross.formation.model.Budget
 import xyz.mcxross.formation.model.Opportunity
 import xyz.mcxross.formation.model.OpportunityId
 import xyz.mcxross.formation.model.Skr
@@ -25,9 +23,12 @@ import xyz.mcxross.formation.session.Sealing
 import xyz.mcxross.formation.solana.FormationVault
 import xyz.mcxross.formation.solana.RpcException
 import xyz.mcxross.formation.solana.SolanaRpc
+import xyz.mcxross.formation.solana.ContestMode
+import xyz.mcxross.formation.solana.EntryState
+import xyz.mcxross.formation.solana.SgtFinder
 import xyz.mcxross.formation.solana.VaultConfig
-import xyz.mcxross.formation.solana.VaultOpportunity
-import xyz.mcxross.formation.solana.VaultState
+import xyz.mcxross.formation.solana.VaultContest
+import xyz.mcxross.formation.solana.VaultEntry
 import xyz.mcxross.formation.solana.explorerUrl
 import xyz.mcxross.formation.solana.signedBy
 import xyz.mcxross.formation.solana.transaction
@@ -44,8 +45,11 @@ class SolanaLedger(
 ) : RewardLedger {
   override val mode = LedgerMode.SOLANA
 
-  private val _opportunities = MutableStateFlow<List<Opportunity>>(emptyList())
-  override val opportunities: StateFlow<List<Opportunity>> = _opportunities.asStateFlow()
+  private val _budgets = MutableStateFlow<List<Budget>>(emptyList())
+  override val budgets: StateFlow<List<Budget>> = _budgets.asStateFlow()
+
+  private val _draws = MutableStateFlow<List<OpenDraw>>(emptyList())
+  override val draws: StateFlow<List<OpenDraw>> = _draws.asStateFlow()
 
   private val _problem = MutableStateFlow<String?>(null)
   override val problem: StateFlow<String?> = _problem.asStateFlow()
@@ -60,29 +64,79 @@ class SolanaLedger(
 
   override suspend fun refresh(seeker: SeekerIdentity) {
     runCatching {
-      val filters =
-        listOf(
-          SolanaRpc.Filter.DataSize(VaultOpportunity.SIZE),
-          SolanaRpc.Filter.Memcmp(VaultOpportunity.SEEKER_OFFSET, Base58.decode(seeker.wallet)),
-          SolanaRpc.Filter.Memcmp(
-            VaultOpportunity.STATE_OFFSET,
-            byteArrayOf(VaultState.OPEN.ordinal.toByte()),
-          ),
-        )
-      val now = now()
-      rpc
-        .programAccounts(vault.programId, filters)
-        .map { (address, data) -> VaultOpportunity.decode(address, data) }
-        .filter { it.expiresAtSeconds * 1_000 > now }
-        .mapNotNull { it.toOpportunity() }
-        .sortedBy { it.expiresAt }
+      val sgt = seeker.sgt?.let(SolanaPublicKey::from) ?: return@runCatching emptyList<Budget>() to emptyList()
+      val config = config()
+      val contests =
+        rpc.programAccounts(vault.programId, listOf(SolanaRpc.Filter.Memcmp(0, VaultContest.DISCRIMINATOR)))
+          .map { (address, data) -> VaultContest.decode(address, data) }
+          .filter { it.mint == config.mint && it.sgtGroup == config.sgtGroup }
+      val entries =
+        rpc.programAccounts(
+            vault.programId,
+            listOf(SolanaRpc.Filter.Memcmp(0, VaultEntry.DISCRIMINATOR), SolanaRpc.Filter.Memcmp(VaultEntry.SGT_OFFSET, sgt.bytes)),
+          )
+          .map { (address, data) -> VaultEntry.decode(address, data) }
+          .groupBy { it.contest }
+      val now = (rpc.chainTimeMillis() ?: now()) / 1_000
+      val budgets = contests.mapNotNull { budgetFor(it, sgt, entries[it.address].orEmpty(), now) }
+      val draws = contests.mapNotNull { c ->
+        val entered = entries[c.address].orEmpty().isNotEmpty()
+        OpenDraw(c.address.base58(), Skr(c.pool.toLong()), c.drawBps, c.enterUntilSeconds * 1_000, shortKey(c.sponsor), c.title, entered)
+          .takeIf { c.mode == ContestMode.DRAW && now < c.enterUntilSeconds }
+      }
+      budgets.sortedBy { it.playUntil } to draws.sortedBy { it.enterUntil }
     }
-      .onSuccess {
-        _opportunities.value = it
+      .onSuccess { (budgets, draws) ->
+        _budgets.value = budgets
+        _draws.value = draws
         _problem.value = null
       }
       .onFailure { _problem.value = "Couldn't reach Solana: ${describe(it)}" }
   }
+
+  // The next budget [sgt] can take from [contest], given the entries it already has there.
+  private suspend fun budgetFor(contest: VaultContest, sgt: SolanaPublicKey, entries: List<VaultEntry>, nowSeconds: Long): Budget? {
+    if (!contest.inPlay(nowSeconds) || (contest.only != null && contest.only != sgt)) return null
+    val (address, round, drawn) = when (contest.mode) {
+      ContestMode.FIRST_COME -> {
+        if (contest.unallocated < contest.budget) return null
+        val round = (0 until contest.winsPerSgt).firstOrNull { r -> entries.none { it.round == r } } ?: return null
+        Triple(vault.entry(contest.address, sgt, round), round, false)
+      }
+      ContestMode.DRAW -> {
+        val entry = entries.firstOrNull { it.state == EntryState.REGISTERED && contest.selects(it.index) } ?: return null
+        Triple(entry.address, 0, true)
+      }
+    }
+    return Budget(
+      id = OpportunityId(address.base58()),
+      contest = contest.address.base58(),
+      sgt = sgt.base58(),
+      amount = Skr(contest.budget.toLong()),
+      ownerWeight = contest.settings.ownerWeight,
+      maxGuests = contest.maxGuests,
+      playUntil = contest.playUntilSeconds * 1_000,
+      sponsor = shortKey(contest.sponsor),
+      title = contest.title,
+      round = round,
+      drawn = drawn,
+    )
+  }
+
+  override suspend fun enter(seeker: SeekerIdentity, draw: OpenDraw): Result<String> = attempt { settlementLock.withLock {
+    val operation = "register:${draw.contest}"
+    submissions.resumePending()
+    journal.latest(operation)?.takeIf { it.state == SubmissionState.PENDING || it.state == SubmissionState.CONFIRMED }?.let {
+      return@attempt submissions.execute(it)
+    }
+    val holder = holder(seeker)
+    val blockhash = rpc.latestBlockhashInfo()
+    val tx = transaction(holder.wallet, blockhash.value, vault.register(holder, SolanaPublicKey.from(draw.contest)))
+    val signed = if (seeker.simulated) tx.signedBy(claimKey()).serialize() else walletSign(listOf(tx)).single()
+    val signature = submissions.execute(journal.prepare(operation, signed, blockhash.lastValidBlockHeight))
+    _draws.update { list -> list.map { if (it.contest == draw.contest) it.copy(entered = true) else it } }
+    signature
+  } }
 
   override suspend fun unlock(
     seeker: SeekerIdentity,
@@ -95,26 +149,31 @@ class SolanaLedger(
     for (saved in journal.pending().filter { it.operation == "unlock:$prefix" || it.operation.startsWith("payout:$prefix:") }) {
       submissions.execute(saved)
     }
-    val id = opportunity.id.bytes()
-    val address = vault.opportunity(id)
-    val onChain = rpc.account(address)?.let { VaultOpportunity.decode(address, it.data) }
-      ?: error("This reward is no longer available")
-    val payer = SolanaPublicKey.from(seeker.wallet)
-    check(onChain.seeker == payer) { "This reward belongs to another Seeker" }
-    val open = onChain.state == VaultState.OPEN
+    val budget = opportunity.budget
+    val contest = SolanaPublicKey.from(budget.contest)
+    val entryAddress = SolanaPublicKey.from(opportunity.id.value)
+    val onChain = rpc.account(entryAddress)?.let { VaultEntry.decode(entryAddress, it.data) }
+    val open = onChain == null || onChain.state == EntryState.REGISTERED
     if (!open) {
-      check(onChain.rosterRoot.contentEquals(seal.root.hexToBytes()) &&
+      check(onChain!!.rosterRoot.contentEquals(seal.root.hexToBytes()) &&
         onChain.rosterSize == seal.roster.size && onChain.result.contentEquals(Sealing.resultOf(seal))) {
         "The chain roster differs from the saved win"
       }
     }
+    val payer = SolanaPublicKey.from(seeker.wallet)
     val mint = config().mint
-    val unlock = if (open) vault.unlock(payer, mint, id, seal.root.hexToBytes(), seal.roster.size, Sealing.resultOf(seal)) else null
+    val unlock = if (!open) null else {
+      val holder = holder(seeker)
+      check(holder.sgt.base58() == budget.sgt) { "This reward belongs to another Seeker" }
+      val root = seal.root.hexToBytes()
+      if (budget.drawn) vault.unlockDrawn(holder, contest, mint, root, seal.roster.size, Sealing.resultOf(seal))
+      else vault.unlock(holder, contest, mint, budget.round, root, seal.roster.size, Sealing.resultOf(seal))
+    }
     val bound = seal.roster.filter { it.wallet != null }
-    val paid = bound.filter { !open && onChain.hasClaimed(it.index) }.map { it.player }.toMutableList()
+    val paid = bound.filter { !open && onChain!!.hasClaimed(it.index) }.map { it.player }.toMutableList()
     val payouts = bound.filter { it.player !in paid }.map { share ->
       share to vault.claim(payer, SolanaPublicKey.from(share.claimKey), SolanaPublicKey.from(share.wallet!!),
-        mint, id, share.index, Sealing.proof(seal, share.player).orEmpty(), claimerSigns = false)
+        contest, entryAddress, mint, share.index, Sealing.proof(seal, share.player).orEmpty(), claimerSigns = false)
     }
     val blockhash = rpc.latestBlockhashInfo()
     val batches = packTransactions(payer, blockhash.value, unlock, payouts)
@@ -132,7 +191,7 @@ class SolanaLedger(
       if (batch.unlock) signature = result.getOrThrow()
       if (result.isSuccess) paid += batch.shares.map { it.player }
     }
-    _opportunities.update { list -> list.filterNot { it.id == opportunity.id } }
+    _budgets.update { list -> list.filterNot { it.id == opportunity.id } }
     UnlockReceipt(signature, signature.takeIf { it.isNotEmpty() }?.let { explorerUrl(it, cluster) }, paid, paid.containsAll(bound.map { it.player }))
   } }
 
@@ -147,10 +206,7 @@ class SolanaLedger(
       book.claimed(ticket, ticket.wallet ?: it.recipient ?: recipient, signature)
       return@attempt signature
     }
-    val current = rpc.account(vault.opportunity(ticket.opportunity.bytes()))?.let {
-      ClaimChainState.from(VaultOpportunity.decode(vault.opportunity(ticket.opportunity.bytes()), it.data), ticket.index)
-    }
-    val reconciled = reconcileClaim(ticket, current, rpc.chainTimeMillis())
+    val reconciled = reconcileClaim(ticket, chainState(ticket), rpc.chainTimeMillis())
     book.update(reconciled)
     check(!reconciled.claimed && !reconciled.lapsed && reconciled.unlocked) { "This reward is no longer claimable" }
     val key = claimKey()
@@ -158,8 +214,8 @@ class SolanaLedger(
     val payer = SolanaPublicKey.from(recipient)
     val to = ticket.wallet?.let(SolanaPublicKey::from) ?: payer
     val blockhash = rpc.latestBlockhashInfo()
-    val ix = vault.claim(payer, claimer, to, config().mint, ticket.opportunity.bytes(), ticket.index,
-      ticket.proof.map { it.hexToBytes() }, claimerSigns = ticket.wallet == null)
+    val ix = vault.claim(payer, claimer, to, SolanaPublicKey.from(ticket.contest), SolanaPublicKey.from(ticket.opportunity.value),
+      config().mint, ticket.index, ticket.proof.map { it.hexToBytes() }, claimerSigns = ticket.wallet == null)
     val tx = transaction(payer, blockhash.value, ix).let { if (ticket.wallet == null) it.signedBy(key) else it }
     val signed = if (payer == claimer) tx.serialize() else walletSign(listOf(tx)).single()
     val signature = submissions.execute(journal.prepare(operation, signed, blockhash.lastValidBlockHeight, to.base58()))
@@ -168,27 +224,48 @@ class SolanaLedger(
   } }
 
   override suspend fun rewardProblem(opportunity: Opportunity, wallet: String): String? {
-    val address = vault.opportunity(opportunity.id.bytes())
-    val account = try {
-      rpc.account(address)
+    val budget = opportunity.budget
+    val contestAddress = SolanaPublicKey.from(budget.contest)
+    val sgt = SolanaPublicKey.from(budget.sgt)
+    val (contestAccount, entryAccount) = try {
+      rpc.multipleAccounts(listOf(contestAddress, SolanaPublicKey.from(opportunity.id.value)))
     } catch (e: CancellationException) {
       throw e
     } catch (_: Exception) {
       return null
-    } ?: return "This Formation's reward isn't on chain."
-    val onChain = VaultOpportunity.decode(address, account.data)
+    }
+    contestAccount ?: return "This Formation's reward isn't on chain."
+    val contest = VaultContest.decode(contestAddress, contestAccount.data)
+    val entry = entryAccount?.let { VaultEntry.decode(SolanaPublicKey.from(opportunity.id.value), it.data) }
+    val shown = Budget(opportunity.id, budget.contest, budget.sgt, Skr(contest.budget.toLong()), contest.settings.ownerWeight,
+      contest.maxGuests, contest.playUntilSeconds * 1_000, budget.sponsor, contest.title, budget.round, contest.mode == ContestMode.DRAW)
+    val holder = try {
+      SgtFinder(rpc, contest.sgtGroup).find(SolanaPublicKey.from(wallet))
+    } catch (e: CancellationException) {
+      throw e
+    } catch (_: Exception) {
+      return null
+    }
     return when {
-      onChain.seeker.base58() != wallet -> "This Formation's reward belongs to another Seeker."
-      onChain.state != VaultState.OPEN -> "This Formation's reward has already been unlocked or closed."
-      onChain.toOpportunity() != opportunity -> "This Formation's reward doesn't match what the host shows."
+      shown != budget || vault.entry(contestAddress, sgt, budget.round) != SolanaPublicKey.from(opportunity.id.value) ->
+        "This Formation's reward doesn't match what the host shows."
+      holder?.mint != sgt || (contest.only != null && contest.only != sgt) -> "This Formation's reward belongs to another Seeker."
+      !contest.inPlay(now() / 1_000) -> "This Formation's reward has ended."
+      budget.drawn && (entry == null || !contest.selects(entry.index)) -> "This Seeker wasn't drawn for this reward."
+      entry != null && entry.state == EntryState.UNLOCKED || !budget.drawn && entry != null ->
+        "This Formation's reward has already been unlocked."
+      !budget.drawn && (contest.unallocated < contest.budget || budget.round >= contest.winsPerSgt) ->
+        "Every budget in this contest has been taken."
       else -> null
     }
   }
 
   override suspend fun stillLocked(opportunity: Opportunity): Boolean? = runCatching {
-    val address = vault.opportunity(opportunity.id.bytes())
-    rpc.account(address)?.let { VaultOpportunity.decode(address, it.data).state == VaultState.OPEN }
-      ?: false
+    val (contest, entry) = rpc.multipleAccounts(listOf(SolanaPublicKey.from(opportunity.budget.contest), SolanaPublicKey.from(opportunity.id.value)))
+    when {
+      entry != null -> VaultEntry.decode(SolanaPublicKey.from(opportunity.id.value), entry.data).state == EntryState.REGISTERED
+      else -> contest != null && VaultContest.decode(SolanaPublicKey.from(opportunity.budget.contest), contest.data).inPlay(now() / 1_000)
+    }
   }
     .getOrNull()
 
@@ -198,8 +275,7 @@ class SolanaLedger(
     try {
       val observedTime = rpc.chainTimeMillis()
       for (ticket in tickets.value.filter { !it.claimed && it.index >= 0 }) {
-        val address = vault.opportunity(ticket.opportunity.bytes())
-        val chain = rpc.account(address)?.let { ClaimChainState.from(VaultOpportunity.decode(address, it.data), ticket.index) }
+        val chain = chainState(ticket)
         val submission = journal.latest("claim:${ticket.opportunity.value}:${ticket.index}")
         val reconciled = if (submission?.state == SubmissionState.CONFIRMED)
           ticket.copy(unlocked = true, lapsed = false, claimedTo = ticket.wallet ?: submission.recipient ?: "another wallet", claimReceipt = submission.signature)
@@ -211,6 +287,25 @@ class SolanaLedger(
       _problem.value = null
     } catch (e: CancellationException) { throw e }
       catch (e: Exception) { _problem.value = "Could not update reward status: ${describe(e)}" }
+  }
+
+  // An entry exists once its budget is unlocked or entered in a draw; until then its contest says how long it can be.
+  private suspend fun chainState(ticket: ClaimTicket): ClaimChainState? {
+    val entryAddress = SolanaPublicKey.from(ticket.opportunity.value)
+    val contestAddress = SolanaPublicKey.from(ticket.contest)
+    val (entry, contest) = rpc.multipleAccounts(listOf(entryAddress, contestAddress))
+    val playUntil = contest?.let { VaultContest.decode(contestAddress, it.data).playUntilSeconds * 1_000 }
+    return when {
+      entry != null -> ClaimChainState.from(VaultEntry.decode(entryAddress, entry.data), ticket.index, playUntil)
+      playUntil != null -> ClaimChainState.pending(playUntil)
+      else -> null
+    }
+  }
+
+  private suspend fun holder(seeker: SeekerIdentity): FormationVault.Holder {
+    val wallet = SolanaPublicKey.from(seeker.wallet)
+    val found = SgtFinder(rpc, config().sgtGroup).find(wallet) ?: error("This wallet no longer holds a Seeker Genesis Token")
+    return FormationVault.Holder(wallet, found.mint, found.account)
   }
 
   private suspend fun config(): VaultConfig =
@@ -236,23 +331,5 @@ class SolanaLedger(
   private fun describe(e: Throwable): String =
     (e as? RpcException)?.describe() ?: e.message ?: "Solana request failed"
 
-  private fun VaultOpportunity.toOpportunity(): Opportunity? {
-    val format = ChallengeCatalog.byCode(challenge) ?: return null
-    return Opportunity(
-      id = OpportunityId(uuidOf(id)),
-      challenge = format.id,
-      reward = Skr(amount.toLong()),
-      players = players,
-      ownerBps = ownerBps,
-      difficulty = Difficulty.entries.getOrElse(difficulty) { Difficulty.NORMAL },
-      expiresAt = expiresAtSeconds * 1_000,
-      sponsor = sponsor.base58().let { "${it.take(4)}…${it.takeLast(4)}" },
-      title = title,
-    )
-  }
-}
-
-internal fun uuidOf(bytes: ByteArray): String {
-  val hex = bytes.toHex()
-  return "${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}"
+  private fun shortKey(key: SolanaPublicKey) = key.base58().let { "${it.take(4)}…${it.takeLast(4)}" }
 }

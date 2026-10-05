@@ -708,6 +708,10 @@ fn the_draw_selects_exactly_k_of_n() {
             }
         }
     }
+    // The app's SelectionTest pins the same values.
+    assert_eq!((0..10).map(|i| permute(&[5; 32], 10, i)).collect::<Vec<_>>(), [5, 7, 9, 0, 6, 2, 1, 3, 8, 4]);
+    let seed: [u8; 32] = std::array::from_fn(|i| i as u8);
+    assert_eq!([0, 1, 2, 50, 99].map(|i| permute(&seed, 100, i)), [80, 34, 24, 3, 2]);
     let picks = |seed: [u8; 32]| (0..100u32).filter(|&i| permute(&seed, 100, i) < 10).collect::<Vec<_>>();
     assert_ne!(picks([1; 32]), picks([2; 32]), "the seed decides who wins");
 }

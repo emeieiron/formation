@@ -10,7 +10,7 @@ import xyz.mcxross.formation.model.PlayerId
 import xyz.mcxross.formation.model.Skr
 
 // Bump whenever phones and Seekers on different versions could misunderstand each other.
-const val PROTOCOL_VERSION = 6
+const val PROTOCOL_VERSION = 7
 
 val FormationJson = Json {
   ignoreUnknownKeys = true

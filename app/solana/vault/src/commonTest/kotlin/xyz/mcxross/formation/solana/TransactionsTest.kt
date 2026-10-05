@@ -20,7 +20,7 @@ class TransactionsTest {
     val wallet = SolanaPublicKey(ByteArray(32) { 1 })
     val mint = SolanaPublicKey(ByteArray(32) { 2 })
     val claimer = SolanaPublicKey(claimKey.publicKey)
-    val ix = FormationVault().claim(wallet, claimer, wallet, mint, ByteArray(16), 0, emptyList())
+    val ix = FormationVault().claim(wallet, claimer, wallet, mint, mint, mint, 0, emptyList())
 
     val signed = transaction(wallet, blockhash, ix).signedBy(claimKey)
     assertEquals(listOf(wallet, claimer), signed.message.accounts.take(2))

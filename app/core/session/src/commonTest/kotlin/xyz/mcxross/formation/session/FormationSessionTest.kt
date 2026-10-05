@@ -24,8 +24,8 @@ import xyz.mcxross.formation.crypto.RosterTree
 import xyz.mcxross.formation.crypto.hexToBytes
 import xyz.mcxross.formation.link.LinkChannel
 import xyz.mcxross.formation.link.memoryLink
+import xyz.mcxross.formation.model.Budget
 import xyz.mcxross.formation.model.ChallengeId
-import xyz.mcxross.formation.model.Difficulty
 import xyz.mcxross.formation.model.Opportunity
 import xyz.mcxross.formation.model.OpportunityId
 import xyz.mcxross.formation.model.Skr
@@ -33,16 +33,7 @@ import xyz.mcxross.formation.model.Skr
 @OptIn(ExperimentalCoroutinesApi::class)
 class FormationSessionTest {
   private val opportunity =
-    Opportunity(
-      id = OpportunityId("0f8fad5b-d9cb-469f-a165-70867728950e"),
-      challenge = ChallengeId("tap"),
-      reward = Skr.of(600),
-      players = 3,
-      ownerBps = 5_000,
-      difficulty = Difficulty.NORMAL,
-      expiresAt = Long.MAX_VALUE,
-      sponsor = "Test",
-    )
+    Opportunity(Budget(OpportunityId("entry"), "contest", "sgt", Skr.of(600), 3, 31, Long.MAX_VALUE, "Test"), ChallengeId("tap"), players = 3)
 
   private inner class Formation(val test: TestScope, rules: ChallengeRules<TapChallenge.State, TapChallenge.Tap> = TapChallenge) {
     val clock = Clock { test.testScheduler.currentTime }
@@ -156,8 +147,8 @@ class FormationSessionTest {
     }
 
     val won = assertIs<Stage.Won>(f.stage)
-    assertEquals(Skr.of(300), won.seal.ownerAmount)
-    assertEquals(listOf(Skr.of(150), Skr.of(150)), won.seal.roster.map { it.amount })
+    assertEquals(Skr.of(360), won.seal.ownerAmount)
+    assertEquals(listOf(Skr.of(120), Skr.of(120)), won.seal.roster.map { it.amount })
     assertEquals(listOf(players[1].id, players[2].id), won.seal.roster.map { it.player })
     assertTrue(won.seal.complete, "every phone signs the seal on its own")
 
@@ -395,7 +386,7 @@ class FormationSessionTest {
     assertEquals(1, beacon.joined)
     assertEquals(3, beacon.players)
     assertTrue(beacon.open)
-    assertEquals(Skr.of(150), beacon.helperShare)
+    assertEquals(Skr.of(120), beacon.helperShare)
   }
 
   @Test

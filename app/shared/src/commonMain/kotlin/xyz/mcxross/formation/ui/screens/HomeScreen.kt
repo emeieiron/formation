@@ -93,8 +93,7 @@ import xyz.mcxross.formation.design.tokens.Motion
 import xyz.mcxross.formation.design.tokens.Shapes
 import xyz.mcxross.formation.design.tokens.Space
 import xyz.mcxross.formation.design.tokens.Tone
-import xyz.mcxross.formation.model.Opportunity
-import xyz.mcxross.formation.model.OpportunityState
+import xyz.mcxross.formation.model.Budget
 import xyz.mcxross.formation.model.Skr
 import xyz.mcxross.formation.session.NearbyFormation
 import xyz.mcxross.formation.state.SeekerStatus
@@ -115,13 +114,13 @@ fun HomeScreen(presentation: HomePresentation) {
   val scope = rememberCoroutineScope()
   val profile by graph.identity.profile.collectAsState()
   val seeker by graph.seeker.identity.collectAsState()
-  val rewards by graph.ledger.opportunities.collectAsState()
+  val rewards by graph.ledger.budgets.collectAsState()
+  val draws by graph.ledger.draws.collectAsState()
   val rewardTime by produceState(xyz.mcxross.formation.state.now(), rewards) {
     while (true) {
       val at = xyz.mcxross.formation.state.now()
       value = at
-      val expiry = rewards.filter { it.state == OpportunityState.LOCKED && it.expiresAt > at }
-        .minOfOrNull { it.expiresAt } ?: break
+      val expiry = rewards.filter { it.playUntil > at }.minOfOrNull { it.playUntil } ?: break
       delay((expiry - at).coerceAtLeast(1))
     }
   }
@@ -135,7 +134,7 @@ fun HomeScreen(presentation: HomePresentation) {
   val discovery by graph.nearby.status.collectAsState(xyz.mcxross.formation.link.DiscoveryStatus.Searching)
   val nearby by
     produceState(emptyList<NearbyFormation>(), scanAttempt) { graph.nearby.scan().collect { value = it } }
-  var opened by remember { mutableStateOf<Opportunity?>(null) }
+  var opened by remember { mutableStateOf<Pair<xyz.mcxross.formation.challenge.Challenge<*, *>, Budget>?>(null) }
   var gameActions by remember { mutableStateOf<xyz.mcxross.formation.challenge.Challenge<*, *>?>(null) }
   val rewardUnavailable = stringResource(Res.string.state_reward_unavailable)
   var enteringCode by remember { mutableStateOf(false) }
@@ -319,6 +318,16 @@ fun HomeScreen(presentation: HomePresentation) {
             modifier = Modifier.padding(horizontal = Space.gutter, vertical = Space.s))
         }
         games()
+        if (me != null) items(draws, key = { "draw-" + it.contest }) { draw ->
+          OpenDrawRow(draw, Modifier.padding(horizontal = Space.gutter, vertical = Space.s)) {
+            scope.launch {
+              graph.ledger.enter(me, draw).fold(
+                onSuccess = { toaster.show("Entered the draw", Tone.Positive) },
+                onFailure = { toaster.show(it.message ?: "Couldn't enter the draw", Tone.Negative) },
+              )
+            }
+          }
+        }
         if (me != null) problem?.let {
           item {
             Notice(it, Modifier.padding(horizontal = Space.gutter, vertical = Space.s), tone = Tone.Warning)
@@ -347,20 +356,21 @@ fun HomeScreen(presentation: HomePresentation) {
       rewards = gameRewards[game.id].orEmpty(),
       onDismiss = { gameActions = null },
       onReward = { reward ->
-        val current = ChallengeCatalog.rewardsFor(game.id, graph.ledger.opportunities.value, xyz.mcxross.formation.state.now())
+        val current = ChallengeCatalog.rewardsFor(game.id, graph.ledger.budgets.value, xyz.mcxross.formation.state.now())
           .firstOrNull { it.id == reward.id }
         if (current != null && graph.seeker.identity.value != null) {
           gameActions = null
-          opened = current
+          opened = game to current
         } else toaster.show(rewardUnavailable, Tone.Warning)
       },
     )
   }
-  opened?.let { o ->
+  opened?.let { (game, budget) ->
     OpportunitySheet(
-      o,
+      game,
+      budget,
       onDismiss = { opened = null },
-      onStart = {
+      onStart = { o ->
         scope.launch {
           graph
             .host(o)
