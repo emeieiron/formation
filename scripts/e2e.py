@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-# End-to-end test across two emulators: debug Seeker identity, real testnet settlement by default.
+# End-to-end test across emulators: debug Seeker identity, real testnet settlement by default.
 #
-#   scripts/e2e.py --title GAME_TITLE --code GAME_CODE [--chain simulated|localnet|testnet] [--wallet none|connect|ADDRESS]
-#                  [--seeker SERIAL] [--guest SERIAL] [--no-build] [--approve]
-#                  [--layout uiautomator|android] [--driver autoplay|overdrive|manual]
+#   scripts/e2e.py --title GAME_TITLE --code GAME_CODE [--players N] [--chain simulated|localnet|testnet]
+#                  [--wallet none|connect|ADDRESS] [--seeker SERIAL] [--guest SERIAL ...] [--no-build] [--approve]
+#                  [--layout uiautomator|android] [--driver autoplay|overdrive|mosaic|manual]
 #
-# --wallet connect taps Connect in the guest's lobby and waits for the wallet app's approval; with
-# --approve it taps the wallet's own Connect button too (it never types a password). On chains, the
-# guest's wallet balance is checked before and after. Screens are saved to program/target/e2e.
+# --players sets the group size; the first that many running emulators play unless --seeker and --guest
+# name them. --wallet connect taps Connect in the first guest's lobby and waits for the wallet app's
+# approval; with --approve it taps the wallet's own Connect button too (it never types a password). On
+# chains, that guest's wallet balance is checked before and after. Screens are saved to program/target/e2e.
 import argparse
 import json
 import os
@@ -21,6 +22,7 @@ import xml.etree.ElementTree as ET
 from xml.sax.saxutils import escape, unescape
 from reward_fixtures import SKR, load_rewards
 from overdrive_driver import OverdriveFailed, play_overdrive
+from mosaic_driver import MosaicFailed, play_mosaic
 from android_layout import LayoutUnavailable
 from autoplay_driver import start_autoplay
 from chain_verification import configured_mint, mint_balance, verify_settlement
@@ -34,6 +36,8 @@ TOKEN = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
 RPC = {"localnet": "http://127.0.0.1:8899", "testnet": "https://api.testnet.solana.com"}
 APP_RPC = {"localnet": ("http://10.0.2.2:8899", "localnet"), "testnet": ("https://api.testnet.solana.com", "testnet")}
 WALLET_APPS = ("com.solflare.mobile", "app.phantom")
+PEOPLE = (("Aaron", "Nova"), ("Maya", "Jade"), ("Kofi", "Sky"), ("Lena", "Sol"), ("Ravi", "Lime"), ("Ines", "Bloom"),
+          ("Tomas", "Tide"), ("Yara", "Ember"))
 
 
 class Failed(Exception):
@@ -81,12 +85,26 @@ class Phone:
     def wait(self, text=None, desc=None, prefix=False, timeout=30):
         deadline = time.time() + timeout
         while time.time() < deadline:
-            node = self.find(text, desc, prefix)
+            root = self.nodes()
+            node = self.find(text, desc, prefix, root=root)
             if node is not None:
                 return node
+            self.dismiss_stalls(root)
             time.sleep(0.7)
         self.screenshot(f"missing-{(text or desc)[:24]}")
         raise Failed(f"{self.role}: never showed {text or desc!r}")
+
+    # Busy emulators sometimes report another app as not responding; let it carry on. Android also explains
+    # full screen the first time an app hides the system bars.
+    def dismiss_stalls(self, root):
+        if self.find(".+ isn.t responding", prefix="regex", root=root) is not None:
+            wait = self.find("Wait", root=root)
+            if wait is not None:
+                self.tap(wait)
+        if self.find("Viewing full screen", root=root) is not None:
+            got_it = self.find("Got it", root=root)
+            if got_it is not None:
+                self.tap(got_it)
 
     def tap(self, node):
         x1, y1, x2, y2 = map(int, re.findall(r"\d+", node.get("bounds")))
@@ -135,7 +153,8 @@ class Phone:
             xml = re.sub(rf'\s*<string name="{re.escape(key)}">[^<]*</string>', "", xml)
             if value is not None:
                 xml = xml.replace("</map>", f'    <string name="{key}">{escape(value)}</string>\n</map>')
-        self.adb("shell", f"run-as {APP} sh -c 'cat > shared_prefs/formation.xml'", stdin=xml)
+        # A fresh install has no preferences folder until the app first runs.
+        self.adb("shell", f"run-as {APP} sh -c 'mkdir -p shared_prefs && cat > shared_prefs/formation.xml'", stdin=xml)
 
     def launch(self):
         self.shell(f"am force-stop {APP}")
@@ -184,22 +203,54 @@ def build(chain):
 
 
 def onboard(phone, name, light):
-    if not phone.visible("Get started"):
-        return
+    # The welcome story leads to the profile form, through Get started or Skip; an onboarded phone opens
+    # on Home instead.
+    deadline = time.time() + 40
+    while time.time() < deadline:
+        root = phone.nodes()
+        if at_home(phone, root):
+            return
+        if any(n.get("class") == "android.widget.EditText" for n in root.iter("node")):
+            break
+        phone.dismiss_stalls(root)
+        # Element truthiness counts children, so test for None explicitly.
+        step = phone.find("Get started", root=root)
+        if step is None:
+            step = phone.find("Skip", root=root)
+        if step is not None:
+            phone.tap(step)
+        time.sleep(1)
+    else:
+        raise Failed(f"{phone.role}: never reached the profile form or Home")
     log(f"{phone.role}: onboarding as {name}")
-    phone.tap_text("Get started")
     edit = next(n for n in phone.nodes().iter("node") if n.get("class") == "android.widget.EditText")
     phone.tap(edit)
     if not any(n.get("class") == "android.widget.EditText" and n.get("focused") == "true"
                for n in phone.nodes().iter("node")):
         raise Failed(f"{phone.role}: name field did not receive focus")
     phone.shell(f"input text {name}")
-    phone.tap_text(light)
-    phone.tap_text("Continue")
-    phone.wait("Scan QR", timeout=15)
+    # The keyboard can cover the second row of lights.
+    phone.tap(phone.scroll_to(light))
+    phone.tap(phone.scroll_to("Continue"))
+    # Emulators can't link a Seeker here; the Seeker phone pretends to be one from its developer settings.
+    deadline = time.time() + 20
+    while time.time() < deadline:
+        root = phone.nodes()
+        if at_home(phone, root):
+            return
+        joining = phone.find("I.m joining a Seeker", prefix="regex", root=root)
+        if joining is not None:
+            phone.tap(joining)
+        time.sleep(1)
+    raise Failed(f"{phone.role}: onboarding never reached Home")
 
 
-def host_duo(seeker, title):
+def at_home(phone, root):
+    # A shorter screen can push Scan QR below the fold.
+    return phone.find("Scan QR", root=root) is not None or phone.find("GAMES", root=root) is not None
+
+
+def host_group(seeker, title, players):
     seeker.scroll_to("GAMES")
     position = seeker.wait(desc=r"Game \d+ of \d+", prefix="regex")
     current, total = map(int, re.findall(r"\d+", position.get("content-desc")))
@@ -225,7 +276,7 @@ def host_duo(seeker, title):
         root = seeker.nodes()
         rows = [row for row in root.iter("node")
                 if row.get("clickable") == "true" and any(
-                    " · 2 players" in (node.get("text") or "") for node in row.iter("node")
+                    f" · {players} players" in (node.get("text") or "") for node in row.iter("node")
                 )]
         if rows:
             row = min(rows, key=lambda node: (bounds(node)[2] - bounds(node)[0]) * (bounds(node)[3] - bounds(node)[1]))
@@ -238,7 +289,25 @@ def host_duo(seeker, title):
         left, top, right, bottom = bounds(area)
         seeker.shell(f"input swipe {(left + right) // 2} {top + (bottom - top) * 3 // 4} {(left + right) // 2} {top + (bottom - top) // 4} 400")
         time.sleep(0.3)
-    raise Failed(f"seeker: no funded {title} duo in its preview")
+    raise Failed(f"seeker: no funded {players}-player {title} reward in its preview")
+
+
+def scroll_until(phone, text, timeout=30):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        root = phone.nodes()
+        node = phone.find(text, root=root)
+        if node is not None:
+            return node
+        phone.dismiss_stalls(root)
+        area = next((n for n in root.iter("node") if n.get("scrollable") == "true"), None)
+        if area is not None:
+            left, top, right, bottom = bounds(area)
+            x, height = (left + right) // 2, bottom - top
+            phone.shell(f"input swipe {x} {top + height * 3 // 4} {x} {top + height // 4} 400")
+        time.sleep(1)
+    phone.screenshot(f"missing-{text[:24]}")
+    raise Failed(f"{phone.role}: never showed {text!r}")
 
 
 def bounds(node):
@@ -304,26 +373,35 @@ def main():
     parser.add_argument("--code", type=int, required=True, help="registered game's vault code")
     parser.add_argument("--wallet", default="none")
     parser.add_argument("--seeker")
-    parser.add_argument("--guest")
+    parser.add_argument("--guest", action="append", help="repeat for each guest in a larger group")
+    parser.add_argument("--players", type=int, default=2, help="group size; must match a funded reward")
     parser.add_argument("--no-build", action="store_true")
     parser.add_argument("--approve", action="store_true")
     parser.add_argument("--keep-chain", action="store_true", help="leave the local validator running afterwards")
     parser.add_argument("--offline", action="store_true", help="the Seeker loses its connection at unlock and recovers after a restart")
     parser.add_argument("--layout", choices=["uiautomator", "android"], default="uiautomator")
-    parser.add_argument("--driver", choices=["autoplay", "overdrive", "manual"], default="autoplay")
+    parser.add_argument("--driver", choices=["autoplay", "overdrive", "mosaic", "manual"], default="autoplay")
     args = parser.parse_args()
     args.started_at = int(time.time() * 1000)
     if not args.title.strip() or not 6 <= args.code <= 65535:
         parser.error("Use a nonempty game title and a vault code within 6..65535")
     fixtures = load_rewards()
-    if args.chain in ("simulated", "localnet") and not any(f.code == args.code and f.players == 2 for f in fixtures):
-        parser.error("FORMATION_REWARDS must provide a duo reward for this registered game")
+    if not 2 <= args.players <= 32:
+        parser.error("--players must be within 2..32")
+    if (args.driver == "overdrive" or args.offline) and args.players != 2:
+        parser.error("The Overdrive driver and the offline check need a duo")
+    if args.chain in ("simulated", "localnet") and not any(f.code == args.code and f.players == args.players for f in fixtures):
+        parser.error(f"FORMATION_REWARDS must provide a {args.players}-player reward for this registered game")
 
     running = re.findall(r"^(emulator-\d+)\s+device$", subprocess.run([ADB, "devices"], capture_output=True, text=True).stdout, re.M)
-    if len(running) < 2 and not (args.seeker and args.guest):
-        sys.exit("Start two emulators first")
-    seeker = Phone(args.seeker or running[0], "seeker", args.layout)
-    guest = Phone(args.guest or running[1], "guest", args.layout)
+    serials = [args.seeker, *args.guest] if args.seeker and args.guest else running
+    if len(serials) < args.players:
+        sys.exit(f"Start {args.players} emulators first")
+    seeker = Phone(serials[0], "seeker", args.layout)
+    guests = [Phone(serial, "guest" if args.players == 2 else f"guest{index}", args.layout)
+              for index, serial in enumerate(serials[1:args.players], 1)]
+    guest = guests[0]
+    phones = [seeker, *guests]
     title, code = args.title, args.code
     validator = None
     saved = None
@@ -331,11 +409,11 @@ def main():
         if not args.no_build:
             build(args.chain)
         apk = os.path.join(ROOT, "app", "androidApp", "build", "outputs", "apk", "debug", "androidApp-debug.apk")
-        for i, phone in enumerate((seeker, guest)):
+        for i, phone in enumerate(phones):
             phone.adb("install", "-r", apk)
             phone.adb("forward", f"tcp:{47000 + i}", "tcp:47000")
         # The test changes these; put back whatever the person had, such as a connected wallet.
-        saved = {phone: {k: phone.pref(k) for k in ("ledger", "wallet", "sim.opportunities")} for phone in (seeker, guest)}
+        saved = {phone: {k: phone.pref(k) for k in ("ledger", "wallet", "sim.opportunities")} for phone in phones}
         ledger = "SIMULATED" if args.chain == "simulated" else "SOLANA"
         wallet = None if args.wallet in ("none", "connect") else args.wallet
         seeker.set_prefs(ledger=ledger)
@@ -350,14 +428,17 @@ def main():
             ]
             seeker.set_prefs(**{"sim.opportunities": json.dumps(rewards)})
         guest.set_prefs(ledger=ledger, wallet=wallet)
-        for phone, name, light in ((seeker, "Aaron", "Nova"), (guest, "Maya", "Jade")):
+        for other in guests[1:]:
+            other.set_prefs(ledger=ledger, wallet=None)
+        for index, phone in enumerate(phones):
+            name, light = PEOPLE[index % len(PEOPLE)]
             phone.launch()
-            onboard(phone, name, light)
+            onboard(phone, name if index < len(PEOPLE) else f"{name}{index}", light)
         if not (seeker.pref("seeker") and json.loads(seeker.pref("seeker")).get("simulated")):
             pretend_seeker(seeker)
         seeker_wallet = json.loads(seeker.pref("seeker"))["wallet"]
         host_name = json.loads(seeker.pref("profile"))["name"]
-        log(f"seeker {seeker.serial} wallet {seeker_wallet}; guest {guest.serial}")
+        log(f"seeker {seeker.serial} wallet {seeker_wallet}; guests {', '.join(g.serial for g in guests)}")
 
         if args.chain == "localnet":
             log("starting a local validator")
@@ -377,15 +458,18 @@ def main():
             seeker.launch()
 
         seeker.wait("Scan QR", timeout=20)
-        log(f"seeker: hosting a {title} duo")
-        host_duo(seeker, title)
+        log(f"seeker: hosting a {args.players}-player {title}")
+        host_group(seeker, title, args.players)
         seeker.wait("JOIN CODE", timeout=20)
 
-        guest.launch()
-        log("guest: looking for the Formation nearby")
-        guest.wait(host_name, timeout=60)
-        guest.tap_text("Join")
-        guest.wait("Waiting for host", timeout=20)
+        for other in guests:
+            other.launch()
+            log(f"{other.role}: looking for the Formation nearby")
+            # Shorter screens keep Nearby below the fold.
+            scroll_until(other, host_name, timeout=60)
+            other.tap(scroll_until(other, "Join", timeout=20))
+            # The lobby says "Waiting…" until the group is full.
+            other.wait("Waiting(…| for host)", prefix="regex", timeout=20)
         guest.scroll_to("YOUR SHARE IF YOU UNLOCK IT")
         if args.wallet == "connect":
             guest.tap_text("Connect")
@@ -397,30 +481,32 @@ def main():
         log(f"guest: share lands in {payout_wallet or 'nowhere yet (claim later)'}")
 
         seeker.tap_text("Begin", timeout=30)
-        for phone in (seeker, guest):
-            phone.tap_text("I'm ready", timeout=20)
+        for phone in phones:
+            phone.tap_text("I'm ready", timeout=30)
         if args.driver == "overdrive":
             play_overdrive(seeker, guest, log)
+        elif args.driver == "mosaic":
+            play_mosaic(phones, args.players, log)
         elif args.driver == "manual":
-            log("playing manually; operate the touch controls on both phones")
+            log("playing manually; operate the touch controls on every phone")
         else:
-            start_autoplay((seeker, guest), log)
+            start_autoplay(phones, log)
         unlock = seeker.wait(r"Unlock [\d,.]+ SKR", prefix="regex", timeout=240)
         if args.offline:
             offline_unlock(seeker, guest, unlock)
-            finish(args, seeker, guest, chain_wallet, before)
+            finish(args, seeker, guests, chain_wallet, before)
             return
         seeker.tap(unlock)
         log("seeker: unlocking")
-        seeker.wait("Your share went straight to your Seeker's wallet.", timeout=90)
+        scroll_until(seeker, "Your share went straight to your Seeker's wallet.", timeout=90)
         if chain_wallet:
             guest.scroll_to("YOU EARNED")
             guest.wait("It's in your wallet", prefix=True, timeout=60)
-        else:
-            guest.scroll_to("YOU EARNED")
-        finish(args, seeker, guest, chain_wallet, before)
-    except (Failed, OverdriveFailed, LayoutUnavailable) as e:
-        for phone in (seeker, guest):
+        for other in guests[1:] if chain_wallet else guests:
+            other.scroll_to("YOU EARNED")
+        finish(args, seeker, guests, chain_wallet, before)
+    except (Failed, OverdriveFailed, MosaicFailed, LayoutUnavailable) as e:
+        for phone in phones:
             phone.screenshot("failed")
         log(f"FAIL: {e} (screens in {os.path.relpath(OUT, ROOT)})")
         sys.exit(1)
@@ -458,25 +544,29 @@ def offline_unlock(seeker, guest, unlock):
     log("seeker: the saved win unlocked on its own")
 
 
-def finish(args, seeker, guest, chain_wallet, before):
-    seeker.screenshot("won")
-    guest.screenshot("won")
+def finish(args, seeker, guests, chain_wallet, before):
+    guest = guests[0]
+    for phone in (seeker, *guests):
+        phone.screenshot("won")
     if args.chain != "simulated":
         owner_ticket = next((ticket for ticket in json.loads(seeker.pref("sol.tickets") or "[]")
                              if ticket["index"] == -1 and ticket["earnedAt"] >= args.started_at), None)
-        guest_ticket = next((ticket for ticket in json.loads(guest.pref("sol.tickets") or "[]")
-                             if owner_ticket and ticket["opportunity"] == owner_ticket["opportunity"]), None)
-        if not owner_ticket or not guest_ticket:
-            raise Failed("Both phones must retain the chain reward tickets")
-        try:
-            result = verify_settlement(lambda method, params: rpc(args.chain, method, params), owner_ticket, guest_ticket,
-                                       json.loads(seeker.pref(f"sol.submissions.{args.chain}") or "[]"))
-        except ValueError as error:
-            raise Failed(str(error)) from error
-        result["chain"] = args.chain
-        with open(os.path.join(OUT, f"settlement-{result['opportunity']}.json"), "w") as record:
-            json.dump(result, record, indent=2)
-        log(f"confirmed {args.chain} settlement: {result['signatures'][0]}; owner {result['owner_amount'] / SKR:g} SKR")
+        for other in guests:
+            guest_ticket = next((ticket for ticket in json.loads(other.pref("sol.tickets") or "[]")
+                                 if owner_ticket and ticket["opportunity"] == owner_ticket["opportunity"]), None)
+            if not owner_ticket or not guest_ticket:
+                raise Failed("Every phone must retain the chain reward tickets")
+            try:
+                result = verify_settlement(lambda method, params: rpc(args.chain, method, params), owner_ticket, guest_ticket,
+                                           json.loads(seeker.pref(f"sol.submissions.{args.chain}") or "[]"))
+            except ValueError as error:
+                raise Failed(f"{other.role}: {error}") from error
+            result["chain"] = args.chain
+            suffix = "" if len(guests) == 1 else f"-{guest_ticket['index']}"
+            with open(os.path.join(OUT, f"settlement-{result['opportunity']}{suffix}.json"), "w") as record:
+                json.dump(result, record, indent=2)
+            log(f"confirmed {args.chain} settlement for {other.role}: {result['signatures'][0]}; "
+                f"owner {result['owner_amount'] / SKR:g} SKR")
     if before is not None:
         share = 0
         for _ in range(30):
