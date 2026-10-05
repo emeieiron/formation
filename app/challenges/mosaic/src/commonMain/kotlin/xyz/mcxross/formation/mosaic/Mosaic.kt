@@ -11,6 +11,7 @@ import xyz.mcxross.formation.design.icons.Icons
 import xyz.mcxross.formation.model.ChallengeId
 import xyz.mcxross.formation.model.Difficulty
 import xyz.mcxross.formation.model.PlayerId
+import xyz.mcxross.formation.mosaic.ui.MosaicCover
 import xyz.mcxross.formation.mosaic.ui.MosaicStage
 import xyz.mcxross.formation.mosaic.ui.PinchIntroduction
 import xyz.mcxross.formation.session.ChallengeGame
@@ -35,6 +36,7 @@ object Mosaic : Challenge<MosaicState, Pinch>() {
   override val inputSerializer = Pinch.serializer()
   override val fullScreen = true
   override val introduction: @Composable () -> Unit = { PinchIntroduction() }
+  override val cover: @Composable () -> Unit = { MosaicCover() }
 
   override fun screenRequirement(players: Int) = ScreenRequirement(Layouts.MIN_SHORT_MM, Layouts.MIN_LONG_MM)
 
