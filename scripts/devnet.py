@@ -3,15 +3,19 @@
 # requires-python = ">=3.10"
 # dependencies = ["solders>=0.21"]
 # ///
-# Sets up the Formation vault on devnet. Deploy the program first (see README), then:
-#
-#   scripts/devnet.py setup            test SKR mint, test Seeker Genesis Token group, vault config
-#   scripts/devnet.py seeker WALLET    give WALLET a test Seeker Genesis Token and SOL for fees
-#   scripts/devnet.py drops WALLET     lock rewards from $FORMATION_REWARDS for WALLET's token
-#   scripts/devnet.py fund WALLET [SOL]
-#
-# Signs with $FORMATION_KEYPAIR (default ~/.config/solana/seekers-devnet.json), which must be the
-# program's upgrade authority for `setup`. Addresses are kept in program/devnet.json.
+"""Sets up the Formation vault on devnet and funds sponsor contests. Deploy the program first (see README), then:
+
+  scripts/devnet.py setup                      test SKR mint, test Seeker Genesis Token group, vault config
+  scripts/devnet.py settings [KEY=VALUE ...]   show the vault's settings, or change some (admin only)
+  scripts/devnet.py seeker WALLET              give WALLET a test Seeker Genesis Token and SOL for fees
+  scripts/devnet.py contest [options]          fund a contest; see `contest --help`
+  scripts/devnet.py draw CONTEST               request a draw's randomness from ORAO and finalize it
+  scripts/devnet.py fund WALLET [SOL]
+
+Signs with $FORMATION_KEYPAIR (default ~/.config/solana/seekers-devnet.json), which must be the program's
+upgrade authority for `setup` and its admin for `settings`. Addresses are kept in program/devnet.json.
+"""
+import argparse
 import base64
 import hashlib
 import json
@@ -20,7 +24,6 @@ import subprocess
 import sys
 import time
 import urllib.request
-import uuid
 
 from solders.hash import Hash
 from solders.instruction import AccountMeta, Instruction
@@ -28,9 +31,6 @@ from solders.keypair import Keypair
 from solders.message import Message
 from solders.pubkey import Pubkey
 from solders.transaction import Transaction
-
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from reward_fixtures import SKR, load_rewards
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STATE = os.environ.get("FORMATION_STATE", os.path.join(ROOT, "program", "devnet.json"))
@@ -44,6 +44,34 @@ TOKEN_2022 = Pubkey.from_string("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb")
 ATA_PROGRAM = Pubkey.from_string("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
 SYSTEM = Pubkey.from_string("11111111111111111111111111111111")
 LOADER = Pubkey.from_string("BPFLoaderUpgradeab1e11111111111111111111111")
+VRF = Pubkey.from_string("VRFzZoJdhFWL8rkvu87LpKM3RbcVezpMEc6X5GVDr7y")
+SKR = 1_000_000
+DAY = 86_400
+
+# (name, borsh type, default) in the order of the program's Settings struct.
+SETTINGS = [
+    ("paused", "bool", False),
+    ("modes", "u8", 3),
+    ("owner_weight", "u16", 3),
+    ("min_guest_share", "u64", 10 * SKR),
+    ("min_budgets", "u16", 10),
+    ("max_per_key", "u8", 3),
+    ("max_wins_per_sgt", "u8", 3),
+    ("guest_ceiling", "u8", 64),
+    ("claim_window", "i64", 30 * DAY),
+    ("min_play_window", "i64", 3_600),
+    ("max_play_window", "i64", 90 * DAY),
+    ("min_enter_window", "i64", 3_600),
+    ("max_enter_window", "i64", 30 * DAY),
+    ("draw_timeout", "i64", 3_600),
+]
+SIZES = {"bool": 1, "u8": 1, "u16": 2, "u32": 4, "u64": 8, "i64": 8, "pubkey": 32}
+# The Contest account up to its draw state; the mode is a fixed u8 so these offsets never move.
+CONTEST = [("sponsor", "pubkey"), ("nonce", "u64"), ("mint", "pubkey"), ("vault", "pubkey"), ("sgt_group", "pubkey"),
+           ("vrf_program", "pubkey"), ("mode", "u8"), ("draw_bps", "u16"), ("only", "pubkey"), ("wins_per_sgt", "u8"),
+           ("pool", "u64"), ("unallocated", "u64"), ("budget", "u64"), ("max_guests", "u8"), *[(n, t) for n, t, _ in SETTINGS],
+           ("created_at", "i64"), ("enter_until", "i64"), ("play_until", "i64"), ("entered", "u32"), ("selected", "u32"),
+           ("unlocks", "u32"), ("draw_seed", 32), ("requested_at", "i64"), ("attempts", "u8"), ("randomness", 32), ("done", "bool")]
 
 
 def rpc(method, params):
@@ -55,12 +83,40 @@ def rpc(method, params):
     return reply["result"]
 
 
+def account(key):
+    value = rpc("getAccountInfo", [str(key), {"encoding": "base64", "commitment": "confirmed"}])["value"]
+    return (Pubkey.from_string(value["owner"]), base64.b64decode(value["data"][0])) if value else None
+
+
 def discriminator(name):
     return bytes(next(i for i in json.load(open(IDL))["instructions"] if i["name"] == name)["discriminator"])
 
 
+def encode(kind, value):
+    if kind == "bool":
+        return bytes([1 if value else 0])
+    if kind == "pubkey":
+        return bytes(value)
+    return int(value).to_bytes(SIZES[kind], "little", signed=kind == "i64")
+
+
+def decode(fields, data, at=8):
+    out = {}
+    for name, kind in fields:
+        size = kind if isinstance(kind, int) else SIZES[kind]
+        raw = data[at:at + size]
+        out[name] = raw if isinstance(kind, int) else Pubkey(raw) if kind == "pubkey" else bool(raw[0]) if kind == "bool" \
+            else int.from_bytes(raw, "little", signed=kind == "i64")
+        at += size
+    return out, at
+
+
 def ata(owner, mint, program=TOKEN):
     return Pubkey.find_program_address([bytes(owner), bytes(program), bytes(mint)], ATA_PROGRAM)[0]
+
+
+def config_pda():
+    return Pubkey.find_program_address([b"config"], PROGRAM)[0]
 
 
 def send(signer, *ixs):
@@ -101,7 +157,11 @@ def save_state(state):
         json.dump(state, f, indent=2)
 
 
-def setup(admin, config, state):
+def settings_bytes(values):
+    return b"".join(encode(kind, values[name]) for name, kind, _ in SETTINGS)
+
+
+def setup(admin, config, state, _args):
     if "skr" not in state:
         state["skr"] = spl(config, "create-token", "--decimals", "6")["commandOutput"]["address"]
         save_state(state)
@@ -110,15 +170,15 @@ def setup(admin, config, state):
         spl(config, "initialize-group", group, "1000000")
         state["group"] = group
         save_state(state)
-    config_pda = Pubkey.find_program_address([b"config"], PROGRAM)[0]
-    if rpc("getAccountInfo", [str(config_pda), {"encoding": "base64"}])["value"] is None:
+    if account(config_pda()) is None:
         program_data = Pubkey.find_program_address([bytes(PROGRAM)], LOADER)[0]
+        defaults = {name: default for name, _, default in SETTINGS}
         ix = Instruction(
             PROGRAM,
-            discriminator("init_config") + bytes(Pubkey.from_string(state["group"])),
+            discriminator("init_config") + bytes(Pubkey.from_string(state["group"])) + bytes(VRF) + settings_bytes(defaults),
             [
                 AccountMeta(admin.pubkey(), True, True),
-                AccountMeta(config_pda, False, True),
+                AccountMeta(config_pda(), False, True),
                 AccountMeta(Pubkey.from_string(state["skr"]), False, False),
                 AccountMeta(PROGRAM, False, False),
                 AccountMeta(program_data, False, False),
@@ -126,23 +186,126 @@ def setup(admin, config, state):
             ],
         )
         print("init_config", send(admin, ix))
-    print(f"SKR {state['skr']}\nSGT group {state['group']}\nconfig {config_pda}")
+    print(f"SKR {state['skr']}\nSGT group {state['group']}\nconfig {config_pda()}")
 
 
-def seeker(admin, config, state, wallet):
+def current_settings():
+    found = account(config_pda()) or sys.exit("Run `setup` first")
+    # Config: admin, mint, SGT group, VRF program, then the settings.
+    values, _ = decode([(n, t) for n, t, _ in SETTINGS], found[1], 8 + 4 * 32)
+    return values
+
+
+def settings(admin, _config, _state, args):
+    values = current_settings()
+    if args.changes:
+        for change in args.changes:
+            name, _, value = change.partition("=")
+            kind = next((t for n, t, _ in SETTINGS if n == name), None) or sys.exit(f"Unknown setting {name}")
+            values[name] = value.lower() in ("1", "true", "yes") if kind == "bool" else int(value)
+        ix = Instruction(PROGRAM, discriminator("set_settings") + settings_bytes(values), [
+            AccountMeta(admin.pubkey(), True, False),
+            AccountMeta(config_pda(), False, True),
+        ])
+        print("set_settings", send(admin, ix))
+    for name, value in values.items():
+        print(f"{name} = {value}")
+
+
+def seeker(admin, config, state, args):
+    wallet = args.wallet
     if wallet not in state["seekers"]:
         mint = spl(config, "create-token", "--program-2022", "--enable-member", "--decimals", "0")["commandOutput"]["address"]
         spl(config, "initialize-member", mint, state["group"])
         spl(config, "create-account", mint, "--owner", wallet, "--fee-payer", KEYPAIR)
-        account = str(ata(Pubkey.from_string(wallet), Pubkey.from_string(mint), TOKEN_2022))
-        spl(config, "mint", mint, "1", account)
-        state["seekers"][wallet] = {"sgt": mint, "account": account}
+        token_account = str(ata(Pubkey.from_string(wallet), Pubkey.from_string(mint), TOKEN_2022))
+        spl(config, "mint", mint, "1", token_account)
+        state["seekers"][wallet] = {"sgt": mint, "account": token_account}
         save_state(state)
-    fund(admin, wallet, 0.2)
+    transfer(admin, wallet, 0.2)
     print(f"{wallet} holds test SGT {state['seekers'][wallet]['sgt']}")
 
 
-def fund(admin, wallet, sol):
+def contest(admin, config, state, args):
+    skr = Pubkey.from_string(state["skr"])
+    only = Pubkey.default()
+    if args.only:
+        only = Pubkey.from_string((state["seekers"].get(args.only) or sys.exit(f"Run `seeker {args.only}` first"))["sgt"])
+    now = int(time.time())
+    if args.draw:
+        mode = bytes([1]) + args.draw.to_bytes(2, "little")
+        pool, budget = args.pool * SKR, 0
+        enter_until = now + int(args.enter_hours * 3_600)
+        play_until = enter_until + int(args.hours * 3_600)
+    else:
+        mode = bytes([0])
+        budget = args.budget * SKR
+        pool = budget * (1 if args.only else args.budgets)
+        enter_until, play_until = 0, now + int(args.hours * 3_600)
+    if account(ata(admin.pubkey(), skr)) is None:
+        spl(config, "create-account", str(skr))
+    spl(config, "mint", str(skr), str(pool // SKR))
+    nonce = time.time_ns() // 1_000
+    address = Pubkey.find_program_address([b"contest", bytes(admin.pubkey()), nonce.to_bytes(8, "little")], PROGRAM)[0]
+    data = (discriminator("create_contest") + encode("u64", nonce) + encode("u64", pool) + mode + encode("u64", budget) + bytes(only)
+            + bytes([args.wins]) + encode("i64", enter_until) + encode("i64", play_until)
+            + args.title.encode()[:32].ljust(32, b"\0") + bytes(32))
+    ix = Instruction(PROGRAM, data, [
+        AccountMeta(admin.pubkey(), True, True),
+        AccountMeta(config_pda(), False, False),
+        AccountMeta(address, False, True),
+        AccountMeta(ata(address, skr), False, True),
+        AccountMeta(ata(admin.pubkey(), skr), False, True),
+        AccountMeta(skr, False, False),
+        AccountMeta(TOKEN, False, False),
+        AccountMeta(ATA_PROGRAM, False, False),
+        AccountMeta(SYSTEM, False, False),
+    ])
+    signature = send(admin, ix)
+    state.setdefault("contests", []).append(str(address))
+    save_state(state)
+    kind = f"draw of {args.draw / 100:g}%" if args.draw else f"first come, {budget // SKR} SKR budgets" + (f" for {args.only}" if args.only else "")
+    print(f"contest {address}: {pool // SKR} SKR, {kind}", signature)
+
+
+def draw(admin, _config, _state, args):
+    address = Pubkey.from_string(args.contest)
+    c, _ = decode(CONTEST, (account(address) or sys.exit("No such contest"))[1])
+    network = Pubkey.find_program_address([b"orao-vrf-network-configuration"], VRF)[0]
+    request = lambda seed: Pubkey.find_program_address([b"orao-vrf-randomness-request", seed], VRF)[0]
+    if not c["done"]:
+        if c["attempts"] == 0 or time.time() >= c["requested_at"] + c["draw_timeout"]:
+            seed = hashlib.sha256(b"formation.draw" + bytes(address) + bytes([c["attempts"]])).digest()
+            previous = request(c["draw_seed"]) if c["attempts"] else SYSTEM
+            treasury = Pubkey(account(network)[1][40:72])
+            ix = Instruction(PROGRAM, discriminator("request_draw"), [
+                AccountMeta(admin.pubkey(), True, True),
+                AccountMeta(address, False, True),
+                AccountMeta(VRF, False, False),
+                AccountMeta(network, False, True),
+                AccountMeta(treasury, False, True),
+                AccountMeta(request(seed), False, True),
+                AccountMeta(previous, False, False),
+                AccountMeta(SYSTEM, False, False),
+            ])
+            print("request_draw", send(admin, ix))
+            c, _ = decode(CONTEST, account(address)[1])
+        answer = request(c["draw_seed"])
+        for _ in range(60):
+            found = account(answer)
+            # After its discriminator, a fulfilled ORAO request starts with variant 1.
+            if found and found[1][8] == 1:
+                break
+            time.sleep(2)
+        else:
+            sys.exit("ORAO hasn't answered yet; run `draw` again later")
+        ix = Instruction(PROGRAM, discriminator("finalize_draw"), [AccountMeta(address, False, True), AccountMeta(answer, False, False)])
+        print("finalize_draw", send(admin, ix))
+        c, _ = decode(CONTEST, account(address)[1])
+    print(f"{c['selected']} of {c['entered']} entries selected, {c['budget'] / SKR:g} SKR each")
+
+
+def transfer(admin, wallet, sol):
     ix = Instruction(SYSTEM, (2).to_bytes(4, "little") + int(sol * 1e9).to_bytes(8, "little"), [
         AccountMeta(admin.pubkey(), True, True),
         AccountMeta(Pubkey.from_string(wallet), False, True),
@@ -150,74 +313,37 @@ def fund(admin, wallet, sol):
     print(f"sent {sol} SOL to {wallet}", send(admin, ix))
 
 
-# Where the vault's reward account keeps the Genesis Token mint, the game's code and whether it's open.
-OPPORTUNITY_SIZE, SGT_OFFSET, CHALLENGE_OFFSET, STATE_OFFSET = 337, 88, 195, 246
-
-
-def open_games(mint):
-    # One open reward per Seeker for each game, keyed by the Genesis Token's mint rather than the wallet, so moving
-    # the token to another wallet doesn't earn it a second reward. The vault records the mint on every reward.
-    accounts = rpc("getProgramAccounts", [str(PROGRAM), {"encoding": "base64", "filters": [
-        {"dataSize": OPPORTUNITY_SIZE},
-        {"memcmp": {"offset": SGT_OFFSET, "bytes": mint}},
-        {"memcmp": {"offset": STATE_OFFSET, "bytes": "1"}},
-    ]}])
-    return {int.from_bytes(base64.b64decode(a["account"]["data"][0])[CHALLENGE_OFFSET:CHALLENGE_OFFSET + 2], "little") for a in accounts}
-
-
-def drops(admin, config, state, wallet):
-    sgt = state["seekers"].get(wallet) or sys.exit(f"Run `seeker {wallet}` first")
-    funded = open_games(sgt["sgt"])
-    fixtures = [f for f in load_rewards() if f.code not in funded]
-    if not fixtures:
-        print(f"{wallet}'s Genesis Token already has an open reward for each fixture" if funded else
-              "Set FORMATION_REWARDS to a JSON fixture file for a registered game")
-        return
-    skr = Pubkey.from_string(state["skr"])
-    total = sum(f.amount for f in fixtures)
-    spl(config, "create-account", str(skr)) if rpc("getAccountInfo", [str(ata(admin.pubkey(), skr)), {"encoding": "base64"}])["value"] is None else None
-    spl(config, "mint", str(skr), str(total))
-    config_pda = Pubkey.find_program_address([b"config"], PROGRAM)[0]
-    now = int(time.time())
-    for fixture in fixtures:
-        oid = uuid.uuid4().bytes
-        opportunity = Pubkey.find_program_address([b"opportunity", oid], PROGRAM)[0]
-        data = (
-            discriminator("create") + oid + (fixture.amount * SKR).to_bytes(8, "little") + bytes([fixture.players]) + fixture.owner_bps.to_bytes(2, "little")
-            + fixture.code.to_bytes(2, "little") + bytes([fixture.difficulty]) + fixture.title.encode().ljust(32, b"\0") + (now + fixture.days * 86_400).to_bytes(8, "little")
-        )
-        ix = Instruction(PROGRAM, data, [
-            AccountMeta(admin.pubkey(), True, True),
-            AccountMeta(config_pda, False, False),
-            AccountMeta(Pubkey.from_string(wallet), False, False),
-            AccountMeta(Pubkey.from_string(sgt["sgt"]), False, False),
-            AccountMeta(Pubkey.from_string(sgt["account"]), False, False),
-            AccountMeta(opportunity, False, True),
-            AccountMeta(ata(opportunity, skr), False, True),
-            AccountMeta(ata(admin.pubkey(), skr), False, True),
-            AccountMeta(skr, False, False),
-            AccountMeta(TOKEN, False, False),
-            AccountMeta(ATA_PROGRAM, False, False),
-            AccountMeta(SYSTEM, False, False),
-        ])
-        print(f"locked {fixture.amount} SKR ({fixture.players} players) as {opportunity}", send(admin, ix))
-
-
 def main():
-    if len(sys.argv) < 2 or sys.argv[1] not in ("setup", "seeker", "drops", "fund") or (sys.argv[1] != "setup" and len(sys.argv) < 3):
-        sys.exit(__doc__ or "usage: scripts/devnet.py setup | seeker WALLET | drops WALLET | fund WALLET [SOL]")
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    commands = parser.add_subparsers(dest="command", required=True)
+    commands.add_parser("setup").set_defaults(run=setup)
+    p = commands.add_parser("settings")
+    p.add_argument("changes", nargs="*", metavar="KEY=VALUE")
+    p.set_defaults(run=settings)
+    p = commands.add_parser("seeker")
+    p.add_argument("wallet")
+    p.set_defaults(run=seeker)
+    p = commands.add_parser("contest", help="first come by default; --draw for a lottery")
+    p.add_argument("--budget", type=int, default=300, help="SKR per Genesis Token, first come")
+    p.add_argument("--budgets", type=int, default=10, help="how many budgets the pool holds, first come")
+    p.add_argument("--only", metavar="WALLET", help="a contest only this wallet's test Genesis Token can unlock")
+    p.add_argument("--wins", type=int, default=1, help="budgets one Genesis Token may take, first come")
+    p.add_argument("--draw", type=int, metavar="BPS", help="select this share of entrants, in basis points")
+    p.add_argument("--pool", type=int, default=1_000, help="SKR in a draw's pool")
+    p.add_argument("--enter-hours", type=float, default=1, help="how long a draw takes entries")
+    p.add_argument("--hours", type=float, default=24, help="how long budgets can be played")
+    p.add_argument("--title", default="")
+    p.set_defaults(run=contest)
+    p = commands.add_parser("draw")
+    p.add_argument("contest")
+    p.set_defaults(run=draw)
+    p = commands.add_parser("fund")
+    p.add_argument("wallet")
+    p.add_argument("sol", type=float, nargs="?", default=0.2)
+    p.set_defaults(run=lambda admin, _c, _s, a: transfer(admin, a.wallet, a.sol))
+    args = parser.parse_args()
     admin = Keypair.from_bytes(bytes(json.load(open(KEYPAIR))))
-    config = solana_config()
-    state = load_state()
-    command = sys.argv[1]
-    if command == "setup":
-        setup(admin, config, state)
-    elif command == "seeker":
-        seeker(admin, config, state, sys.argv[2])
-    elif command == "drops":
-        drops(admin, config, state, sys.argv[2])
-    else:
-        fund(admin, sys.argv[2], float(sys.argv[3]) if len(sys.argv) > 3 else 0.2)
+    args.run(admin, solana_config(), load_state(), args)
 
 
 if __name__ == "__main__":

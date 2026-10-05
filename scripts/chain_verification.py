@@ -1,22 +1,35 @@
 """Check the configured mint and confirmed vault settlement; never read signing material."""
 import base64
 import hashlib
-import uuid
+import json
+import os
 from localnet import b58encode
 
-PROGRAM = "3AzZbKhGFcnaBRRenDDdNSdVumjKoXSkNHsPVeo5q6GW"
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PROGRAM = json.load(open(os.path.join(ROOT, "program", "formation-vault", "idl", "formation_vault.json")))["address"]
+
+# Entry: contest, SGT mint, round, index, rent payer, holder at unlock, state, budget, roster root and size,
+# guest share, owner's payment, claimed bits.
+ENTRY = {"contest": (8, 32), "owner": (109, 32), "state": (141, 1), "root": (150, 32), "size": (182, 1),
+         "guest_share": (183, 8), "owner_paid": (191, 8), "claimed": (199, 8)}
+
+
+def field(data, name):
+    at, size = ENTRY[name]
+    return data[at:at + size]
+
+
+def number(data, name):
+    return int.from_bytes(field(data, name), "little")
 
 
 def configured_mint(rpc):
     discriminator = hashlib.sha256(b"account:Config").digest()[:8]
     accounts = rpc("getProgramAccounts", [PROGRAM, {"encoding": "base64", "commitment": "confirmed", "filters": [
-        {"dataSize": 105}, {"memcmp": {"offset": 0, "bytes": b58encode(discriminator)}}]}])
+        {"memcmp": {"offset": 0, "bytes": b58encode(discriminator)}}]}])
     if len(accounts) != 1:
         raise ValueError("The chain must have exactly one Formation vault config")
-    data = base64.b64decode(accounts[0]["account"]["data"][0])
-    if data[:8] != discriminator:
-        raise ValueError("The vault config discriminator differs")
-    return b58encode(data[40:72])
+    return b58encode(base64.b64decode(accounts[0]["account"]["data"][0])[40:72])
 
 
 def mint_balance(rpc, owner, mint):
@@ -28,8 +41,8 @@ def token_delta(transaction, owner, mint):
     meta = transaction["meta"]
     if meta["err"] is not None:
         raise ValueError("The settlement transaction failed")
-    def total(field):
-        return sum(int(row["uiTokenAmount"]["amount"]) for row in meta.get(field, [])
+    def total(field_name):
+        return sum(int(row["uiTokenAmount"]["amount"]) for row in meta.get(field_name, [])
                    if row.get("owner") == owner and row["mint"] == mint)
     return total("postTokenBalances") - total("preTokenBalances")
 
@@ -37,20 +50,18 @@ def token_delta(transaction, owner, mint):
 def verify_settlement(rpc, owner_ticket, guest_ticket, submissions):
     identity = owner_ticket["opportunity"]
     mint = configured_mint(rpc)
-    accounts = rpc("getProgramAccounts", [PROGRAM, {"encoding": "base64", "commitment": "confirmed", "filters": [
-        {"dataSize": 337}, {"memcmp": {"offset": 8, "bytes": b58encode(uuid.UUID(identity).bytes)}}]}])
-    if len(accounts) != 1:
-        raise ValueError("The settled reward account was not found")
-    data = base64.b64decode(accounts[0]["account"]["data"][0])
-    if data[:8] != hashlib.sha256(b"account:Opportunity").digest()[:8] or data[246] != 1:
-        raise ValueError("The chain reward is not unlocked")
-    if b58encode(data[120:152]) != mint or data[247:279].hex() != owner_ticket["root"]:
-        raise ValueError("The chain mint or committed roster differs from the saved result")
+    found = rpc("getAccountInfo", [identity, {"encoding": "base64", "commitment": "confirmed"}])["value"]
+    if found is None or found["owner"] != PROGRAM:
+        raise ValueError("The settled entry was not found")
+    data = base64.b64decode(found["data"][0])
+    if data[:8] != hashlib.sha256(b"account:Entry").digest()[:8] or field(data, "state")[0] != 1:
+        raise ValueError("The chain entry is not unlocked")
+    if field(data, "root").hex() != owner_ticket["root"] or b58encode(field(data, "contest")) != owner_ticket["contest"]:
+        raise ValueError("The chain contest or committed roster differs from the saved result")
     if guest_ticket["opportunity"] != identity or guest_ticket["root"] != owner_ticket["root"]:
         raise ValueError("Both phones must retain the same settled roster")
-    amount = int.from_bytes(data[184:192], "little")
-    owner_amount = amount * int.from_bytes(data[193:195], "little") // 10_000
-    helper_amount = int.from_bytes(data[280:288], "little")
+    owner_amount = number(data, "owner_paid")
+    helper_amount = number(data, "guest_share")
     if int(owner_ticket["amount"]) != owner_amount or int(guest_ticket["amount"]) != helper_amount:
         raise ValueError("Saved payout amounts differ from the vault")
     relevant = [item for item in submissions if item["operation"] == f"unlock:{identity}" or item["operation"].startswith(f"payout:{identity}:")]
@@ -66,7 +77,7 @@ def verify_settlement(rpc, owner_ticket, guest_ticket, submissions):
         if transaction is None:
             raise ValueError("The confirmed transaction is unavailable")
         transactions.append(transaction)
-    owner = b58encode(data[56:88])
+    owner = b58encode(field(data, "owner"))
     recipient = guest_ticket.get("wallet")
     owner_delta = sum(token_delta(tx, owner, mint) for tx in transactions)
     expected_owner = owner_amount + (helper_amount if recipient == owner else 0)
@@ -74,11 +85,11 @@ def verify_settlement(rpc, owner_ticket, guest_ticket, submissions):
         raise ValueError(f"Owner received {owner_delta} base units, expected {expected_owner}")
     helper_delta = sum(token_delta(tx, recipient, mint) for tx in transactions) if recipient else 0
     if recipient:
-        claimed = int.from_bytes(data[288:296], "little") & (1 << guest_ticket["index"])
+        claimed = number(data, "claimed") & (1 << guest_ticket["index"])
         expected_helper = helper_amount + (owner_amount if recipient == owner else 0)
         if not claimed or helper_delta != expected_helper:
             raise ValueError("The bound helper's exact payout is not confirmed")
-    return {"opportunity": identity, "reward_account": accounts[0]["pubkey"], "vault": b58encode(data[152:184]), "mint": mint,
+    return {"opportunity": identity, "contest": owner_ticket["contest"], "mint": mint,
             "signatures": signatures, "owner": owner, "owner_amount": owner_amount, "owner_balance_delta": owner_delta,
             "helper": recipient, "helper_amount": helper_amount if recipient else 0,
             "helper_balance_delta": helper_delta, "helper_reserved": helper_amount if not recipient else 0}

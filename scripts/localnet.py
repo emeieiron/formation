@@ -3,8 +3,8 @@
 #
 # Starts solana-test-validator with the vault program and its state preloaded as genesis accounts,
 # so the app's Solana ledger can be tried without deploying anything: a config, a test SKR mint, a
-# Seeker Genesis Token for SEEKER_WALLET in a test group, locked rewards for it, and SOL for fees
-# for every wallet given. Emulators reach it at http://10.0.2.2:8899.
+# Seeker Genesis Token for SEEKER_WALLET in a test group, a contest only that token can unlock for each
+# reward fixture, and SOL for fees for every wallet given. Emulators reach it at http://10.0.2.2:8899.
 import base64
 import hashlib
 import json
@@ -12,18 +12,19 @@ import os
 import subprocess
 import sys
 import time
-import uuid
 from reward_fixtures import SKR, load_rewards
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "program", "target", "localnet")
 SO = os.path.join(ROOT, "program", "target", "deploy", "formation_vault.so")
 
-PROGRAM = "3AzZbKhGFcnaBRRenDDdNSdVumjKoXSkNHsPVeo5q6GW"
+PROGRAM = json.load(open(os.path.join(ROOT, "program", "formation-vault", "idl", "formation_vault.json")))["address"]
 TOKEN = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
 TOKEN_2022 = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
 ATA_PROGRAM = "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
 SYSTEM = "11111111111111111111111111111111"
+VRF = "VRFzZoJdhFWL8rkvu87LpKM3RbcVezpMEc6X5GVDr7y"
+OWNER_WEIGHT, MIN_GUEST_SHARE, CLAIM_WINDOW = 3, 10 * SKR, 30 * 86_400
 
 ALPHABET = b"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 
@@ -105,6 +106,16 @@ def sgt_mint(key, group):
     return base + pointer + member
 
 
+def u32(v):
+    return v.to_bytes(4, "little")
+
+
+# The vault's default settings, in the order of its Settings struct.
+def settings():
+    return (u8(0) + u8(3) + u16(OWNER_WEIGHT) + u64(MIN_GUEST_SHARE) + u16(10) + u8(3) + u8(3) + u8(64)
+            + u64(CLAIM_WINDOW) + u64(3_600) + u64(90 * 86_400) + u64(3_600) + u64(30 * 86_400) + u64(3_600))
+
+
 def title_bytes(text):
     raw = text.encode()[:32]
     return raw + bytes(32 - len(raw))
@@ -146,7 +157,7 @@ def main():
     accounts.append(dump(skr, TOKEN, mint(label("skr-authority"), 10_000_000 * SKR, 6)))
 
     config, config_bump = pda([b"config"], PROGRAM)
-    accounts.append(dump(config, PROGRAM, discriminator("Config") + label("admin") + skr + group + u8(config_bump)))
+    accounts.append(dump(config, PROGRAM, discriminator("Config") + label("admin") + skr + group + b58decode(VRF) + settings() + u8(config_bump)))
 
     sgt = label("sgt/" + sys.argv[1])
     sgt_account = label("sgt-account/" + sys.argv[1])
@@ -155,19 +166,20 @@ def main():
 
     fixtures = load_rewards()
     now = int(time.time())
-    for fixture in fixtures:
-        oid = uuid.uuid4().bytes
-        address, bump = pda([b"opportunity", oid], PROGRAM)
+    for nonce, fixture in enumerate(fixtures):
+        address, bump = pda([b"contest", sponsor, u64(nonce)], PROGRAM)
         vault = ata(address, skr)
+        budget = fixture.amount * SKR
+        max_guests = min(budget // MIN_GUEST_SHARE - OWNER_WEIGHT, 64)
+        play_until = now + fixture.days * 86_400
         data = (
-            discriminator("Opportunity") + oid + sponsor + seeker + sgt + skr + vault
-            + u64(fixture.amount * SKR) + u8(fixture.players) + u16(fixture.owner_bps) + u16(fixture.code) + u8(fixture.difficulty) + title_bytes(fixture.title)
-            + u64(now) + u64(now + fixture.days * 86_400) + u8(0)
-            + bytes(32) + u8(0) + u64(0) + u64(0) + bytes(32) + u64(0) + u8(bump)
+            discriminator("Contest") + sponsor + u64(nonce) + skr + vault + group + b58decode(VRF)
+            + u8(1) + u16(0) + sgt + u8(1) + u64(budget) + u64(budget) + u64(budget) + u8(max_guests) + settings()
+            + u64(now) + u64(now) + u64(play_until) + u32(0) + u32(0) + u32(0)
+            + bytes(32) + u64(0) + u8(0) + bytes(32) + u8(0) + title_bytes(fixture.title) + bytes(32) + u8(bump)
         )
-        assert len(data) == 337
         accounts.append(dump(address, PROGRAM, data))
-        accounts.append(dump(vault, TOKEN, token_account(skr, address, fixture.amount * SKR)))
+        accounts.append(dump(vault, TOKEN, token_account(skr, address, budget)))
 
     for wallet in wallets:
         accounts.append(dump(wallet, SYSTEM, b"", lamports=10 * 1_000_000_000))
@@ -175,7 +187,7 @@ def main():
     args = ["solana-test-validator", "--reset", "--quiet", "--ledger", os.path.join(OUT, "ledger"), "--bpf-program", PROGRAM, SO]
     for address, path in accounts:
         args += ["--account", address, path]
-    print(f"{len(fixtures)} rewards locked for {sys.argv[1]}; SGT {b58encode(sgt)} in group {b58encode(group)}")
+    print(f"{len(fixtures)} contests funded for {sys.argv[1]}; SGT {b58encode(sgt)} in group {b58encode(group)}")
     print("RPC http://127.0.0.1:8899 (emulators: http://10.0.2.2:8899)", flush=True)
     os.execvp(args[0], args)
 

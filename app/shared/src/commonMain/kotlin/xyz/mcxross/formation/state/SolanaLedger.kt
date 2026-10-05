@@ -64,8 +64,11 @@ class SolanaLedger(
 
   override suspend fun refresh(seeker: SeekerIdentity) {
     runCatching {
-      val sgt = seeker.sgt?.let(SolanaPublicKey::from) ?: return@runCatching emptyList<Budget>() to emptyList()
       val config = config()
+      // A developer build's pretend Seeker names no token; the test token its wallet holds stands in.
+      val sgt = seeker.sgt?.let(SolanaPublicKey::from)
+        ?: SgtFinder(rpc, config.sgtGroup).find(SolanaPublicKey.from(seeker.wallet))?.mint
+        ?: return@runCatching emptyList<Budget>() to emptyList()
       val contests =
         rpc.programAccounts(vault.programId, listOf(SolanaRpc.Filter.Memcmp(0, VaultContest.DISCRIMINATOR)))
           .map { (address, data) -> VaultContest.decode(address, data) }

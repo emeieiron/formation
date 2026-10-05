@@ -33,7 +33,6 @@ ADB = os.path.join(os.environ.get("ANDROID_HOME", os.path.expanduser("~/Library/
 APP = "xyz.mcxross.formation.dev"
 ACTIVITY = "xyz.mcxross.formation.MainActivity"
 OUT = os.path.join(ROOT, "program", "target", "e2e")
-PROGRAM = "3AzZbKhGFcnaBRRenDDdNSdVumjKoXSkNHsPVeo5q6GW"
 TOKEN = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
 RPC = {"localnet": "http://127.0.0.1:8899", "devnet": "https://api.devnet.solana.com"}
 APP_RPC = {"localnet": ("http://10.0.2.2:8899", "localnet"), "devnet": ("https://api.devnet.solana.com", "devnet")}
@@ -182,19 +181,6 @@ def skr_balance(chain, owner):
     return mint_balance(read, owner, configured_mint(read))
 
 
-def open_rewards(chain, seeker, code):
-    filters = [{"dataSize": 337}, {"memcmp": {"offset": 56, "bytes": seeker}}, {"memcmp": {"offset": 246, "bytes": "1"}}]
-    accounts = rpc(chain, "getProgramAccounts", [PROGRAM, {"encoding": "base64", "commitment": "confirmed", "filters": filters}])
-    import base64
-
-    found = 0
-    for a in accounts:
-        data = base64.b64decode(a["account"]["data"][0])
-        if data[192] == 2 and int.from_bytes(data[195:197], "little") == code and int.from_bytes(data[238:246], "little") > time.time() + 600:
-            found += 1
-    return found
-
-
 def build(chain):
     args = ["./gradlew", "-q", ":androidApp:assembleDevDebug"]
     if chain in APP_RPC:
@@ -267,11 +253,16 @@ def host_group(seeker, title, players):
         root = seeker.nodes()
         rows = [row for row in root.iter("node")
                 if row.get("clickable") == "true" and any(
-                    f" · {players} players" in (node.get("text") or "") for node in row.iter("node")
+                    re.search(r" · .*\b\d+ players", node.get("text") or "") for node in row.iter("node")
                 )]
         if rows:
             row = min(rows, key=lambda node: (bounds(node)[2] - bounds(node)[0]) * (bounds(node)[3] - bounds(node)[1]))
             seeker.tap(row)
+            # A game with several group sizes offers a chip for each one the budget can pay.
+            seeker.wait("Start Formation", timeout=10)
+            chip = seeker.find(str(players)) if players > 2 else None
+            if chip is not None:
+                seeker.tap(chip)
             seeker.tap_text("Start Formation")
             return
         area = next((node for node in root.iter("node") if node.get("scrollable") == "true"), None)
@@ -280,7 +271,7 @@ def host_group(seeker, title, players):
         left, top, right, bottom = bounds(area)
         seeker.shell(f"input swipe {(left + right) // 2} {top + (bottom - top) * 3 // 4} {(left + right) // 2} {top + (bottom - top) // 4} 400")
         time.sleep(0.3)
-    raise Failed(f"seeker: no funded {players}-player {title} reward in its preview")
+    raise Failed(f"seeker: no funded reward for {title} in its preview")
 
 
 def scroll_until(phone, text, timeout=30):
@@ -373,7 +364,7 @@ def main():
     parser.add_argument("--wallet", default="none")
     parser.add_argument("--seeker")
     parser.add_argument("--guest", action="append", help="repeat for each guest in a larger group")
-    parser.add_argument("--players", type=int, default=2, help="group size; must match a funded reward")
+    parser.add_argument("--players", type=int, default=2, help="group size; must be one the game offers")
     parser.add_argument("--no-build", action="store_true")
     parser.add_argument("--approve", action="store_true")
     parser.add_argument("--keep-chain", action="store_true", help="leave the local validator running afterwards")
@@ -389,8 +380,8 @@ def main():
         parser.error("--players must be within 2..32")
     if (args.driver == "overdrive" or args.offline) and args.players != 2:
         parser.error("The Overdrive driver and the offline check need a duo")
-    if args.chain in ("simulated", "localnet") and not any(f.code == args.code and f.players == args.players for f in fixtures):
-        parser.error(f"FORMATION_REWARDS must provide a {args.players}-player reward for this registered game")
+    if args.chain in ("simulated", "localnet") and not fixtures:
+        parser.error("FORMATION_REWARDS must provide at least one reward")
 
     running = re.findall(r"^(emulator-\d+)\s+device$", subprocess.run([ADB, "devices"], capture_output=True, text=True).stdout, re.M)
     serials = [args.seeker, *args.guest] if args.seeker and args.guest else running
@@ -412,20 +403,18 @@ def main():
             phone.adb("install", "-r", apk)
             phone.adb("forward", f"tcp:{47000 + i}", "tcp:47000")
         # The test changes these; put back whatever the person had, such as a connected wallet.
-        saved = {phone: {k: phone.pref(k) for k in ("ledger", "wallet", "sim.opportunities")} for phone in phones}
+        saved = {phone: {k: phone.pref(k) for k in ("ledger", "wallet", "sim.budgets")} for phone in phones}
         ledger = "SIMULATED" if args.chain == "simulated" else "SOLANA"
         wallet = None if args.wallet in ("none", "connect") else args.wallet
         seeker.set_prefs(ledger=ledger)
         if args.chain == "simulated":
             rewards = [
-                {"id": str(uuid.uuid4()), "challenge": f.challenge, "reward": f.amount * SKR,
-                 "players": f.players, "ownerBps": f.owner_bps,
-                 "difficulty": ("EASY", "NORMAL", "HARD", "EXTREME")[f.difficulty],
-                 "expiresAt": int(time.time() * 1000) + f.days * 86_400_000,
+                {"id": str(uuid.uuid4()), "contest": "simulated", "sgt": "simulated", "amount": f.amount * SKR,
+                 "ownerWeight": 3, "maxGuests": 31, "playUntil": int(time.time() * 1000) + f.days * 86_400_000,
                  "sponsor": "Test", "title": f.title or None}
                 for f in fixtures
             ]
-            seeker.set_prefs(**{"sim.opportunities": json.dumps(rewards)})
+            seeker.set_prefs(**{"sim.budgets": json.dumps(rewards)})
         guest.set_prefs(ledger=ledger, wallet=wallet)
         for other in guests[1:]:
             other.set_prefs(ledger=ledger, wallet=None)
@@ -449,9 +438,10 @@ def main():
                 except OSError:
                     pass
                 time.sleep(1)
-        if args.chain == "devnet" and open_rewards("devnet", seeker_wallet, code) == 0:
-            log("locking fresh devnet rewards for the seeker")
-            for command in (["seeker", seeker_wallet], ["drops", seeker_wallet]):
+        if args.chain == "devnet":
+            log("funding a devnet contest only the seeker's test Genesis Token can unlock")
+            budget = str(fixtures[0].amount if fixtures else 120)
+            for command in (["seeker", seeker_wallet], ["contest", "--only", seeker_wallet, "--budget", budget, "--title", title]):
                 subprocess.run([os.path.join(ROOT, "scripts", "devnet.py"), *command], check=True)
         if args.chain != "simulated":
             seeker.launch()
