@@ -35,12 +35,7 @@ Three games ship today. They are a starting set: every game plugs into the same 
 
 ## Architecture
 
-```
- Guest phones ──inputs──▶  Host phone (Seeker)  ──unlock, payouts──▶  Formation vault (Solana)
-              ◀──state───   runs the session                 ▲
-                                                             │
-                                          Sponsor ──funds────┘
-```
+![Formation responsibilities and trust boundaries: guests verify host authorization, send inputs and seal the roster and result; the host coordinates gameplay; wallets authorize hosting and approve transactions; the Solana vault holds sponsor funds and enforces eligibility, claim proofs and payouts. Phones submit unlocks and later claims through Solana RPC.](docs/images/formation-architecture.png)
 
 - **Session.** The host's phone is authoritative: it admits players, keeps clocks in sync, runs the game rules and broadcasts signed state. Guests send inputs and draw what the host sends. Every phone signs the final result before anything settles.
 - **Games.** Each game is a self-contained module with its rules and its screen. The session and reward code have no game-specific branches.
