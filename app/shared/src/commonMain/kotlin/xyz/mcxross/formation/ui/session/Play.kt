@@ -1,10 +1,8 @@
 package xyz.mcxross.formation.ui.session
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -35,7 +33,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
@@ -55,7 +52,6 @@ import xyz.mcxross.formation.design.foundation.Icon
 import xyz.mcxross.formation.design.foundation.Text
 import xyz.mcxross.formation.design.icons.Icons
 import xyz.mcxross.formation.design.tokens.Colors
-import xyz.mcxross.formation.design.tokens.Motion
 import xyz.mcxross.formation.design.tokens.Shapes
 import xyz.mcxross.formation.design.tokens.Space
 import xyz.mcxross.formation.design.tokens.Tone
@@ -90,7 +86,10 @@ internal fun Play(
   val frame by session.client.frame.collectAsState()
   val now = rememberHostNow(session.client.sync)
   val counting by remember(stage.goAt) { derivedStateOf { now.value < stage.goAt } }
-  val announcing by remember(stage.goAt) { derivedStateOf { now.value < stage.goAt + GO_MS } }
+  // The countdown is gone by go, so the go beat is felt from here; a late arrival doesn't feel a stale one.
+  LaunchedEffect(counting) {
+    if (!counting && now.value - stage.goAt < GO_BEAT_MS) graph.platform.haptics.heavy()
+  }
   val developer = graph.platform.config.developer
   val autoplay by graph.autoplay.collectAsState()
   if (challenge == null) {
@@ -137,15 +136,14 @@ internal fun Play(
         }
       }
     }
-    // The veil lifts at go so the first wave is visible from its launch; "Go" stays over the live stage.
-    AnimatedVisibility(announcing, enter = fadeIn(), exit = fadeOut(tween(Motion.FAST))) {
-      val veil by animateFloatAsState(if (counting) 1f else 0f, tween(Motion.FAST), label = "veil")
+    // The countdown leaves at go without fading, so nothing is drawn over the first wave's launch.
+    AnimatedVisibility(counting, enter = fadeIn(), exit = ExitTransition.None) {
       Box(
-        Modifier.fillMaxSize().drawBehind { drawRect(c.background.copy(alpha = 0.96f * veil)) },
+        Modifier.fillMaxSize().drawBehind { drawRect(c.background.copy(alpha = 0.96f)) },
         contentAlignment = Alignment.Center,
       ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-          Column(Modifier.graphicsLayer { alpha = veil }, horizontalAlignment = Alignment.CenterHorizontally) {
+          Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
               challenge.info.title.uppercase(),
               style = Theme.type.overline,
@@ -159,9 +157,8 @@ internal fun Play(
             stage.goAt,
             session.client.sync,
             Modifier.height(140.dp),
-            onBeat = { beat ->
-              if (beat == 0) graph.platform.haptics.heavy() else graph.platform.haptics.tick()
-            },
+            go = null,
+            onBeat = { beat -> if (beat > 0) graph.platform.haptics.tick() },
           )
         }
       }
@@ -288,7 +285,7 @@ private fun <S : Any, I : Any> StageHost(
 }
 
 private const val AUTOPILOT_MS = 40L
-private const val GO_MS = 400L
+private const val GO_BEAT_MS = 700L
 
 @Stable
 private class LiveStage<S : Any, I : Any>(

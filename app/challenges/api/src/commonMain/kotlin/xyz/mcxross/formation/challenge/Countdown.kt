@@ -28,7 +28,8 @@ fun Countdown(
   goAt: Long,
   clock: ClockSync,
   modifier: Modifier = Modifier,
-  go: String = "Go",
+  // Null skips the word: the go beat still fires, but nothing is drawn over the stage.
+  go: String? = "Go",
   onBeat: (Int) -> Unit = {},
 ) {
   val now by rememberHostNow(clock)
@@ -54,7 +55,7 @@ fun Countdown(
       when {
         b in 1..3 ->
           Text(b.toString(), style = Theme.type.numeralHero, color = Theme.colors.content)
-        b == 0 ->
+        b == 0 && go != null ->
           Text(
             go.uppercase(),
             style = Theme.type.hero,
