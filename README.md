@@ -4,12 +4,6 @@ Formation turns the phones in a room into one shared game. A Seeker owner starts
 
 The idea is that a Seeker is a key to a shared experience rather than a solo device: its owner brings people together, and anyone who helps earns a share, with no wallet needed to join.
 
-<p align="center">
-  <img src="docs/images/mosaic.png" width="720" alt="Six phones laid out in three rows, each showing one piece of the Solana mark, together forming the whole logo">
-  <br>
-  <sub>Six phones, one mark: a finished game of Mosaic.</sub>
-</p>
-
 ## How a Formation works
 
 1. **A sponsor funds a contest.** SKR is locked in the Formation vault for Seeker Genesis Token holders.
