@@ -2,12 +2,15 @@ package xyz.mcxross.formation.ui.screens
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -18,7 +21,6 @@ import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
 import org.jetbrains.compose.resources.imageResource
@@ -32,6 +34,9 @@ import xyz.mcxross.formation.resources.story_seeker
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
+
+// The terminal is drawn far below its rendered size; without mipmaps its edges shimmer as it moves.
+internal expect fun ImageBitmap.withMipmaps(): ImageBitmap
 
 private fun blend(a: Float, b: Float, p: Float) = a + (b - a) * p
 private fun phase(t: Float, a: Float, b: Float): Float {
@@ -52,7 +57,8 @@ private data class Terminal(val center: Offset, val width: Float, val angle: Flo
 /** A full-resolution Blender layer and native geometry, all evaluated from the story clock. */
 @Composable
 internal fun OnboardingScene(time: () -> Float, reduced: Boolean, modifier: Modifier) {
-  val terminal = imageResource(Res.drawable.onboarding_terminal)
+  val source = imageResource(Res.drawable.onboarding_terminal)
+  val terminal = remember(source) { source.withMipmaps() }
   val red = Theme.colors.accent
   val textMeasurer = rememberTextMeasurer()
   val labelStyle = Theme.type.overline
@@ -88,9 +94,14 @@ internal fun OnboardingScene(time: () -> Float, reduced: Boolean, modifier: Modi
           phone(180f, blend(-120f, 109f, join), blend(56f, 83f, join), blend(-18f, 0f, join), phase(t, 4.4f, 5.2f)),
         )
         phones.forEachIndexed { i, p ->
+          // Integer destinations here would snap to scene units, several pixels apart once scaled.
           if (p.alpha > .005f) rotate(p.angle, p.center) {
-            drawImage(terminal, dstOffset = IntOffset((p.center.x - p.width / 2).toInt(), (p.center.y - p.width * .75f).toInt()),
-              dstSize = IntSize(p.width.toInt(), (p.width * 1.5f).toInt()), alpha = p.alpha)
+            translate(p.center.x - p.width / 2, p.center.y - p.width * .75f) {
+              scale(p.width / terminal.width, Offset.Zero) {
+                drawImage(terminal, dstSize = IntSize(terminal.width, terminal.height), alpha = p.alpha,
+                  filterQuality = FilterQuality.Medium)
+              }
+            }
           }
           label(if (i == 0) seekerLabel else phoneLabel,
             p.center + Offset(0f, p.width * .69f + 15),
