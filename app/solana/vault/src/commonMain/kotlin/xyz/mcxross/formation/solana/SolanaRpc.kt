@@ -47,6 +47,7 @@ class SolanaRpc(
   private val callTimeout: Duration = 20.seconds,
   private val fallback: String? = null,
   private val cooldown: Duration = 10.minutes,
+  private val retryAfter: Duration = 1500.milliseconds,
 ) {
   private var preferredDownSince: TimeSource.Monotonic.ValueTimeMark? = null
 
@@ -211,17 +212,12 @@ class SolanaRpc(
       put("method", method)
       put("params", params)
     }
-    val preferredUp = preferredDownSince?.let { it.elapsedNow() >= cooldown } ?: true
-    val backup = fallback
-    val response =
-      if (backup == null) post(url, body)
-      else if (!preferredUp) post(backup, body)
-      else post(url, body).takeIf { it != null && !it.refused() }
-        ?.also { preferredDownSince = null }
-        ?: run {
-          preferredDownSince = TimeSource.Monotonic.markNow()
-          post(backup, body)
-        }
+    // Android cuts an app's connections while another app, such as the wallet, is in front, so the first call
+    // after coming back can fail before reaching any node.
+    val response = ask(body) ?: run {
+      delay(retryAfter)
+      ask(body)
+    }
     val json = response?.json
       ?: throw RpcException(-1, if (response == null) "No connection to Solana" else "The Solana node sent something unexpected")
     json["error"]
@@ -253,6 +249,20 @@ class SolanaRpc(
   }
 
   // Offline, a request can hang for minutes; failing fast lets callers keep the work for later.
+  private suspend fun ask(body: JsonObject): Reply? {
+    val backup = fallback ?: return post(url, body)
+    if (preferredDownSince?.let { it.elapsedNow() < cooldown } == true) return post(backup, body)
+    val preferred = post(url, body)
+    if (preferred != null && !preferred.refused()) {
+      preferredDownSince = null
+      return preferred
+    }
+    val standIn = post(backup, body)
+    // When neither node answers, the phone is offline; that isn't the provider's fault.
+    if (preferred != null || standIn != null) preferredDownSince = TimeSource.Monotonic.markNow()
+    return standIn
+  }
+
   private suspend fun post(endpoint: String, body: JsonObject): Reply? =
     withContext(Dispatchers.Default) {
       withTimeoutOrNull(callTimeout) {

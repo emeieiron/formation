@@ -283,4 +283,18 @@ class SolanaRpcTest {
     assertFailsWith<RpcException> { nodes.rpc(cooldown = 0.milliseconds).latestBlockhash() }
     assertEquals(listOf("helius.test"), nodes.hosts)
   }
+
+  @Test
+  fun aCallThatFindsNoConnectionTriesOnceMore() = runTest {
+    var calls = 0
+    val http = HttpClient(MockEngine {
+      calls++
+      if (calls <= 2) error("Software caused connection abort")
+      respond("""{"jsonrpc":"2.0","id":1,"result":{"value":{"blockhash":"helius","lastValidBlockHeight":1},"context":{"slot":1}}}""",
+        HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+    })
+    val rpc = SolanaRpc(http, "https://helius.test", fallback = "https://public.test")
+    assertEquals("helius", rpc.latestBlockhash())
+    assertEquals(3, calls, "both nodes failed once, then the provider answered and was not put aside")
+  }
 }
