@@ -9,18 +9,14 @@ enum class PhoneRole {
   // Seeker hardware whose wallet isn't linked yet.
   SEEKER,
 
-  // A linked wallet holding a Genesis Token, on any phone.
+  // A linked wallet holding a Genesis Token, on any phone: a real one, or a test one where real ones don't exist.
   HOST,
-
-  // A developer build pretending to be a Seeker.
-  TEST_HOST,
 }
 
-// Developer builds can show a Seeker's onboarding on any phone. Read once at launch.
+// Debug builds can show a Seeker's onboarding on any phone. Read once at launch.
 const val KEY_DEV_SEEKER_HARDWARE = "dev.seekerHardware"
 
 fun phoneRole(seekerHardware: Boolean, identity: SeekerIdentity?): PhoneRole = when {
-  identity?.simulated == true -> PhoneRole.TEST_HOST
   identity != null -> PhoneRole.HOST
   seekerHardware -> PhoneRole.SEEKER
   else -> PhoneRole.PLAYER

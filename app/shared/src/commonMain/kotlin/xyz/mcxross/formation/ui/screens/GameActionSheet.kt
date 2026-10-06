@@ -12,11 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -24,7 +20,6 @@ import org.jetbrains.compose.resources.stringResource
 import xyz.mcxross.formation.challenge.Challenge
 import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.components.Button
-import xyz.mcxross.formation.design.components.ButtonSize
 import xyz.mcxross.formation.design.components.ButtonStyle
 import xyz.mcxross.formation.design.components.ModalSheet
 import xyz.mcxross.formation.design.components.Overline
@@ -43,11 +38,6 @@ import xyz.mcxross.formation.resources.Res
 import xyz.mcxross.formation.resources.action_done
 import xyz.mcxross.formation.resources.action_view_reward
 import xyz.mcxross.formation.resources.label_funded_rewards
-import xyz.mcxross.formation.resources.story_practice_locked
-import xyz.mcxross.formation.resources.game_needs_seeker
-import xyz.mcxross.formation.resources.action_link_seeker
-import xyz.mcxross.formation.state.PhoneRole
-import xyz.mcxross.formation.ui.LocalGraph
 import xyz.mcxross.formation.ui.components.timeLeft
 
 @Composable
@@ -57,16 +47,10 @@ internal fun GameActionSheet(
   onDismiss: () -> Unit,
   onReward: (Budget) -> Unit,
 ) {
-  val graph = LocalGraph.current
-  val scope = rememberCoroutineScope()
-  val seeker by graph.seeker.identity.collectAsState()
-  val role by graph.role.collectAsState()
   if (game.introduction == null && rewards.isEmpty()) {
     LaunchedEffect(game.id) { onDismiss() }
     return
   }
-  // Practice follows the same rule as hosting: a linked wallet holding a Genesis Token.
-  val canPractice = role == PhoneRole.HOST || role == PhoneRole.TEST_HOST
   ModalSheet(onDismiss) {
     Column(Modifier.fillMaxWidth().weight(1f, fill = false)
       .verticalScroll(rememberScrollState()).padding(horizontal = Space.xxl)) {
@@ -74,20 +58,7 @@ internal fun GameActionSheet(
       Text(game.info.title, style = Theme.type.title2)
       game.introduction?.let { introduction ->
         Spacer(Modifier.height(Space.xl))
-        if (canPractice) introduction() else {
-          HowToPlay(game.info)
-          Spacer(Modifier.height(Space.m))
-          Text(
-            stringResource(if (role == PhoneRole.PLAYER) Res.string.game_needs_seeker else Res.string.story_practice_locked),
-            style = Theme.type.footnote,
-            color = Theme.colors.contentSecondary,
-          )
-          if (role == PhoneRole.SEEKER) {
-            Spacer(Modifier.height(Space.m))
-            Button(stringResource(Res.string.action_link_seeker), { scope.launch { graph.seeker.link() } },
-              style = ButtonStyle.Reward, size = ButtonSize.Small, fillWidth = false, leadingIcon = Icons.Seeker)
-          }
-        }
+        introduction()
       }
       if (rewards.isNotEmpty()) {
         Spacer(Modifier.height(Space.xl))

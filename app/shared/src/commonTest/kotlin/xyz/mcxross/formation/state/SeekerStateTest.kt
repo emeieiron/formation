@@ -75,7 +75,7 @@ class SeekerStateTest {
   @OptIn(ExperimentalCoroutinesApi::class)
   @Test fun leavingAnInFlightLinkDoesNotStrandTheNextVisit() = runTest {
     val wallet = Wallet(seedVault).apply { pending = CompletableDeferred() }
-    val state = SeekerState(Store(), secrets, wallet, isSeeker = true, developer = false, NETWORK, check)
+    val state = SeekerState(Store(), secrets, wallet, isSeeker = true, NETWORK, check)
     val request = launch { state.link() }
     runCurrent()
     assertEquals(SeekerStatus.Checking, state.status.value)
@@ -92,7 +92,7 @@ class SeekerStateTest {
   fun aSeekerIsLinkedOnceThenRecheckedQuietly() = runTest {
     val store = Store()
     val wallet = Wallet(seedVault)
-    val state = SeekerState(store, secrets, wallet, isSeeker = true, developer = false, NETWORK, check)
+    val state = SeekerState(store, secrets, wallet, isSeeker = true, NETWORK, check)
     state.autoVerify()
     assertEquals(0, wallet.connects, "the wallet only opens when the owner chooses to link")
     assertEquals(SeekerStatus.NotLinked, state.status.value)
@@ -100,13 +100,13 @@ class SeekerStateTest {
 
     state.link()
     assertEquals(
-      SeekerIdentity(SEEKER, "Sgt111", simulated = false),
+      SeekerIdentity(SEEKER, "Sgt111", "", ""),
       state.identity.value?.copy(authorization = "", signature = ""),
     )
     assertIs<SeekerStatus.Verified>(state.status.value)
     assertEquals(state.identity.value, state.requireHostIdentity())
 
-    val relaunched = SeekerState(store, secrets, wallet, isSeeker = true, developer = false, NETWORK, check)
+    val relaunched = SeekerState(store, secrets, wallet, isSeeker = true, NETWORK, check)
     relaunched.autoVerify()
     assertEquals(1, wallet.connects, "later launches only re-check the stored address")
     assertIs<SeekerStatus.Verified>(relaunched.status.value)
@@ -115,7 +115,7 @@ class SeekerStateTest {
   @Test
   fun otherPhonesAreNeverAsked() = runTest {
     val wallet = Wallet(seedVault)
-    val state = SeekerState(Store(), secrets, wallet, isSeeker = false, developer = false, NETWORK, check)
+    val state = SeekerState(Store(), secrets, wallet, isSeeker = false, NETWORK, check)
     state.autoVerify()
     assertEquals(0, wallet.connects)
     assertEquals(SeekerStatus.NotASeeker, state.status.value)
@@ -125,7 +125,7 @@ class SeekerStateTest {
   @Test
   fun aDeclinedApprovalWaitsForTheOwner() = runTest {
     val wallet = Wallet(WalletResult.Failed("declined"))
-    val state = SeekerState(Store(), secrets, wallet, isSeeker = true, developer = false, NETWORK, check)
+    val state = SeekerState(Store(), secrets, wallet, isSeeker = true, NETWORK, check)
     state.link()
     state.autoVerify()
     assertEquals(1, wallet.connects)
@@ -144,7 +144,6 @@ class SeekerStateTest {
         secrets,
         Wallet(WalletResult.Ok(WalletAccount(OTHER, null))),
         isSeeker = true,
-        developer = false,
         NETWORK,
         check,
       )
@@ -156,12 +155,12 @@ class SeekerStateTest {
 
   @Test
   fun linkingAuthorizesThisPhoneToHost() = runTest {
-    val state = SeekerState(Store(), secrets, Wallet(seedVault), isSeeker = false, developer = false, NETWORK, check)
+    val state = SeekerState(Store(), secrets, Wallet(seedVault), isSeeker = false, NETWORK, check)
     state.link()
     val opportunity = Opportunity(Budget(OpportunityId("So11111111111111111111111111111111111111112"), "11111111111111111111111111111111", "sgt", Skr.of(600), 3, 31, Long.MAX_VALUE, "Test"), ChallengeId("tap"), 3)
     // Any phone can host once its wallet authorizes it, and every guest can check that.
     val proof = state.credentials("session-1", opportunity).proof
-    assertNull(HostChecks.problem(proof, "session-1", NETWORK, allowSimulated = false))
+    assertNull(HostChecks.problem(proof, "session-1", NETWORK))
 
     state.forget()
     assertNull(secrets.get("host-key"), "an unlinked phone keeps no key that could sign for the wallet")
@@ -170,7 +169,7 @@ class SeekerStateTest {
   @Test
   fun aWalletMustSignForTheAddressItNames() = runTest {
     // An address that holds a Genesis Token proves nothing unless the wallet can sign for it.
-    val state = SeekerState(Store(), secrets, Wallet(seedVault, signer = Ed25519KeyPair.generate()), isSeeker = true, developer = false, NETWORK, check)
+    val state = SeekerState(Store(), secrets, Wallet(seedVault, signer = Ed25519KeyPair.generate()), isSeeker = true, NETWORK, check)
     state.link()
     assertNull(state.identity.value)
     assertEquals(SeekerStatus.NeedsApproval("The wallet's signature doesn't match its address."), state.status.value)
@@ -179,9 +178,9 @@ class SeekerStateTest {
   @Test
   fun aTokenThatIsGoneUnlinksTheSeeker() = runTest {
     val store = Store()
-    SeekerState(store, secrets, Wallet(seedVault), isSeeker = true, developer = false, NETWORK, check).link()
+    SeekerState(store, secrets, Wallet(seedVault), isSeeker = true, NETWORK, check).link()
     sgts.clear()
-    val relaunched = SeekerState(store, secrets, Wallet(seedVault), isSeeker = true, developer = false, NETWORK, check)
+    val relaunched = SeekerState(store, secrets, Wallet(seedVault), isSeeker = true, NETWORK, check)
     relaunched.autoVerify()
     assertNull(relaunched.identity.value)
     assertEquals(SeekerStatus.NoToken(SEEKER), relaunched.status.value)
@@ -189,16 +188,47 @@ class SeekerStateTest {
   }
 
   @Test
-  fun pretendingIsForDebugBuildsOnly() = runTest {
-    val store = Store()
-    SeekerState(store, secrets, Wallet(seedVault), isSeeker = false, developer = false, NETWORK, check)
-      .pretend(true, "Claim111")
-    assertNull(store.get("seeker"))
+  fun aTestSeekerIsFundedThenLinksThisPhonesOwnWallet() = runTest {
+    val funded = mutableListOf<String>()
+    val wallet = Wallet(seedVault)
+    val state = SeekerState(Store(), secrets, wallet, isSeeker = true, NETWORK, check, faucet = { address ->
+      funded += address.base58()
+      sgts[address.base58()] = "TestSgt"
+      Result.success(Unit)
+    })
+    state.becomeHost()
+    val identity = assertIs<SeekerStatus.Verified>(state.status.value).identity
+    assertEquals(0, wallet.connects, "a test Seeker never opens a wallet app")
+    assertEquals(listOf(identity.wallet), funded)
+    assertEquals(Base58.encode(state.testWallet()!!.publicKey), identity.wallet)
+    assertEquals("TestSgt", identity.sgt)
+    assertEquals(true, identity.test)
+    // Everything after linking is the same as for a real wallet: guests check the same proof.
+    val opportunity = Opportunity(Budget(OpportunityId("So11111111111111111111111111111111111111112"), "11111111111111111111111111111111", "sgt", Skr.of(600), 3, 31, Long.MAX_VALUE, "Test"), ChallengeId("tap"), 3)
+    assertNull(HostChecks.problem(state.credentials("session-1", opportunity).proof, "session-1", NETWORK))
 
-    SeekerState(store, secrets, Wallet(seedVault), isSeeker = false, developer = true, NETWORK, check)
-      .pretend(true, "Claim111")
-    val release = SeekerState(store, secrets, Wallet(seedVault), isSeeker = false, developer = false, NETWORK, check)
-    assertNull(release.identity.value, "a pretend Seeker never carries into a release build")
+    state.forget()
+    state.becomeTestSeeker()
+    assertEquals(identity.wallet, state.identity.value?.wallet, "the phone keeps one test wallet")
+  }
+
+  @Test
+  fun aFaucetThatCantHelpIsExplained() = runTest {
+    val state = SeekerState(Store(), secrets, Wallet(seedVault), isSeeker = false, NETWORK, check,
+      faucet = { Result.failure(IllegalStateException("Too many requests today")) })
+    state.becomeTestSeeker()
+    assertNull(state.identity.value)
+    assertEquals(SeekerStatus.NeedsApproval("Couldn't get a test token: Too many requests today"), state.status.value)
+  }
+
+  @Test
+  fun withoutAFaucetHostingMeansLinkingAWallet() = runTest {
+    val wallet = Wallet(seedVault)
+    val state = SeekerState(Store(), secrets, wallet, isSeeker = true, NETWORK, check)
+    assertEquals(false, state.testSeekers)
+    state.becomeHost()
+    assertEquals(1, wallet.connects)
+    assertEquals(false, state.identity.value?.test)
   }
 
   private companion object {

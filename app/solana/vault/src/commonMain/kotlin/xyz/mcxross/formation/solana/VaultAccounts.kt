@@ -17,10 +17,11 @@ data class VaultSettings(
   val minEnterWindowSeconds: Long,
   val maxEnterWindowSeconds: Long,
   val drawTimeoutSeconds: Long,
+  val testTokens: Boolean,
 ) {
   internal companion object {
     fun BorshReader.settings() =
-      VaultSettings(bool(), u8(), u16(), u64(), u16(), u8(), u8(), u8(), i64(), i64(), i64(), i64(), i64(), i64())
+      VaultSettings(bool(), u8(), u16(), u64(), u16(), u8(), u8(), u8(), i64(), i64(), i64(), i64(), i64(), i64(), bool())
   }
 }
 
@@ -223,7 +224,8 @@ enum class VaultError(val code: Int, val message: String) {
   NOT_CLOSABLE(6029, "Not closable yet"),
   UNAUTHORIZED(6030, "Not allowed"),
   WRONG_MINT(6031, "Wrong token"),
-  OVERFLOW(6032, "Arithmetic overflow");
+  OVERFLOW(6032, "Arithmetic overflow"),
+  TEST_TOKENS_OFF(6033, "Test tokens are off on this network");
 
   companion object {
     fun of(code: Int): VaultError? = entries.firstOrNull { it.code == code }

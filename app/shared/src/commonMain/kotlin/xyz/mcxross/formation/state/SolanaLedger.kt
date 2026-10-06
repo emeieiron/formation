@@ -38,6 +38,8 @@ class SolanaLedger(
   private val rpc: SolanaRpc,
   private val wallet: WalletPort,
   private val claimKey: () -> Ed25519KeyPair,
+  // This phone's own test wallet, which signs for itself where a real Seeker's wallet app would.
+  private val testWallet: () -> Ed25519KeyPair?,
   private val cluster: String,
   store: KeyValueStore,
   private val vault: FormationVault = FormationVault(),
@@ -63,10 +65,7 @@ class SolanaLedger(
   override suspend fun refresh(seeker: SeekerIdentity) {
     runCatching {
       val config = config()
-      // A developer build's pretend Seeker names no token; the test token its wallet holds stands in.
-      val sgt = seeker.sgt?.let(SolanaPublicKey::from)
-        ?: SgtFinder(rpc, config.sgtGroup).find(SolanaPublicKey.from(seeker.wallet))?.mint
-        ?: return@runCatching emptyList<Budget>() to emptyList()
+      val sgt = SolanaPublicKey.from(seeker.sgt)
       val contests =
         rpc.programAccounts(vault.programId, listOf(SolanaRpc.Filter.Memcmp(0, VaultContest.DISCRIMINATOR)))
           .map { (address, data) -> VaultContest.decode(address, data) }
@@ -133,7 +132,7 @@ class SolanaLedger(
     val holder = holder(seeker)
     val blockhash = rpc.latestBlockhashInfo()
     val tx = transaction(holder.wallet, blockhash.value, vault.register(holder, SolanaPublicKey.from(draw.contest)))
-    val signed = if (seeker.simulated) tx.signedBy(claimKey()).serialize() else walletSign(listOf(tx)).single()
+    val signed = if (seeker.test) tx.signedBy(testKey()).serialize() else walletSign(listOf(tx)).single()
     val signature = submissions.execute(journal.prepare(operation, signed, blockhash.lastValidBlockHeight))
     _draws.update { list -> list.map { if (it.contest == draw.contest) it.copy(entered = true) else it } }
     signature
@@ -178,7 +177,7 @@ class SolanaLedger(
     }
     val blockhash = rpc.latestBlockhashInfo()
     val batches = packTransactions(payer, blockhash.value, unlock, payouts)
-    val signed = if (seeker.simulated) batches.map { it.transaction.signedBy(claimKey()).serialize() }
+    val signed = if (seeker.test) batches.map { it.transaction.signedBy(testKey()).serialize() }
       else if (batches.isEmpty()) emptyList() else walletSign(batches.map { it.transaction })
     check(signed.size == batches.size) { "The wallet did not sign every transaction" }
     // Save all approved batches before sending any of them.
@@ -302,6 +301,8 @@ class SolanaLedger(
       else -> null
     }
   }
+
+  private fun testKey(): Ed25519KeyPair = testWallet() ?: error("This phone's test wallet is gone; become a test Seeker again")
 
   private suspend fun holder(seeker: SeekerIdentity): FormationVault.Holder {
     val wallet = SolanaPublicKey.from(seeker.wallet)

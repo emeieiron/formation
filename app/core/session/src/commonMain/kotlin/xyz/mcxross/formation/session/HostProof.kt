@@ -18,8 +18,6 @@ data class HostProof(
   val authorization: String = "",
   val walletSignature: String = "",
   val sessionSignature: String = "",
-  // A developer build's pretend Seeker carries no wallet authorization; only developer builds accept it.
-  val simulated: Boolean = false,
 )
 
 class HostCredentials(val proof: HostProof, val sessionKey: Ed25519KeyPair)
@@ -62,15 +60,9 @@ object HostChecks {
     )
   }
 
-  fun simulated(opportunity: Opportunity): HostCredentials {
-    val key = Ed25519KeyPair.generate()
-    return HostCredentials(HostProof(opportunity, Base58.encode(key.publicKey), simulated = true), key)
-  }
-
-  fun problem(proof: HostProof?, session: String, network: String, allowSimulated: Boolean): String? {
+  fun problem(proof: HostProof?, session: String, network: String): String? {
     proof ?: return "This host didn't show which Seeker it plays for."
     if (key(proof.sessionKey) == null) return "This host's proof is malformed."
-    if (proof.simulated) return if (allowSimulated) null else "This host is a test Seeker from a developer build."
     val wallet = key(proof.wallet) ?: return "This host's proof is malformed."
     val hostKey = key(proof.hostKey) ?: return "This host's proof is malformed."
     if (!signed(proof.walletSignature, proof.authorization.encodeToByteArray(), wallet))

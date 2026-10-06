@@ -16,11 +16,13 @@ class FormationVaultTest {
   // Expected addresses come from solders' find_program_address and from mainnet.
   @Test
   fun addressesMatchTheReferences() = runTest {
-    assertEquals("GowL9T7H2YekJFW1869bF3KoXA3bdzugpbGH3pJVGRN4", vault.config().base58())
+    assertEquals("ADzKWRRvXEFbgRc7sPuqXwvj86oxeKc1aSsYWEhQ1ys4", vault.config().base58())
     val contest = vault.contest(wallet, 7uL)
-    assertEquals("DXNnGZzzKap9FqfyTVnY3QevoJMMQuGY3ahAfNPiN5ww", contest.base58())
-    assertEquals("nVCStjGbx7tnKP41jMjdCkTovaBcA5uc1LsGWd6YnTR", vault.entry(contest, sgt, 1).base58())
-    assertEquals("D2FtRzJSpzeANUBb5JQFc5MXzAWNvo2E4ZUokeHAU8a9", vault.receipt(contest, sgt).base58())
+    assertEquals("Dg87j4MzGxuLNrWDqq59buj8b74LpUFbVhbgmLuJuF6u", contest.base58())
+    assertEquals("769ySWS67xyk87yTJJ7gqHwg7jff49FxXxM6nx1DgkWz", vault.entry(contest, sgt, 1).base58())
+    assertEquals("FEa5s23KVReFboEcyKnWLS4W9YMVa4xNTuY9BoNJ6vDS", vault.receipt(contest, sgt).base58())
+    assertEquals("2bsLH6hhVFFyQqAVyP2KysVtXMdQXcSFPXYVFthSHVCa", vault.testToken(wallet).base58())
+    assertEquals("6AyLvcWZobvX7r4jv3p8QVUDZRnSqTHDWiscdggT5hMy", vault.testAuthority().base58())
     assertEquals(
       Mainnet.sgtAccount,
       associatedTokenAccount(Mainnet.holder, Mainnet.sgt, SeekerGenesis.TOKEN_2022),

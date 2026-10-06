@@ -37,32 +37,24 @@ class HostSessionTest {
       Base58.encode(signer.sign(text.encodeToByteArray())))
   }
 
-  private fun verifier(allowSimulated: Boolean = false) =
-    HostVerifier { session, proof -> HostChecks.problem(proof, session, NETWORK, allowSimulated) }
+  private fun verifier() = HostVerifier { session, proof -> HostChecks.problem(proof, session, NETWORK) }
 
   @Test
   fun aWalletAuthorizedPhoneHosts() {
-    assertNull(HostChecks.problem(authorized().proof, SESSION, NETWORK, allowSimulated = false))
+    assertNull(HostChecks.problem(authorized().proof, SESSION, NETWORK))
   }
 
   @Test
   fun everyLinkInTheChainIsChecked() {
     fun problem(credentials: HostCredentials, session: String = SESSION) =
-      HostChecks.problem(credentials.proof, session, NETWORK, allowSimulated = false)
+      HostChecks.problem(credentials.proof, session, NETWORK)
     assertEquals("The Seeker's wallet didn't authorize this host.", problem(authorized(signer = Ed25519KeyPair.generate())))
     assertEquals("The Seeker's wallet authorized a different phone.", problem(authorized(hostKey = Ed25519KeyPair.generate())))
     assertEquals("This host is set up for another network.", problem(authorized(network = "mainnet-beta")))
     assertEquals("The host's key didn't sign this Formation.", problem(authorized(), session = "session-2"))
     assertEquals("The host's key didn't sign this Formation.",
-      HostChecks.problem(authorized().proof.copy(opportunity = opportunity.copy(budget = opportunity.budget.copy(amount = Skr.of(6_000)))), SESSION, NETWORK, false))
-    assertEquals("This host didn't show which Seeker it plays for.", HostChecks.problem(null, SESSION, NETWORK, false))
-  }
-
-  @Test
-  fun onlyDeveloperBuildsAcceptTestSeekers() {
-    val proof = HostChecks.simulated(opportunity).proof
-    assertNull(HostChecks.problem(proof, SESSION, NETWORK, allowSimulated = true))
-    assertEquals("This host is a test Seeker from a developer build.", HostChecks.problem(proof, SESSION, NETWORK, false))
+      HostChecks.problem(authorized().proof.copy(opportunity = opportunity.copy(budget = opportunity.budget.copy(amount = Skr.of(6_000)))), SESSION, NETWORK))
+    assertEquals("This host didn't show which Seeker it plays for.", HostChecks.problem(null, SESSION, NETWORK))
   }
 
   private fun TestScope.host(credentials: HostCredentials?): FormationHost =

@@ -23,6 +23,28 @@ class FormationVault(
   suspend fun receipt(contest: SolanaPublicKey, claimKey: SolanaPublicKey): ProgramDerivedAddress =
     pda(RECEIPT_SEED, contest.bytes, claimKey.bytes)
 
+  suspend fun testAuthority(): ProgramDerivedAddress = pda(TEST_AUTHORITY_SEED)
+
+  suspend fun testToken(wallet: SolanaPublicKey): ProgramDerivedAddress = pda(TEST_TOKEN_SEED, wallet.bytes)
+
+  // Mints [wallet] its test Genesis Token in [group]; the faucet pays as [payer].
+  suspend fun mintTestToken(payer: SolanaPublicKey, wallet: SolanaPublicKey, group: SolanaPublicKey): TransactionInstruction {
+    val mint = testToken(wallet)
+    return instruction(
+      MINT_TEST_TOKEN,
+      signer(payer, writable = true),
+      readOnly(wallet),
+      readOnly(config()),
+      readOnly(testAuthority()),
+      writable(group),
+      writable(mint),
+      writable(associatedTokenAccount(wallet, mint, SeekerGenesis.TOKEN_2022)),
+      readOnly(SeekerGenesis.TOKEN_2022),
+      readOnly(AssociatedTokenProgram.PROGRAM_ID),
+      readOnly(SystemProgram.PROGRAM_ID),
+    )
+  }
+
   suspend fun tokenAccount(owner: SolanaPublicKey, mint: SolanaPublicKey): SolanaPublicKey =
     associatedTokenAccount(owner, mint, tokenProgram)
 
@@ -128,12 +150,14 @@ class FormationVault(
   class Holder(val wallet: SolanaPublicKey, val sgt: SolanaPublicKey, val sgtAccount: SolanaPublicKey)
 
   companion object {
-    val PROGRAM_ID = SolanaPublicKey.from("9NqxUaDuCrk92aDXEvhVppRVW1EmvygXKvtLm6LR5uy7")
+    val PROGRAM_ID = SolanaPublicKey.from("8haw7C2rGLgF4dmn3kciRERtrLmRFQLX6Hg14Hg4Jvg5")
 
     val CONFIG_SEED = "config".encodeToByteArray()
     val CONTEST_SEED = "contest".encodeToByteArray()
     val ENTRY_SEED = "entry".encodeToByteArray()
     val RECEIPT_SEED = "receipt".encodeToByteArray()
+    val TEST_AUTHORITY_SEED = "test-authority".encodeToByteArray()
+    val TEST_TOKEN_SEED = "test-token".encodeToByteArray()
 
     const val MAX_PROOF = 7
     const val TITLE_BYTES = 32
@@ -142,6 +166,7 @@ class FormationVault(
     internal val UNLOCK_DRAWN = discriminator(123, 145, 129, 39, 82, 70, 141, 210)
     internal val REGISTER = discriminator(211, 124, 67, 15, 211, 194, 178, 240)
     internal val CLAIM = discriminator(62, 198, 214, 193, 213, 159, 108, 210)
+    internal val MINT_TEST_TOKEN = discriminator(173, 1, 219, 194, 158, 97, 116, 40)
 
     fun titleOf(bytes: ByteArray): String? =
       bytes.takeWhile { it != 0.toByte() }.toByteArray().decodeToString().trim().ifEmpty { null }

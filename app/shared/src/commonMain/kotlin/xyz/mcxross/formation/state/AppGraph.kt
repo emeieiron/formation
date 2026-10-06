@@ -70,16 +70,16 @@ class AppGraph(
       platform.secrets,
       platform.wallet,
       platform.device.seeker,
-      platform.config.developer,
       platform.config.cluster,
       seekerCheck ?: sgtCheck(SolanaRpc(platform.network.http, platform.config.rpcUrl)),
+      platform.config.faucetUrl?.let { url -> TestFaucet(platform.network.http, url, "Formation/${platform.config.version}")::fund },
     )
   val revocations = AttestationRevocations(platform.store, platform.network.http, ::now)
   val hardware = SeekerHardware(platform.attestation, revocations, ::now)
   // Every phone but the host's own checks who the host plays for, and that its reward is on chain for them.
   private val hostVerifier = HostVerifier { session, proof ->
-    HostChecks.problem(proof, session, platform.config.cluster, allowSimulated = platform.config.developer)
-      ?: proof?.takeUnless { it.simulated }?.let { this.ledger.rewardProblem(it.opportunity, it.wallet) }
+    HostChecks.problem(proof, session, platform.config.cluster)
+      ?: proof?.let { this.ledger.rewardProblem(it.opportunity, it.wallet) }
   }
   val role: StateFlow<PhoneRole> = seeker.identity.map { phoneRole(platform.device.seeker, it) }
     .stateIn(scope, SharingStarted.Eagerly, phoneRole(platform.device.seeker, seeker.identity.value))
@@ -90,6 +90,7 @@ class AppGraph(
         SolanaRpc(platform.network.http, platform.config.rpcUrl),
         platform.wallet,
         { identity.claimKey },
+        { seeker.testWallet() },
         platform.config.cluster,
         platform.store,
         observe = diagnostics.sink(TraceSource.SETTLEMENT),
@@ -307,10 +308,10 @@ class AppGraph(
       hotspot.active.collect { if (it == null) _session.value?.onSeekerNetworkStopped() }
     } }
     scope.launch { this@AppGraph.ledger.sync() }
-    // A pretend Seeker signs with its own key, so it can retry quietly; a real one waits for a tap.
+    // A test Seeker signs with its own key, so it can retry quietly; a real one waits for a tap.
     scope.launch {
       while (true) {
-        if (seeker.identity.value?.simulated == true)
+        if (seeker.identity.value?.test == true)
           pending.pending.value.forEach { unlockWin(it) }
         delay(30_000)
       }

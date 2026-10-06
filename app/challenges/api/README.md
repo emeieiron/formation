@@ -72,38 +72,18 @@ Use a new game ID and a previously unused positive vault code. Codes `1..5` and 
 
 `difficulties` lists the settings a host can choose, the first being the default. A game that ignores difficulty, such as Overdrive, lists none and shows no choice. Supported player counts must stay within `2..32`. `groupSizes` defaults to every count in `players`; a game that works only at some sizes lists them, and rewards for other sizes are treated as unsupported. Vault codes fit `1..65535`. Increment `formatVersion` when rules, input/state serialization, or required capabilities change incompatibly; admission rejects mismatched formats before play.
 
-## Configure development rewards
+## Try a game end to end
 
-The app does not invent rewards: a host plays budgets that sponsor contests fund in the vault. For development, `scripts/devnet.py contest` funds one on devnet.
+The app doesn't invent rewards: a host plays budgets that sponsor contests fund in the vault. On devnet a standing test contest is always funded, and any phone can host it after **Become a test Seeker**.
 
-For the emulator journey or chain provisioning scripts, set `FORMATION_REWARDS` to a JSON file containing fixtures for registered games. An illustrative record is:
-
-```json
-[
-  {
-    "challenge": "my-game",
-    "code": 6,
-    "amount": 120,
-    "players": 2,
-    "owner_bps": 5000,
-    "difficulty": 0,
-    "days": 1,
-    "title": ""
-  }
-]
-```
-
-`amount` is whole SKR; it becomes a budget any registered game can play. The other fields describe the game the journey exercises. The local validator funds no contests without a fixture file; on devnet the journey funds a contest only the pretend Seeker's test token can unlock.
-
-After implementing duo support and an optional autopilot, run the journey with the game's visible title and code:
+After implementing duo support and an optional autopilot, run the emulator journey with the game's visible title:
 
 ```sh
-FORMATION_REWARDS=/absolute/path/rewards.json \
-  scripts/e2e.py --title "My game" --code 6
+scripts/e2e.py --title "My game"
 ```
 
-For asymmetric games, use an external driver that coordinates visible clues across the phones. Overdrive provides `--driver overdrive --layout android` and a fixture in `scripts/fixtures/overdrive.json`. A local autopilot should not receive hidden answers just to make a journey pass.
+For asymmetric games, use an external driver that coordinates visible clues across the phones. Overdrive provides `--driver overdrive --layout android`. A local autopilot should not receive hidden answers just to make a journey pass.
 
-Ricochet provides public-state debug assistance and `scripts/fixtures/ricochet.json`, registered with code `7`. Use `--driver manual` to prepare a duo and operate its controls yourself. The default autoplay driver closes the debug control panel before capturing the playfields; assisted play retains its visible tag.
+Ricochet provides public-state debug assistance. Use `--driver manual` to prepare a duo and operate its controls yourself. The default autoplay driver closes the debug control panel before capturing the playfields; assisted play keeps its visible tag.
 
-The journey defaults to devnet, where it funds a contest for the host through the existing test authority; `--chain localnet` uses the supplied fixture file instead. Runs verify the configured mint, committed roster, confirmed signatures, and exact token changes for paid shares. Test tokens do not represent mainnet SKR value. The journey restores the guest's wallet preference afterward. Human play, physical sensor quality, and network interruptions still need device testing.
+Runs verify the configured mint, the committed roster, confirmed signatures and the exact token changes for paid shares. The journey restores the guest's wallet preference afterward. Human play, physical sensor quality and network interruptions still need device testing.

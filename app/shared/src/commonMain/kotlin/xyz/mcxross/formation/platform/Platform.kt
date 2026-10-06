@@ -85,10 +85,12 @@ interface ScreenPort {
 
 data class AppConfig(
   val version: String,
-  // The developer path: pretend Seekers, simulated rewards and test tools. Never set in a release build.
+  // Debug builds: tools for developing on emulators. Never set in a release build.
   val developer: Boolean,
   val rpcUrl: String,
   val cluster: String,
+  // Where real Genesis Tokens don't exist, the faucet that makes a phone a test Seeker; null on mainnet.
+  val faucetUrl: String? = null,
 )
 
 data class DeviceInfo(val model: String, val emulator: Boolean, val seeker: Boolean = false)

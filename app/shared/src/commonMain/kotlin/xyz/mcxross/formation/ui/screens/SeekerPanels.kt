@@ -18,9 +18,6 @@ import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import xyz.mcxross.formation.design.Theme
-import xyz.mcxross.formation.design.components.Button
-import xyz.mcxross.formation.design.components.ButtonSize
-import xyz.mcxross.formation.design.components.ButtonStyle
 import xyz.mcxross.formation.design.foundation.Hairline
 import xyz.mcxross.formation.design.components.Overline
 import xyz.mcxross.formation.design.components.Spinner
@@ -34,7 +31,10 @@ import xyz.mcxross.formation.design.tokens.Tone
 import xyz.mcxross.formation.resources.Res
 import xyz.mcxross.formation.resources.action_link
 import xyz.mcxross.formation.resources.action_link_wallet
-import xyz.mcxross.formation.resources.action_pretend_seeker
+import xyz.mcxross.formation.resources.action_host_as_test_seeker
+import xyz.mcxross.formation.resources.action_get
+import xyz.mcxross.formation.resources.seeker_test_note
+import xyz.mcxross.formation.resources.seeker_test_token_get
 import xyz.mcxross.formation.resources.join_intro_body
 import xyz.mcxross.formation.resources.join_intro_overline
 import xyz.mcxross.formation.resources.join_intro_searching
@@ -54,7 +54,7 @@ import xyz.mcxross.formation.ui.components.shortAddress
 
 // Shown to phones that aren't Seekers while no Formation is nearby: what they need, and how to join.
 @Composable
-internal fun JoinIntro(searching: Boolean, onLink: () -> Unit, onPretend: (() -> Unit)?, modifier: Modifier = Modifier) {
+internal fun JoinIntro(searching: Boolean, testSeekers: Boolean, onHost: () -> Unit, modifier: Modifier = Modifier) {
   val c = Theme.colors
   Panel(modifier.fillMaxWidth()) {
     Column(Modifier.padding(Space.l)) {
@@ -76,15 +76,7 @@ internal fun JoinIntro(searching: Boolean, onLink: () -> Unit, onPretend: (() ->
         }
       }
       Spacer(Modifier.height(Space.s))
-      TextButton(stringResource(Res.string.action_link_wallet), onLink)
-      // Developer builds play without a Seeker; release builds never show this.
-      onPretend?.let {
-        Spacer(Modifier.height(Space.m))
-        Hairline()
-        Spacer(Modifier.height(Space.m))
-        Button(stringResource(Res.string.action_pretend_seeker), it, style = ButtonStyle.Secondary,
-          size = ButtonSize.Small, fillWidth = false, leadingIcon = Icons.Seeker)
-      }
+      TextButton(stringResource(if (testSeekers) Res.string.action_host_as_test_seeker else Res.string.action_link_wallet), onHost)
     }
   }
 }
@@ -95,9 +87,12 @@ internal fun SeekerSetup(
   status: SeekerStatus,
   wallet: String?,
   rewards: Int,
+  testSeekers: Boolean,
   onLink: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
+  val linkStep = stringResource(if (testSeekers) Res.string.seeker_test_token_get else Res.string.seeker_wallet_link)
+  val linkAction = stringResource(if (testSeekers) Res.string.action_get else Res.string.action_link)
   val c = Theme.colors
   Panel(modifier.fillMaxWidth()) {
     Column(Modifier.padding(Space.l)) {
@@ -114,12 +109,11 @@ internal fun SeekerSetup(
       when {
         wallet != null -> Step(Mark.DONE, stringResource(Res.string.seeker_wallet_linked, shortAddress(wallet)))
         status == SeekerStatus.Checking -> Step(Mark.BUSY, stringResource(Res.string.seeker_wallet_waiting))
-        status is SeekerStatus.NeedsApproval -> Step(Mark.PROBLEM, stringResource(Res.string.seeker_wallet_link), status.message,
-          stringResource(Res.string.action_link), onLink)
-        status is SeekerStatus.NoToken -> Step(Mark.PROBLEM, stringResource(Res.string.seeker_wallet_link),
+        status is SeekerStatus.NeedsApproval -> Step(Mark.PROBLEM, linkStep, status.message, linkAction, onLink)
+        status is SeekerStatus.NoToken -> Step(Mark.PROBLEM, linkStep,
           "${shortAddress(status.wallet)} doesn't hold a Seeker Genesis Token. Choose the wallet that came with this Seeker.",
-          stringResource(Res.string.action_link), onLink)
-        else -> Step(Mark.TODO, stringResource(Res.string.seeker_wallet_link), action = stringResource(Res.string.action_link), onAction = onLink)
+          linkAction, onLink)
+        else -> Step(Mark.TODO, linkStep, if (testSeekers) stringResource(Res.string.seeker_test_note) else null, linkAction, onLink)
       }
       if (wallet != null) {
         if (rewards > 0) Step(Mark.DONE, pluralStringResource(Res.plurals.seeker_rewards_ready, rewards, rewards))

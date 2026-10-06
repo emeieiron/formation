@@ -168,6 +168,10 @@ private fun LinkSeeker(onBack: () -> Unit, onDone: () -> Unit) {
       Spacer(Modifier.height(Space.x3l))
       SeekerAbilities()
       Spacer(Modifier.height(Space.xl))
+      if (graph.seeker.testSeekers) {
+        Notice(stringResource(Res.string.seeker_test_note), title = stringResource(Res.string.seeker_test_note_title))
+        Spacer(Modifier.height(Space.m))
+      }
       when (val s = status) {
         is SeekerStatus.NeedsApproval ->
           Notice(s.message, tone = Tone.Warning, title = "Not linked yet")
@@ -183,8 +187,9 @@ private fun LinkSeeker(onBack: () -> Unit, onDone: () -> Unit) {
     BottomActions {
       Button(
         if (status is SeekerStatus.NeedsApproval || status is SeekerStatus.NoToken) "Try again"
+        else if (graph.seeker.testSeekers) stringResource(Res.string.action_become_test_seeker)
         else "Link my Seeker",
-        { scope.launch { graph.seeker.link() } },
+        { scope.launch { graph.seeker.becomeHost() } },
         style = ButtonStyle.Reward,
         loading = status == SeekerStatus.Checking,
         leadingIcon = Icons.Seeker,

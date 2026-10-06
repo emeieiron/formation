@@ -25,6 +25,7 @@ class IosPlatform : PlatformServices {
       developer = true,
       rpcUrl = "https://api.devnet.solana.com",
       cluster = "devnet",
+      faucetUrl = "https://formation-faucet.em-eieiron.workers.dev",
     )
 
   override val store =

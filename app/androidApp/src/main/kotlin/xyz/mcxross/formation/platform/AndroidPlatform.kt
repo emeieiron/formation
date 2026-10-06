@@ -41,9 +41,10 @@ class AndroidPlatform(private val context: Context) : PlatformServices {
   override val config =
     AppConfig(
       version = BuildConfig.VERSION_NAME,
-      developer = BuildConfig.DEVELOPER,
+      developer = BuildConfig.DEBUG,
       rpcUrl = BuildConfig.SOLANA_RPC_URL,
       cluster = BuildConfig.SOLANA_CLUSTER,
+      faucetUrl = BuildConfig.FAUCET_URL.takeUnless { it.isEmpty() || BuildConfig.SOLANA_CLUSTER == "mainnet-beta" },
     )
 
   override val store =
@@ -70,7 +71,7 @@ class AndroidPlatform(private val context: Context) : PlatformServices {
       emulator = isEmulator(),
       seeker =
         (Build.MODEL.equals("Seeker", ignoreCase = true) && Build.MANUFACTURER.contains("Solana", ignoreCase = true)) ||
-          (BuildConfig.DEVELOPER && store.get(KEY_DEV_SEEKER_HARDWARE) == "true"),
+          (BuildConfig.DEBUG && store.get(KEY_DEV_SEEKER_HARDWARE) == "true"),
     )
 
   override val sensorBackend = AndroidSensorBackend(context)

@@ -31,6 +31,8 @@ import xyz.mcxross.formation.resources.label_sound_effects
 import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.components.LiveryRule
 import xyz.mcxross.formation.design.components.Button
+import xyz.mcxross.formation.design.components.Notice
+import xyz.mcxross.formation.design.tokens.Tone
 import xyz.mcxross.formation.design.components.TextButton
 import xyz.mcxross.formation.design.components.ButtonSize
 import xyz.mcxross.formation.design.components.ButtonStyle
@@ -136,7 +138,7 @@ fun SettingsScreen() {
           SettingRow(
             title =
               when {
-                s?.simulated == true -> "Pretend Seeker"
+                s?.test == true -> "Test Seeker"
                 s != null -> "Wallet linked"
                 status == SeekerStatus.Checking -> "Checking…"
                 graph.platform.device.seeker -> "Seeker not linked"
@@ -144,29 +146,33 @@ fun SettingsScreen() {
               },
             detail =
               when {
-                s?.simulated == true ->
-                  "Testing only. Hosts with this phone's claim key instead of a Seeker Genesis Token."
-                s != null -> "${shortAddress(s.wallet)} holds Genesis Token ${shortAddress(s.sgt ?: "")}. This phone hosts for it."
+                s?.test == true -> "This phone's test wallet ${shortAddress(s.wallet)} holds test Genesis Token ${shortAddress(s.sgt)}, so it hosts on ${graph.platform.config.cluster}."
+                s != null -> "${shortAddress(s.wallet)} holds Genesis Token ${shortAddress(s.sgt)}. This phone hosts for it."
+                graph.seeker.testSeekers -> "Hosting takes a Genesis Token. On ${graph.platform.config.cluster} this phone can get a test one."
                 graph.platform.device.seeker -> "Link the wallet that holds its Genesis Token to host Formations."
                 else -> "This phone joins Formations that Seeker owners start."
               },
             icon = Icons.Seeker,
           )
-          if (s?.simulated != true) {
-            Hairline()
-            Row(Modifier.padding(Space.l), horizontalArrangement = Arrangement.spacedBy(Space.m)) {
-              when {
-                s != null -> {
-                  Button("Check again", { scope.launch { graph.seeker.autoVerify() } }, style = ButtonStyle.Secondary,
-                    size = ButtonSize.Medium, fillWidth = false, loading = status == SeekerStatus.Checking)
-                  Button("Unlink", { graph.seeker.forget() }, style = ButtonStyle.Ghost, size = ButtonSize.Medium, fillWidth = false)
-                }
-                graph.platform.device.seeker ->
-                  Button("Link this Seeker", { scope.launch { graph.seeker.link() } }, style = ButtonStyle.Reward,
-                    size = ButtonSize.Medium, loading = status == SeekerStatus.Checking)
-                else -> TextButton("Have a Seeker? Link its wallet", { scope.launch { graph.seeker.link() } })
+          Hairline()
+          Row(Modifier.padding(Space.l), horizontalArrangement = Arrangement.spacedBy(Space.m)) {
+            when {
+              s != null -> {
+                Button("Check again", { scope.launch { graph.seeker.autoVerify() } }, style = ButtonStyle.Secondary,
+                  size = ButtonSize.Medium, fillWidth = false, loading = status == SeekerStatus.Checking)
+                Button("Unlink", { graph.seeker.forget() }, style = ButtonStyle.Ghost, size = ButtonSize.Medium, fillWidth = false)
               }
+              graph.seeker.testSeekers ->
+                Button("Become a test Seeker", { scope.launch { graph.seeker.becomeTestSeeker() } }, style = ButtonStyle.Reward,
+                  size = ButtonSize.Medium, loading = status == SeekerStatus.Checking, leadingIcon = Icons.Seeker)
+              graph.platform.device.seeker ->
+                Button("Link this Seeker", { scope.launch { graph.seeker.link() } }, style = ButtonStyle.Reward,
+                  size = ButtonSize.Medium, loading = status == SeekerStatus.Checking)
+              else -> TextButton("Have a Seeker? Link its wallet", { scope.launch { graph.seeker.link() } })
             }
+          }
+          (status as? SeekerStatus.NeedsApproval)?.let {
+            Notice(it.message, Modifier.padding(start = Space.l, end = Space.l, bottom = Space.l), tone = Tone.Warning)
           }
         }
       }
@@ -208,19 +214,6 @@ fun SettingsScreen() {
         SectionHeader("Developer")
         Panel(Modifier.fillMaxWidth().padding(horizontal = Space.gutter)) {
           Column {
-            SettingRow(
-              "Pretend to be a Seeker",
-              detail =
-                "Testing only. Hosts Formations without a Seeker Genesis Token, signing with this phone's claim key.",
-              icon = Icons.Seeker,
-              trailing = {
-                Toggle(
-                  seeker?.simulated == true,
-                  { on -> graph.seeker.pretend(on, graph.identity.claimAddress) },
-                )
-              },
-            )
-            Hairline()
             SettingRow(
               title = when (hardware) {
                 HardwareCheck.Proven -> "Seeker hardware attested"

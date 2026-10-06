@@ -142,14 +142,17 @@
     <string name="story_link_later">Link later</string>
     <string name="story_link_title">Link your Seeker</string>
     <string name="story_link_body">Approve the request in your wallet so Formation can confirm this Seeker's Genesis Token. Nothing is spent or moved.</string>
-    <string name="story_practice_locked">Link this Seeker to practice and host.</string>
-    <string name="game_needs_seeker">You play this with a Seeker. When its owner starts a Formation near you, join it from Home.</string>
     <string name="action_game_details">View %1$s instructions</string>
     <string name="join_intro_overline">Needs a Seeker</string>
     <string name="join_intro_title">Seeker owners start Formations</string>
     <string name="join_intro_body">Ask someone with a Seeker to start one near you. This phone joins in, plays its part and earns a share of the reward.</string>
     <string name="join_intro_searching">Looking for Formations on this network…</string>
-    <string name="action_pretend_seeker">Pretend to be a Seeker</string>
+    <string name="action_become_test_seeker">Become a test Seeker</string>
+    <string name="action_host_as_test_seeker">Want to host? Become a test Seeker</string>
+    <string name="action_get">Get</string>
+    <string name="seeker_test_token_get">Get a test Genesis Token</string>
+    <string name="seeker_test_note_title">Formation is on devnet</string>
+    <string name="seeker_test_note">Real Genesis Tokens don't exist on devnet, so this phone gets a test one, with some devnet SOL for fees. A Seeker's own token counts once Formation is on mainnet.</string>
     <string name="seeker_setup_title">Your Seeker</string>
     <string name="seeker_setup_body">Once it's set up, this Seeker can:</string>
     <string name="seeker_can_host">Start Formations for the phones around you</string>
@@ -160,6 +163,5 @@
     <string name="seeker_wallet_waiting">Waiting for your wallet…</string>
     <string name="seeker_rewards_none">No rewards are funded for this Seeker yet. Practice any game meanwhile.</string>
     <string name="action_link">Link</string>
-    <string name="action_link_seeker">Link this Seeker</string>
     <string name="action_link_wallet">Have a Seeker? Link its wallet</string>
 </resources>

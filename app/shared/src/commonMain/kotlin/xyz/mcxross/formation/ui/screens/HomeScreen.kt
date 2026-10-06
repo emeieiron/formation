@@ -275,8 +275,8 @@ fun HomeScreen(presentation: HomePresentation) {
         if (role == PhoneRole.PLAYER && nearby.isEmpty()) item(key = "join-intro") {
           JoinIntro(
             searching = discovery !is xyz.mcxross.formation.link.DiscoveryStatus.Failed,
-            onLink = { scope.launch { graph.seeker.link() } },
-            onPretend = if (developer) {{ graph.seeker.pretend(true, graph.identity.claimAddress) }} else null,
+            testSeekers = graph.seeker.testSeekers,
+            onHost = { scope.launch { graph.seeker.becomeHost() } },
             modifier = Modifier.padding(horizontal = Space.gutter, vertical = Space.s),
           )
         }
@@ -307,9 +307,9 @@ fun HomeScreen(presentation: HomePresentation) {
         nearbySection()
         games()
       } else {
-        if (role != PhoneRole.TEST_HOST && (me == null || hostable == 0)) item(key = "seeker-setup") {
-          SeekerSetup(status, me?.wallet, hostable,
-            onLink = { scope.launch { graph.seeker.link() } },
+        if (me == null || hostable == 0) item(key = "seeker-setup") {
+          SeekerSetup(status, me?.wallet, hostable, graph.seeker.testSeekers,
+            onLink = { scope.launch { graph.seeker.becomeHost() } },
             modifier = Modifier.padding(horizontal = Space.gutter, vertical = Space.s))
         }
         games()

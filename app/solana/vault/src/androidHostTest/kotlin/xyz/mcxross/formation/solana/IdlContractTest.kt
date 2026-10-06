@@ -40,6 +40,7 @@ class IdlContractTest {
       "min_enter_window" to 3_600L,
       "max_enter_window" to 2_592_000L,
       "draw_timeout" to 3_600L,
+      "test_tokens" to true,
     )
 
   private fun named(section: String, name: String) =
@@ -63,6 +64,7 @@ class IdlContractTest {
     assertContentEquals(named("instructions", "unlock_drawn").discriminator(), FormationVault.UNLOCK_DRAWN)
     assertContentEquals(named("instructions", "register").discriminator(), FormationVault.REGISTER)
     assertContentEquals(named("instructions", "claim").discriminator(), FormationVault.CLAIM)
+    assertContentEquals(named("instructions", "mint_test_token").discriminator(), FormationVault.MINT_TEST_TOKEN)
     assertContentEquals(named("accounts", "Config").discriminator(), VaultConfig.DISCRIMINATOR)
     assertContentEquals(named("accounts", "Contest").discriminator(), VaultContest.DISCRIMINATOR)
     assertContentEquals(named("accounts", "Entry").discriminator(), VaultEntry.DISCRIMINATOR)
@@ -84,6 +86,7 @@ class IdlContractTest {
         mapOf("roster_root" to root, "roster_size" to 4, "result" to result),
       ),
       Triple("register", vault.register(holder, c), emptyMap()),
+      Triple("mint_test_token", vault.mintTestToken(a, b, c), emptyMap()),
       Triple(
         "claim",
         vault.claim(a, b, c, a, b, c, 3, proof, claimerSigns = false),
@@ -163,7 +166,7 @@ class IdlContractTest {
     assertEquals(null, contest.only)
     assertEquals(listOf(3_000_000_000uL, 2_000_000_000uL, 300_000_000uL), listOf(contest.pool, contest.unallocated, contest.budget))
     assertEquals(listOf(1, 27), listOf(contest.winsPerSgt, contest.maxGuests))
-    assertEquals(VaultSettings(false, 3, 3, 10_000_000uL, 10, 3, 2, 64, 2_592_000, 3_600, 7_776_000, 3_600, 2_592_000, 3_600), contest.settings)
+    assertEquals(VaultSettings(false, 3, 3, 10_000_000uL, 10, 3, 2, 64, 2_592_000, 3_600, 7_776_000, 3_600, 2_592_000, 3_600, true), contest.settings)
     assertEquals(listOf(1_700_000_000L, 1_700_086_400L, 1_700_172_800L), listOf(contest.createdAtSeconds, contest.enterUntilSeconds, contest.playUntilSeconds))
     assertEquals(listOf(40L, 10L, 3L), listOf(contest.entered, contest.selected, contest.unlocks))
     assertContentEquals(ByteArray(32) { 4 }, contest.drawSeed)

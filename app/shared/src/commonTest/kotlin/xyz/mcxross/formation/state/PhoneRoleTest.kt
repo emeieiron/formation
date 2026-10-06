@@ -4,8 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class PhoneRoleTest {
-  private val linked = SeekerIdentity("Wallet111", "Sgt111", simulated = false)
-  private val pretend = SeekerIdentity("Claim111", null, simulated = true)
+  private val linked = SeekerIdentity("Wallet111", "Sgt111", "", "")
 
   @Test
   fun aLinkedWalletHostsOnAnyPhone() {
@@ -20,8 +19,7 @@ class PhoneRoleTest {
   }
 
   @Test
-  fun aPretendSeekerIsATestHostAnywhere() {
-    assertEquals(PhoneRole.TEST_HOST, phoneRole(seekerHardware = false, identity = pretend))
-    assertEquals(PhoneRole.TEST_HOST, phoneRole(seekerHardware = true, identity = pretend))
+  fun aTestSeekerHostsLikeAnyOther() {
+    assertEquals(PhoneRole.HOST, phoneRole(seekerHardware = false, identity = linked.copy(test = true)))
   }
 }

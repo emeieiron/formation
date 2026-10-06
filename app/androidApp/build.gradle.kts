@@ -2,6 +2,8 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 val rpcUrl = providers.gradleProperty("formation.rpcUrl").orElse("https://api.devnet.solana.com")
 val cluster = providers.gradleProperty("formation.cluster").orElse("devnet")
+// Makes phones test Seekers on networks without real Genesis Tokens; a mainnet build passes an empty one.
+val faucetUrl = providers.gradleProperty("formation.faucetUrl").orElse("https://formation-faucet.em-eieiron.workers.dev")
 
 // A distributable release is signed with the key CI passes in; without it, release builds stay
 // unsigned for local use. See .github/workflows/release-android.yml.
@@ -29,22 +31,7 @@ android {
     versionName = formationVersionName.get()
     buildConfigField("String", "SOLANA_RPC_URL", "\"${rpcUrl.get()}\"")
     buildConfigField("String", "SOLANA_CLUSTER", "\"${cluster.get()}\"")
-  }
-
-  // Two paths through the app. dev plays without a Seeker: a phone can pretend to be one, rewards can be
-  // simulated and emulators get simulated motion. prod is what people install: only a Seeker hosts.
-  flavorDimensions += "path"
-  productFlavors {
-    create("dev") {
-      dimension = "path"
-      applicationIdSuffix = ".dev"
-      versionNameSuffix = "-dev"
-      buildConfigField("boolean", "DEVELOPER", "true")
-    }
-    create("prod") {
-      dimension = "path"
-      buildConfigField("boolean", "DEVELOPER", "false")
-    }
+    buildConfigField("String", "FAUCET_URL", "\"${faucetUrl.get()}\"")
   }
 
   signingConfigs {
