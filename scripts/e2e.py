@@ -331,16 +331,30 @@ def approve_wallet(guest, auto, timeout=180):
                     log("guest: unlock the wallet app on the guest emulator to continue")
                     asked = True
             elif auto:
-                for label in ("Connect", "Approve", "Confirm"):
-                    node = guest.find(label, root=root)
-                    if node is not None:
-                        guest.tap(node)
-                        break
+                button = wallet_button(root)
+                if button is not None:
+                    guest.tap(button)
             elif not asked:
                 log("guest: approve the connection in the wallet app on the guest emulator")
                 asked = True
         time.sleep(1)
     raise Failed("guest: the wallet never connected")
+
+
+def wallet_button(root):
+    # A wallet's sheet often titles itself with the same word as its button, so only a label inside
+    # something clickable counts.
+    parents = {child: parent for parent in root.iter("node") for child in parent}
+    for label in ("Connect", "Approve", "Confirm"):
+        for node in root.iter("node"):
+            if node.get("text") != label:
+                continue
+            at = node
+            while at is not None and at.get("clickable") != "true":
+                at = parents.get(at)
+            if at is not None:
+                return at
+    return None
 
 
 def main():
