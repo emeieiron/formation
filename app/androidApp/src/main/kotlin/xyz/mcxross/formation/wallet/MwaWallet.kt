@@ -26,6 +26,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.selects.select
+import kotlinx.coroutines.withTimeoutOrNull
 import xyz.mcxross.formation.crypto.Base58
 import xyz.mcxross.formation.platform.SecretStore
 import xyz.mcxross.formation.platform.SignedMessage
@@ -81,7 +82,7 @@ class MwaWallet(
   // silence ends the request. The adapter's blocking wait can't be cancelled, so it is left behind.
   private suspend fun <T> answered(request: suspend () -> TransactionResult<T>): TransactionResult<T>? {
     val pending = requests.async { request() }
-    return try {
+    val result = try {
       coroutineScope {
         val abandoned = async {
           inFront.first { !it }
@@ -96,6 +97,10 @@ class MwaWallet(
     } finally {
       pending.cancel()
     }
+    // The wallet answers while it is still in front, and Android blocks a background app's network, so what
+    // follows, such as checking the wallet on chain, waits until Formation is back.
+    withTimeoutOrNull(BACK_IN_FRONT) { inFront.first { it } }
+    return result
   }
 
   // The adapter's messages describe its internals, such as a cancelled local association; say instead what
@@ -184,5 +189,6 @@ class MwaWallet(
     const val UNFINISHED = "The wallet couldn't finish that. Try again."
     // Past the adapter's own waits after the wallet closes: up to 10 s to connect and 10 s to disconnect.
     val ANSWER_GRACE = 25.seconds
+    val BACK_IN_FRONT = 10.seconds
   }
 }
