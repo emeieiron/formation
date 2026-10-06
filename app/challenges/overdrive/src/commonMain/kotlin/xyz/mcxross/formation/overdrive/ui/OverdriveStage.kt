@@ -36,7 +36,7 @@ internal fun OverdriveStage(scope: StageScope<OverdriveState, Rotate>) {
   val tenths by remember {
     derivedStateOf {
       val current = scope.state
-      val decided = current.clears == OverdriveState.REQUIRED_WAVES || current.misses == OverdriveState.MAX_MISSES
+      val decided = current.clears == OverdriveState.REQUIRED_WAVES || current.lastWave?.cleared == false
       val at = minOf(maxOf(now.value, current.startAt), current.lastWave?.at?.takeIf { decided } ?: Long.MAX_VALUE)
       val left = (current.endsAt - at).coerceAtLeast(0)
       (if (left > URGENT_TENTHS * 100L) (left + 999) / 1_000 * 10 else (left + 99) / 100).toInt()
@@ -108,7 +108,7 @@ private enum class Ending { Won, Broken, Timeout }
 // A catch that lands on the buzzer resolves just after it, so wait briefly before calling time.
 private fun ending(state: OverdriveState, now: Long): Ending? = when {
   state.clears == OverdriveState.REQUIRED_WAVES -> Ending.Won
-  state.misses == OverdriveState.MAX_MISSES -> Ending.Broken
+  state.lastWave?.cleared == false -> Ending.Broken
   now >= state.endsAt + 250 -> Ending.Timeout
   else -> null
 }

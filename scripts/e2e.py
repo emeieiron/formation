@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # End-to-end test across emulators: debug Seeker identity, real devnet settlement by default.
 #
-#   scripts/e2e.py --title GAME_TITLE --code GAME_CODE [--players N] [--chain simulated|localnet|devnet]
+#   scripts/e2e.py --title GAME_TITLE --code GAME_CODE [--players N] [--chain localnet|devnet]
 #                  [--wallet none|connect|ADDRESS] [--seeker SERIAL] [--guest SERIAL ...] [--no-build] [--approve]
 #                  [--layout uiautomator|android] [--driver autoplay|overdrive|mosaic|manual]
 #
@@ -17,7 +17,6 @@ import subprocess
 import sys
 import time
 import urllib.request
-import uuid
 import xml.etree.ElementTree as ET
 from xml.sax.saxutils import escape, unescape
 from reward_fixtures import SKR, load_rewards
@@ -263,8 +262,10 @@ def host_group(seeker, title, players, difficulty=None):
             chip = seeker.find(str(players)) if players > 2 else None
             if chip is not None:
                 seeker.tap(chip)
-            if difficulty:
-                seeker.tap(scroll_until(seeker, difficulty, timeout=10))
+            # Games with one setting show no difficulty choice.
+            level = seeker.find(difficulty) if difficulty else None
+            if level is not None:
+                seeker.tap(level)
             seeker.tap_text("Start Formation")
             return
         area = next((node for node in root.iter("node") if node.get("scrollable") == "true"), None)
@@ -359,8 +360,8 @@ def approve_wallet(guest, auto, timeout=180):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--chain", choices=["simulated", "localnet", "devnet"], default="devnet",
-                        help="devnet submits real transactions; simulation requires explicit selection")
+    parser.add_argument("--chain", choices=["localnet", "devnet"], default="devnet",
+                        help="devnet submits real transactions; localnet runs a validator on this machine")
     parser.add_argument("--title", required=True, help="registered game's visible title")
     parser.add_argument("--code", type=int, required=True, help="registered game's vault code")
     parser.add_argument("--wallet", default="none")
@@ -382,7 +383,7 @@ def main():
         parser.error("--players must be within 2..32")
     if (args.driver == "overdrive" or args.offline) and args.players != 2:
         parser.error("The Overdrive driver and the offline check need a duo")
-    if args.chain in ("simulated", "localnet") and not fixtures:
+    if args.chain == "localnet" and not fixtures:
         parser.error("FORMATION_REWARDS must provide at least one reward")
 
     running = re.findall(r"^(emulator-\d+)\s+device$", subprocess.run([ADB, "devices"], capture_output=True, text=True).stdout, re.M)
@@ -405,21 +406,11 @@ def main():
             phone.adb("install", "-r", apk)
             phone.adb("forward", f"tcp:{47000 + i}", "tcp:47000")
         # The test changes these; put back whatever the person had, such as a connected wallet.
-        saved = {phone: {k: phone.pref(k) for k in ("ledger", "wallet", "sim.budgets")} for phone in phones}
-        ledger = "SIMULATED" if args.chain == "simulated" else "SOLANA"
+        saved = {phone: {k: phone.pref(k) for k in ("wallet",)} for phone in phones}
         wallet = None if args.wallet in ("none", "connect") else args.wallet
-        seeker.set_prefs(ledger=ledger)
-        if args.chain == "simulated":
-            rewards = [
-                {"id": str(uuid.uuid4()), "contest": "simulated", "sgt": "simulated", "amount": f.amount * SKR,
-                 "ownerWeight": 3, "maxGuests": 31, "playUntil": int(time.time() * 1000) + f.days * 86_400_000,
-                 "sponsor": "Test", "title": f.title or None}
-                for f in fixtures
-            ]
-            seeker.set_prefs(**{"sim.budgets": json.dumps(rewards)})
-        guest.set_prefs(ledger=ledger, wallet=wallet)
+        guest.set_prefs(wallet=wallet)
         for other in guests[1:]:
-            other.set_prefs(ledger=ledger, wallet=None)
+            other.set_prefs(wallet=None)
         for index, phone in enumerate(phones):
             name, light = PEOPLE[index % len(PEOPLE)]
             phone.launch()
@@ -445,8 +436,7 @@ def main():
             budget = str(fixtures[0].amount if fixtures else 120)
             for command in (["seeker", seeker_wallet], ["contest", "--only", seeker_wallet, "--budget", budget, "--title", title]):
                 subprocess.run([os.path.join(ROOT, "scripts", "devnet.py"), *command], check=True)
-        if args.chain != "simulated":
-            seeker.launch()
+        seeker.launch()
 
         seeker.wait("Scan QR", timeout=20)
         log(f"seeker: hosting a {args.players}-player {title}")
@@ -470,7 +460,7 @@ def main():
         payout = guest.find("Lands in", prefix=True)
         payout_wallet = re.search(r"Lands in (\S+)", payout.get("text")).group(1) if payout is not None else None
         chain_wallet = wallet or (guest.pref("wallet") if args.wallet == "connect" else None)
-        before = skr_balance(args.chain, chain_wallet) if chain_wallet and args.chain != "simulated" else None
+        before = skr_balance(args.chain, chain_wallet) if chain_wallet else None
         log(f"guest: share lands in {payout_wallet or 'nowhere yet (claim later)'}")
 
         seeker.tap_text("Begin", timeout=30)
@@ -541,25 +531,24 @@ def finish(args, seeker, guests, chain_wallet, before):
     guest = guests[0]
     for phone in (seeker, *guests):
         phone.screenshot("won")
-    if args.chain != "simulated":
-        owner_ticket = next((ticket for ticket in json.loads(seeker.pref("sol.tickets") or "[]")
-                             if ticket["index"] == -1 and ticket["earnedAt"] >= args.started_at), None)
-        for other in guests:
-            guest_ticket = next((ticket for ticket in json.loads(other.pref("sol.tickets") or "[]")
-                                 if owner_ticket and ticket["opportunity"] == owner_ticket["opportunity"]), None)
-            if not owner_ticket or not guest_ticket:
-                raise Failed("Every phone must retain the chain reward tickets")
-            try:
-                result = verify_settlement(lambda method, params: rpc(args.chain, method, params), owner_ticket, guest_ticket,
-                                           json.loads(seeker.pref(f"sol.submissions.{args.chain}") or "[]"))
-            except ValueError as error:
-                raise Failed(f"{other.role}: {error}") from error
-            result["chain"] = args.chain
-            suffix = "" if len(guests) == 1 else f"-{guest_ticket['index']}"
-            with open(os.path.join(OUT, f"settlement-{result['opportunity']}{suffix}.json"), "w") as record:
-                json.dump(result, record, indent=2)
-            log(f"confirmed {args.chain} settlement for {other.role}: {result['signatures'][0]}; "
-                f"owner {result['owner_amount'] / SKR:g} SKR")
+    owner_ticket = next((ticket for ticket in json.loads(seeker.pref("sol.tickets") or "[]")
+                         if ticket["index"] == -1 and ticket["earnedAt"] >= args.started_at), None)
+    for other in guests:
+        guest_ticket = next((ticket for ticket in json.loads(other.pref("sol.tickets") or "[]")
+                             if owner_ticket and ticket["opportunity"] == owner_ticket["opportunity"]), None)
+        if not owner_ticket or not guest_ticket:
+            raise Failed("Every phone must retain the chain reward tickets")
+        try:
+            result = verify_settlement(lambda method, params: rpc(args.chain, method, params), owner_ticket, guest_ticket,
+                                       json.loads(seeker.pref(f"sol.submissions.{args.chain}") or "[]"))
+        except ValueError as error:
+            raise Failed(f"{other.role}: {error}") from error
+        result["chain"] = args.chain
+        suffix = "" if len(guests) == 1 else f"-{guest_ticket['index']}"
+        with open(os.path.join(OUT, f"settlement-{result['opportunity']}{suffix}.json"), "w") as record:
+            json.dump(result, record, indent=2)
+        log(f"confirmed {args.chain} settlement for {other.role}: {result['signatures'][0]}; "
+            f"owner {result['owner_amount'] / SKR:g} SKR")
     if before is not None:
         share = 0
         for _ in range(30):

@@ -5,7 +5,7 @@
     "amount": 120,
     "players": 2,
     "owner_bps": 5000,
-    "difficulty": 0,
+    "difficulty": 1,
     "days": 1,
     "title": ""
   }

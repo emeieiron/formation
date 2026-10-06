@@ -10,11 +10,11 @@ Home's **Games** section presents installed games in a horizontal card deck with
 
 The app includes three cooperative games:
 
-- **Overdrive:** each player sees their partner's target symbol and calls it out while rotating their own square to catch a pulse. Both catches complete a shared wave. The group needs 12 successful waves before the clock runs out (36 seconds on Easy down to 25 on Extreme); three failed waves end the attempt.
+- **Overdrive:** each player sees their partner's target symbol and calls it out while rotating their own square to catch a pulse. Both catches complete a shared wave. The group needs 12 successful waves within 28 seconds; a single failed wave ends the attempt.
 - **Ricochet:** two phones show halves of one arena. Each player moves an outer paddle to keep a shared pulse in play and aim it at six targets. Alternating catches build speed up to 1.9×; two exchanges charge a return that pierces one target. Deadlines range from 60 seconds on Easy to 40 on Extreme, with three shared misses. An interactive briefing introduces aiming. Touch controls work on emulators without sensors.
 - **Mosaic:** 6 or 9 phones each show one piece of the Solana logomark at true physical size. Players lay them in three rows, one per bar, then pinch across every seam to seal it. Every piece has the same physical size: the narrowest usable width and shortest usable height among the phones. Deadlines run from 20 seconds plus 9 per seam on Easy to 20 plus 4 on Extreme, and three wrong pairs end the attempt.
 
-In Overdrive, each successful wave makes both pulses fall 8% faster, so by the final wave they move about two and a half times as fast as the first. A failed wave keeps the pace. The pause between cleared waves shrinks as the group progresses.
+In Overdrive, each successful wave makes both pulses fall 8% faster, so by the final wave they move about two and a half times as fast as the first. The pause between cleared waves shrinks as the group progresses.
 
 Prototype games remain removed. All three games use the same [game API](app/challenges/api/README.md) available to future formats; their rules and stages are isolated from the app's session and reward flow.
 
@@ -61,7 +61,7 @@ Diagnostics stay on the device. The app records a bounded set of session, discov
 | `app/core/sensors` | Typed availability, shared acquisition, motion processing, haptics and emulator simulation |
 | `app/core/session` | Host/client protocol, signed admission, clock synchronization and sealing |
 | `app/challenges/api` | Game contracts, validated registration, and focused input/time helpers |
-| `app/challenges/overdrive` | Two-player rules, private clues, pacing and custom Compose stage |
+| `app/challenges/overdrive` | Two-player rules, private clues and custom Compose stage |
 | `app/challenges/ricochet` | Shared arena physics, sequenced touch input, and two-screen Compose stage |
 | `app/challenges/mosaic` | Logomark layout across phones, size-aware deal, pinch pairing, and a full-screen physical-scale stage |
 | `app/solana/vault` | Kotlin vault instructions, account decoding, RPC and SGT lookup |
@@ -84,7 +84,7 @@ The app has two flavors, one for each path through it:
 
 | Flavor | Who it's for | Seekers |
 | --- | --- | --- |
-| `dev` | Development and testing. Installs as **Formation Dev** (`xyz.mcxross.formation.dev`) beside the release app. | Any phone can pretend to be a Seeker. Rewards can be simulated, and emulators get simulated motion. |
+| `dev` | Development and testing. Installs as **Formation Dev** (`xyz.mcxross.formation.dev`) beside the release app. | Any phone can pretend to be a Seeker, and emulators get simulated motion. |
 | `prod` | What people install. | Only a real Seeker hosts, and every phone checks it. Developer tools aren't in the interface. |
 
 Build either flavor as debug or release. `prodDebug` behaves like the store app but stays debuggable, which helps when checking a real Seeker.
@@ -114,9 +114,9 @@ emulator -avd YOUR_AVD -gpu swiftshader -no-snapshot-load
 
 Software graphics preserved the app's frames during the catalogue checks on this development machine; changing the Android UI renderer alone was insufficient. See [Android's graphics acceleration options](https://developer.android.com/studio/run/emulator-acceleration). These settings affect the emulator, not the APK.
 
-On the host, tap **Pretend to be a Seeker** on Home, or turn it on in Profile → Developer. Only the dev flavor has it. A pretend Seeker supplies a test host identity and signs with its own claim key; it can still submit real devnet transactions, and only other dev builds join it. Solana is the default ledger. Turn off **Solana ledger** explicitly for isolated simulation; the prod flavor ignores a saved simulated-ledger preference.
+On the host, tap **Pretend to be a Seeker** on Home, or turn it on in Profile → Developer. Only the dev flavor has it. A pretend Seeker supplies a test host identity and signs with its own claim key; it can still submit real devnet transactions, and only other dev builds join it.
 
-Browse games immediately from Home. Configure explicit development reward fixtures to host: choose a game, select its funded reward and tap **Start Formation**. Join from another emulator's Nearby list. The motion pad supplies debug sensor simulation when a game needs it. Overdrive uses touch; its test driver supplies the partner communication that normally comes from a second person.
+Browse games immediately from Home. To host, fund a contest the pretend Seeker's test token can unlock (see [Devnet](#devnet)), then choose a game, select its funded reward and tap **Start Formation**. Join from another emulator's Nearby list. The motion pad supplies debug sensor simulation when a game needs it. Overdrive uses touch; its test driver supplies the partner communication that normally comes from a second person.
 
 ### Verification
 
@@ -143,7 +143,7 @@ FORMATION_REWARDS="$PWD/scripts/fixtures/overdrive.json" \
   --layout android --driver overdrive
 ```
 
-The driver reads each phone's visible partner clue and taps the other phone's dial. It exercises the actual game through sealing and confirmed on-chain unlock. The fixture provisions a 120-token devnet reward split equally between the two players when no matching open reward exists. Complete the [devnet setup](#devnet) first. Add `--wallet ADDRESS` to pay the guest's committed share to a devnet recipient; otherwise that share remains reserved for a later claim. Test tokens have no mainnet SKR value. Add `--chain simulated` for an isolated run without transactions.
+The driver reads each phone's visible partner clue and taps the other phone's dial. It exercises the actual game through sealing and confirmed on-chain unlock. The journey funds a 120-token devnet contest only the host's test token can unlock; with one guest the owner gets 90 and the guest 30. Complete the [devnet setup](#devnet) first. Add `--wallet ADDRESS` to pay the guest's committed share to a devnet recipient; otherwise that share remains reserved for a later claim. Test tokens have no mainnet SKR value.
 
 Ricochet's two-emulator journey uses devnet and its optional autopilot:
 
@@ -153,7 +153,7 @@ FORMATION_REWARDS="$PWD/scripts/fixtures/ricochet.json" \
   --layout android
 ```
 
-Devnet is the journey's default chain. It uses an open reward or provisions the explicit fixture through the configured test authority. Complete the [devnet setup](#devnet) first. These are real chain transactions with test tokens, which have no mainnet SKR value. Add `--wallet ADDRESS` to bind the guest payout; otherwise its share remains reserved for a later claim. Add `--chain simulated` for an isolated run without transactions.
+Devnet is the journey's default chain. It funds a contest for the host through the configured test authority. Complete the [devnet setup](#devnet) first. These are real chain transactions with test tokens, which have no mainnet SKR value. Add `--wallet ADDRESS` to bind the guest payout; otherwise its share remains reserved for a later claim.
 
 Append `--driver manual` to operate Ricochet's paddles yourself. Its debug assistance sends normal inputs and is visibly marked **AUTOPLAY**.
 
@@ -161,7 +161,7 @@ Mosaic's six-emulator journey needs six running emulators; give two of them smal
 
 ```sh
 FORMATION_REWARDS="$PWD/scripts/fixtures/mosaic.json" \
-  python3 scripts/e2e.py --title Mosaic --code 8 --players 6 --chain simulated --driver mosaic
+  python3 scripts/e2e.py --title Mosaic --code 8 --players 6 --driver mosaic
 ```
 
 The Mosaic driver reads each phone's piece and seam strips from its accessibility tree and swipes both phones of every seam toward it at once. Omit `--driver` for debug assistance.
@@ -170,12 +170,11 @@ For other registered formats and chain configurations:
 
 ```sh
 export FORMATION_REWARDS=/absolute/path/rewards.json
-scripts/e2e.py --title "My game" --code 6 --chain simulated
 scripts/e2e.py --title "My game" --code 6 --chain localnet --wallet GUEST_WALLET
 scripts/e2e.py --title "My game" --code 6 --chain devnet --wallet connect --approve
 ```
 
-The journey hosts a duo, or the `--players` group size with one guest per extra emulator, then joins, plays, seals and unlocks. `--title` and `--code` identify the registered game; there is no default format. Simulated runs seed only the supplied fixtures. Chain runs verify the configured mint, unlocked vault, committed roster, confirmed transaction signatures, and exact token changes for paid shares. They save public verification records under `program/target/e2e`. `--offline` interrupts the host's network at unlock and checks recovery after relaunch.
+The journey hosts a duo, or the `--players` group size with one guest per extra emulator, then joins, plays, seals and unlocks. `--title` and `--code` identify the registered game; there is no default format. Runs verify the configured mint, unlocked vault, committed roster, confirmed transaction signatures, and exact token changes for paid shares. They save public verification records under `program/target/e2e`. `--offline` interrupts the host's network at unlock and checks recovery after relaunch.
 
 `--wallet connect` opens the guest's wallet flow. `--approve` taps its connection approval; otherwise the script waits for manual approval. It never enters a wallet password. The default layout reader uses UI Automator. `--layout android` starts the Android CLI's instrumentation server and reuses its bundled protocol and serializer for fast, non-idle reads. Set `ANDROID_CLI_JAR` if its `main.jar` is installed outside `~/.android/cli/bundles`.
 

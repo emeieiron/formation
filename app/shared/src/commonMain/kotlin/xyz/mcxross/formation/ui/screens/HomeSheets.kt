@@ -68,7 +68,8 @@ internal fun OpportunitySheet(
   val info = game.info
   val sizes = ChallengeCatalog.sizesFor(game.id, budget)
   var players by remember(sizes) { mutableStateOf(sizes.firstOrNull()) }
-  var difficulty by remember { mutableStateOf(Difficulty.NORMAL) }
+  val levels = info.difficulties
+  var difficulty by remember { mutableStateOf(levels.firstOrNull() ?: Difficulty.NORMAL) }
   var starting by remember { mutableStateOf(false) }
   val o = players?.let { Opportunity(budget, game.id, it, difficulty) }
   ModalSheet(onDismiss, dismissible = !starting) {
@@ -107,11 +108,13 @@ internal fun OpportunitySheet(
           sizes.forEach { size -> Chip("$size", size == players, { players = size }) }
         }
       }
-      Spacer(Modifier.height(Space.l))
-      Overline("Difficulty")
-      Spacer(Modifier.height(Space.s))
-      Row(horizontalArrangement = Arrangement.spacedBy(Space.s)) {
-        Difficulty.entries.forEach { level -> Chip(level.label, level == difficulty, { difficulty = level }) }
+      if (levels.size > 1) {
+        Spacer(Modifier.height(Space.l))
+        Overline("Difficulty")
+        Spacer(Modifier.height(Space.s))
+        Row(horizontalArrangement = Arrangement.spacedBy(Space.s)) {
+          levels.forEach { level -> Chip(level.label, level == difficulty, { difficulty = level }) }
+        }
       }
       o?.let {
         Spacer(Modifier.height(Space.xl))

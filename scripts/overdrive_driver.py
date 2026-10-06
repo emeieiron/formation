@@ -48,9 +48,11 @@ def play_overdrive(seeker, guest, log):
             def align(index):
                 view, target = views[index], views[1 - index]["clue"]
                 turns = (view["edges"].index(view["top"]) - view["edges"].index(target)) % 4
-                for _ in range(turns):
-                    phones[index].tap(view["node"])
-                    time.sleep(0.15)
+                if turns:
+                    # One shell for every turn: separate adb calls outlast the last waves' flights.
+                    x1, y1, x2, y2 = map(int, re.findall(r"\d+", view["node"].get("bounds")))
+                    tap = f"input tap {(x1 + x2) // 2} {(y1 + y2) // 2}"
+                    phones[index].shell("; ".join([tap] * turns))
 
             list(executor.map(align, range(2)))
             relayed.add(wave)

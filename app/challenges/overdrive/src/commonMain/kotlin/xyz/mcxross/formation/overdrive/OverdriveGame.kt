@@ -9,7 +9,6 @@ import xyz.mcxross.formation.session.Stat
 
 internal class OverdriveGame(setup: ChallengeSetup) : ChallengeGame<OverdriveState, Rotate> {
   private val random = Random(setup.seed)
-  private val pacing = Pacing(setup.difficulty)
 
   init {
     require(setup.players.size == 2 && setup.players.distinct().size == 2) { "Overdrive needs two distinct players" }
@@ -29,7 +28,7 @@ internal class OverdriveGame(setup: ChallengeSetup) : ChallengeGame<OverdriveSta
         launchAt = setup.startAt, catchAt = setup.startAt)
     }
     state = OverdriveState(dials, 1, setup.startAt, setup.startAt,
-      startAt = setup.startAt, endsAt = setup.startAt + pacing.limit)
+      startAt = setup.startAt, endsAt = setup.startAt + TIME_LIMIT_MS)
     schedule(1, setup.startAt, dials.map { it.clue!! }, dials.map { it.nextClue!! })
   }
 
@@ -57,12 +56,12 @@ internal class OverdriveGame(setup: ChallengeSetup) : ChallengeGame<OverdriveSta
 
   private fun schedule(wave: Int, at: Long, targets: List<Symbol>, next: List<Symbol>) {
     val dials = state.dials.mapIndexed { index, dial ->
-      val launch = at + index * pacing.stagger(wave)
+      val launch = at + index * if (wave <= STAGGERED_WAVES) STAGGER_MS else 0
       dial.copy(clue = targets[index], nextClue = next[index], launchAt = launch,
-        catchAt = launch + pacing.flight(state.clears), result = Catch.Pending)
+        catchAt = launch + fall(state.clears), result = Catch.Pending)
     }
     state = state.copy(dials = dials, wave = wave, waveAt = at,
-      nextWaveAt = dials.maxOf { it.catchAt } + pacing.reset(true, state.clears), preview = wave > 8)
+      nextWaveAt = dials.maxOf { it.catchAt } + gap(state.clears), preview = wave > 8)
   }
 
   private fun advance(now: Long) {
@@ -82,14 +81,13 @@ internal class OverdriveGame(setup: ChallengeSetup) : ChallengeGame<OverdriveSta
         val cleared = state.dials.all { it.result == Catch.Caught }
         val at = state.dials.maxOf { it.catchAt }
         val clears = state.clears + if (cleared) 1 else 0
-        state = state.copy(clears = clears, misses = state.misses + if (cleared) 0 else 1,
-          nextWaveAt = at + pacing.reset(cleared, clears), lastWave = WaveResult(state.wave, at, cleared))
-        if (state.clears == OverdriveState.REQUIRED_WAVES) {
-          status = GameStatus.Won("Overdrive complete", stats(finishedAt = at))
+        state = state.copy(clears = clears, nextWaveAt = at + gap(clears), lastWave = WaveResult(state.wave, at, cleared))
+        if (!cleared) {
+          status = GameStatus.Lost("The formation missed a wave.", stats = stats())
           return
         }
-        if (state.misses == OverdriveState.MAX_MISSES) {
-          status = GameStatus.Lost("The formation missed three waves.", stats = stats())
+        if (state.clears == OverdriveState.REQUIRED_WAVES) {
+          status = GameStatus.Won("Overdrive complete", stats(finishedAt = at))
           return
         }
       }
@@ -101,12 +99,35 @@ internal class OverdriveGame(setup: ChallengeSetup) : ChallengeGame<OverdriveSta
   }
 
   private fun stats(finishedAt: Long? = null): List<Stat> {
-    val stats = listOf(Stat("Waves", "${state.clears}/${OverdriveState.REQUIRED_WAVES}"), Stat("Misses", "${state.misses}"))
+    val stats = listOf(Stat("Waves", "${state.clears}/${OverdriveState.REQUIRED_WAVES}"))
     val tenths = finishedAt?.let { (state.endsAt - it + 99) / 100 } ?: return stats
     return stats + Stat("Time left", "${tenths / 10}.${tenths % 10}s")
   }
 
   companion object {
     const val LATE_INPUT_MS = 100L
+
+    // Overdrive's one speed; change these to make every game faster or slower.
+    // A clean run finishes about five seconds inside the time limit.
+    const val TIME_LIMIT_MS = 28_000L
+    const val FIRST_FALL_MS = 2_000L
+    // Each cleared wave makes both pulses fall this much faster.
+    const val SPEEDUP_PERCENT = 8
+    // The opening waves launch the second pulse a little after the first.
+    const val STAGGERED_WAVES = 4
+    const val STAGGER_MS = 650L
+    // The pause before the next wave, shrinking from the first to the last.
+    const val FIRST_GAP_MS = 650L
+    const val LAST_GAP_MS = 350L
+
+    private const val STEPS = OverdriveState.REQUIRED_WAVES - 1
+
+    fun fall(clears: Int): Long {
+      var fall = FIRST_FALL_MS
+      repeat(clears.coerceIn(0, STEPS)) { fall = fall * (100 - SPEEDUP_PERCENT) / 100 }
+      return fall
+    }
+
+    fun gap(clears: Int): Long = FIRST_GAP_MS - (FIRST_GAP_MS - LAST_GAP_MS) * clears.coerceIn(0, STEPS) / STEPS
   }
 }

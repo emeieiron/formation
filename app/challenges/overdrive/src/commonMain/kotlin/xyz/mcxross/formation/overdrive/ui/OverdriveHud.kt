@@ -18,7 +18,6 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -29,14 +28,9 @@ import xyz.mcxross.formation.design.foundation.Text
 @Composable
 internal fun OverdriveHud(state: OverdriveState, tenths: Int) {
   val colors = Theme.colors
-  val lost = remember { Animatable(1f) }
   val glow = remember { Animatable(0f) }
   val beat = remember { Animatable(1f) }
   val urgent = tenths <= URGENT_TENTHS
-  OnChange(state.misses) { _, _ ->
-    lost.snapTo(0f)
-    lost.animateTo(1f, tween(500))
-  }
   OnChange(state.clears) { _, _ ->
     glow.snapTo(1f)
     glow.animateTo(0f, tween(500))
@@ -51,19 +45,6 @@ internal fun OverdriveHud(state: OverdriveState, tenths: Int) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
       horizontalArrangement = Arrangement.SpaceBetween) {
       Text("${state.clears.toString().padStart(2, '0')} / 12", style = Theme.type.numeral)
-      Canvas(Modifier.size(58.dp, 18.dp).semantics {
-        contentDescription = "${OverdriveState.MAX_MISSES - state.misses} shared misses remaining"
-      }) {
-        val left = OverdriveState.MAX_MISSES - state.misses
-        repeat(3) { index ->
-          val at = Offset(size.width * (index + 0.5f) / 3f, center.y)
-          if (index < left) drawCircle(colors.content, 4.dp.toPx(), at)
-          else drawCircle(colors.lineStrong, 4.dp.toPx(), at, style = Stroke(1.dp.toPx()))
-          if (index == left && lost.value < 1f) {
-            drawCircle(colors.negative.copy(alpha = 1f - lost.value), (4f + 8f * lost.value).dp.toPx(), at)
-          }
-        }
-      }
       Text(clock(tenths), style = Theme.type.numeral, color = if (urgent) colors.negative else colors.content,
         modifier = Modifier.graphicsLayer {
           scaleX = beat.value
