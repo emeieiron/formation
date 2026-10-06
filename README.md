@@ -1,3 +1,5 @@
+![Formation: one Seeker hosts, any phone joins. Pick your challenge: Overdrive, Ricochet or Mosaic. Win together and share the rewards.](docs/images/formation-header.png)
+
 # Formation
 
 Formation turns the phones in a room into one shared game. A Seeker owner starts a Formation, nearby phones join over the local network, and the group plays a short cooperative challenge that only works if everyone does their part. When the group wins, a reward funded on Solana unlocks and is split between the host and every player.
