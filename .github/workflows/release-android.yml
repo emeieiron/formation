@@ -98,15 +98,17 @@ jobs:
           cat > notes.md <<EOF
           ## Install
 
-          Download \`formation-android.apk\` below and open it on your phone. Android asks once to allow installs from your browser.
+          Download \`formation.apk\` below and open it on each phone. Android asks once to allow installs from your browser.
 
-          This build settles rewards on Solana ${FORMATION_CLUSTER}.
+          Every phone opens ready to join Formations nearby. To host, tap **Become a test Seeker** on Home or in Settings:
+          the phone gets a test Genesis Token and devnet SOL for fees. Phones need to share a Wi-Fi network, or use the
+          host's hotspot from the lobby. This build settles rewards on Solana ${FORMATION_CLUSTER}.
 
           ## Verify
 
           - SHA-256 checksums are in \`SHA256SUMS\`.
           - Signing certificate SHA-256: \`${EXPECTED_CERT_SHA256}\`
-          - Build provenance: \`gh attestation verify formation-android.apk --repo ${GITHUB_REPOSITORY}\`
+          - Build provenance: \`gh attestation verify formation.apk --repo ${GITHUB_REPOSITORY}\`
           EOF
           gh release create "$GITHUB_REF_NAME" dist/* \
             --title "Formation ${{ steps.version.outputs.name }}" \

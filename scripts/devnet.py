@@ -5,9 +5,9 @@
 # ///
 """Sets up the Formation vault on devnet and funds sponsor contests. Deploy the program first (see README), then:
 
-  scripts/devnet.py setup                      test SKR mint, test Seeker Genesis Token group, vault config
+  scripts/devnet.py setup                      test SKR mint, test Genesis Token group owned by the vault, vault config
   scripts/devnet.py settings [KEY=VALUE ...]   show the vault's settings, or change some (admin only)
-  scripts/devnet.py seeker WALLET              give WALLET a test Seeker Genesis Token and SOL for fees
+  scripts/devnet.py test-token WALLET          give WALLET its test Genesis Token and SOL for fees, as the faucet does
   scripts/devnet.py contest [options]          fund a contest; see `contest --help`
   scripts/devnet.py draw CONTEST               request a draw's randomness from ORAO and finalize it
   scripts/devnet.py fund WALLET [SOL]
@@ -64,6 +64,8 @@ SETTINGS = [
     ("min_enter_window", "i64", 3_600),
     ("max_enter_window", "i64", 30 * DAY),
     ("draw_timeout", "i64", 3_600),
+    # Devnet has no real Genesis Tokens, so any wallet may mint itself a test one.
+    ("test_tokens", "bool", True),
 ]
 SIZES = {"bool": 1, "u8": 1, "u16": 2, "u32": 4, "u64": 8, "i64": 8, "pubkey": 32}
 # The Contest account up to its draw state; the mode is a fixed u8 so these offsets never move.
@@ -119,6 +121,10 @@ def config_pda():
     return Pubkey.find_program_address([b"config"], PROGRAM)[0]
 
 
+def test_authority():
+    return Pubkey.find_program_address([b"test-authority"], PROGRAM)[0]
+
+
 def send(signer, *ixs):
     blockhash = Hash.from_string(rpc("getLatestBlockhash", [{"commitment": "confirmed"}])["value"]["blockhash"])
     tx = Transaction([signer], Message(list(ixs), signer.pubkey()), blockhash)
@@ -165,12 +171,13 @@ def setup(admin, config, state, _args):
     if "skr" not in state:
         state["skr"] = spl(config, "create-token", "--decimals", "6")["commandOutput"]["address"]
         save_state(state)
-    if "group" not in state:
-        group = spl(config, "create-token", "--program-2022", "--enable-group", "--decimals", "0")["commandOutput"]["address"]
-        spl(config, "initialize-group", group, "1000000")
-        state["group"] = group
-        save_state(state)
     if account(config_pda()) is None:
+        # A fresh vault gets a fresh group, owned by the vault so it can mint test tokens.
+        group = spl(config, "create-token", "--program-2022", "--enable-group", "--decimals", "0")["commandOutput"]["address"]
+        spl(config, "initialize-group", group, "1000000", "--update-authority", str(test_authority()))
+        state["group"] = group
+        state["seekers"] = {}
+        save_state(state)
         program_data = Pubkey.find_program_address([bytes(PROGRAM)], LOADER)[0]
         defaults = {name: default for name, _, default in SETTINGS}
         ix = Instruction(
@@ -212,18 +219,28 @@ def settings(admin, _config, _state, args):
         print(f"{name} = {value}")
 
 
-def seeker(admin, config, state, args):
-    wallet = args.wallet
-    if wallet not in state["seekers"]:
-        mint = spl(config, "create-token", "--program-2022", "--enable-member", "--decimals", "0")["commandOutput"]["address"]
-        spl(config, "initialize-member", mint, state["group"])
-        spl(config, "create-account", mint, "--owner", wallet, "--fee-payer", KEYPAIR)
-        token_account = str(ata(Pubkey.from_string(wallet), Pubkey.from_string(mint), TOKEN_2022))
-        spl(config, "mint", mint, "1", token_account)
-        state["seekers"][wallet] = {"sgt": mint, "account": token_account}
-        save_state(state)
-    transfer(admin, wallet, 0.2)
-    print(f"{wallet} holds test SGT {state['seekers'][wallet]['sgt']}")
+def test_token(admin, _config, state, args):
+    wallet = Pubkey.from_string(args.wallet)
+    mint = Pubkey.find_program_address([b"test-token", bytes(wallet)], PROGRAM)[0]
+    token_account = ata(wallet, mint, TOKEN_2022)
+    if account(mint) is None:
+        ix = Instruction(PROGRAM, discriminator("mint_test_token"), [
+            AccountMeta(admin.pubkey(), True, True),
+            AccountMeta(wallet, False, False),
+            AccountMeta(config_pda(), False, False),
+            AccountMeta(test_authority(), False, False),
+            AccountMeta(Pubkey.from_string(state["group"]), False, True),
+            AccountMeta(mint, False, True),
+            AccountMeta(token_account, False, True),
+            AccountMeta(TOKEN_2022, False, False),
+            AccountMeta(ATA_PROGRAM, False, False),
+            AccountMeta(SYSTEM, False, False),
+        ])
+        print("mint_test_token", send(admin, ix))
+    state["seekers"][args.wallet] = {"sgt": str(mint), "account": str(token_account)}
+    save_state(state)
+    transfer(admin, args.wallet, 0.05)
+    print(f"{args.wallet} holds test Genesis Token {mint}")
 
 
 def contest(admin, config, state, args):
@@ -320,13 +337,13 @@ def main():
     p = commands.add_parser("settings")
     p.add_argument("changes", nargs="*", metavar="KEY=VALUE")
     p.set_defaults(run=settings)
-    p = commands.add_parser("seeker")
+    p = commands.add_parser("test-token")
     p.add_argument("wallet")
-    p.set_defaults(run=seeker)
+    p.set_defaults(run=test_token)
     p = commands.add_parser("contest", help="first come by default; --draw for a lottery")
     p.add_argument("--budget", type=int, default=300, help="SKR per Genesis Token, first come")
     p.add_argument("--budgets", type=int, default=10, help="how many budgets the pool holds, first come")
-    p.add_argument("--only", metavar="WALLET", help="a contest only this wallet's test Genesis Token can unlock")
+    p.add_argument("--only", metavar="WALLET", help="a contest only this wallet's test Genesis Token can unlock (run test-token first)")
     p.add_argument("--wins", type=int, default=1, help="budgets one Genesis Token may take, first come")
     p.add_argument("--draw", type=int, metavar="BPS", help="select this share of entrants, in basis points")
     p.add_argument("--pool", type=int, default=1_000, help="SKR in a draw's pool")

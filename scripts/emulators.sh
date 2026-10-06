@@ -14,8 +14,8 @@ emulators() {
 
 case "${1:-link}" in
   install)
-    (cd "$ROOT/app" && ./gradlew :androidApp:assembleDevDebug -q)
-    apk="$ROOT/app/androidApp/build/outputs/apk/dev/debug/androidApp-dev-debug.apk"
+    (cd "$ROOT/app" && ./gradlew :androidApp:assembleDebug -q)
+    apk="$ROOT/app/androidApp/build/outputs/apk/debug/androidApp-debug.apk"
     for serial in $(emulators); do
       echo "Installing on $serial"
       if [ "$("$ADB" -s "$serial" shell getprop debug.hwui.renderer | tr -d '\r')" = "skiagl" ]; then

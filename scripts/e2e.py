@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-# End-to-end test across emulators: debug Seeker identity, real devnet settlement by default.
+# End-to-end test across emulators on devnet: the host becomes a test Seeker through the app's own button,
+# hosts a budget from the standing test contest, and every payout is checked on chain.
 #
-#   scripts/e2e.py --title GAME_TITLE --code GAME_CODE [--players N] [--chain localnet|devnet]
+#   scripts/e2e.py --title GAME_TITLE [--players N] [--difficulty Easy|Normal|Hard|Extreme]
 #                  [--wallet none|connect|ADDRESS] [--seeker SERIAL] [--guest SERIAL ...] [--no-build] [--approve]
 #                  [--layout uiautomator|android] [--driver autoplay|overdrive|mosaic|manual]
 #
@@ -19,7 +20,6 @@ import time
 import urllib.request
 import xml.etree.ElementTree as ET
 from xml.sax.saxutils import escape, unescape
-from reward_fixtures import SKR, load_rewards
 from overdrive_driver import OverdriveFailed, play_overdrive
 from mosaic_driver import MosaicFailed, play_mosaic
 from android_layout import LayoutUnavailable
@@ -28,13 +28,15 @@ from chain_verification import configured_mint, mint_balance, verify_settlement
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ADB = os.path.join(os.environ.get("ANDROID_HOME", os.path.expanduser("~/Library/Android/sdk")), "platform-tools", "adb")
-# Journeys run the dev flavor: it plays without a Seeker, and installs beside the release app.
-APP = "xyz.mcxross.formation.dev"
+# Journeys run the debug build, which carries the test drivers' autoplay.
+APP = "xyz.mcxross.formation"
+APK = os.path.join(ROOT, "app", "androidApp", "build", "outputs", "apk", "debug", "androidApp-debug.apk")
+SKR = 1_000_000
 ACTIVITY = "xyz.mcxross.formation.MainActivity"
 OUT = os.path.join(ROOT, "program", "target", "e2e")
 TOKEN = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-RPC = {"localnet": "http://127.0.0.1:8899", "devnet": "https://api.devnet.solana.com"}
-APP_RPC = {"localnet": ("http://10.0.2.2:8899", "localnet"), "devnet": ("https://api.devnet.solana.com", "devnet")}
+CHAIN = "devnet"
+RPC = "https://api.devnet.solana.com"
 WALLET_APPS = ("com.solflare.mobile", "app.phantom")
 PEOPLE = (("Theo", "Nova"), ("Maya", "Jade"), ("Kofi", "Sky"), ("Lena", "Sol"), ("Ravi", "Lime"), ("Ines", "Bloom"),
           ("Tomas", "Tide"), ("Yara", "Ember"))
@@ -166,25 +168,22 @@ class Phone:
         return next((p for p in (APP, *WALLET_APPS) if p in out), out.strip())
 
 
-def rpc(chain, method, params):
+def rpc(method, params):
     body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).encode()
-    req = urllib.request.Request(RPC[chain], body, {"Content-Type": "application/json"})
+    req = urllib.request.Request(RPC, body, {"Content-Type": "application/json"})
     reply = json.load(urllib.request.urlopen(req, timeout=30))
     if "error" in reply:
         raise Failed(f"{method}: {reply['error'].get('message', 'Solana RPC failed')}")
     return reply["result"]
 
 
-def skr_balance(chain, owner):
-    read = lambda method, params: rpc(chain, method, params)
+def skr_balance(owner):
+    read = rpc
     return mint_balance(read, owner, configured_mint(read))
 
 
-def build(chain):
-    args = ["./gradlew", "-q", ":androidApp:assembleDevDebug"]
-    if chain in APP_RPC:
-        url, cluster = APP_RPC[chain]
-        args += [f"-Pformation.rpcUrl={url}", f"-Pformation.cluster={cluster}"]
+def build():
+    args = ["./gradlew", "-q", ":androidApp:assembleDebug"]
     log("building " + " ".join(args[2:]))
     subprocess.run(args, cwd=os.path.join(ROOT, "app"), check=True)
 
@@ -307,30 +306,16 @@ def bounds(node):
     return list(map(int, re.findall(r"\d+", node.get("bounds"))))
 
 
-def pretend_seeker(phone):
-    log(f"{phone.role}: Settings → Developer → Pretend to be a Seeker")
-    avatar = next(n for n in phone.nodes().iter("node") if n.get("clickable") == "true" and bounds(n)[3] < 400 and bounds(n)[0] > 1000)
-    phone.tap(avatar)
-    phone.wait("Profile", timeout=10)
-    for _ in range(6):
-        row = phone.find("Pretend to be a Seeker")
-        if row is not None:
-            break
-        phone.shell("input swipe 672 2400 672 900 400")
-        time.sleep(0.5)
-    else:
-        raise Failed(f"{phone.role}: no Pretend to be a Seeker setting (debug build?)")
-    _, top, _, bottom = bounds(row)
-    toggle = next(
-        n for n in phone.nodes().iter("node")
-        if n.get("clickable") == "true" and bounds(n)[0] > 1000 and bounds(n)[1] < bottom + 60 and bounds(n)[3] > top - 60
-    )
-    phone.tap(toggle)
-    time.sleep(1)
-    if not phone.pref("seeker"):
-        raise Failed(f"{phone.role}: the Pretend to be a Seeker toggle didn't stick")
-    phone.shell("input keyevent KEYCODE_BACK")
-    time.sleep(1)
+def become_test_seeker(phone):
+    log(f"{phone.role}: Home → Want to host? Become a test Seeker")
+    phone.tap(scroll_until(phone, "Want to host? Become a test Seeker", timeout=30))
+    deadline = time.time() + 120
+    while time.time() < deadline:
+        identity = json.loads(phone.pref("seeker") or "null")
+        if identity and identity.get("test"):
+            return identity
+        time.sleep(2)
+    raise Failed(f"{phone.role}: never became a test Seeker")
 
 
 def approve_wallet(guest, auto, timeout=180):
@@ -360,31 +345,25 @@ def approve_wallet(guest, auto, timeout=180):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--chain", choices=["localnet", "devnet"], default="devnet",
-                        help="devnet submits real transactions; localnet runs a validator on this machine")
     parser.add_argument("--title", required=True, help="registered game's visible title")
-    parser.add_argument("--code", type=int, required=True, help="registered game's vault code")
+    parser.add_argument("--difficulty", help="a setting the game offers; games with one setting show no choice")
     parser.add_argument("--wallet", default="none")
     parser.add_argument("--seeker")
     parser.add_argument("--guest", action="append", help="repeat for each guest in a larger group")
     parser.add_argument("--players", type=int, default=2, help="group size; must be one the game offers")
     parser.add_argument("--no-build", action="store_true")
     parser.add_argument("--approve", action="store_true")
-    parser.add_argument("--keep-chain", action="store_true", help="leave the local validator running afterwards")
     parser.add_argument("--offline", action="store_true", help="the Seeker loses its connection at unlock and recovers after a restart")
     parser.add_argument("--layout", choices=["uiautomator", "android"], default="uiautomator")
     parser.add_argument("--driver", choices=["autoplay", "overdrive", "mosaic", "manual"], default="autoplay")
     args = parser.parse_args()
     args.started_at = int(time.time() * 1000)
-    if not args.title.strip() or not 6 <= args.code <= 65535:
-        parser.error("Use a nonempty game title and a vault code within 6..65535")
-    fixtures = load_rewards()
+    if not args.title.strip():
+        parser.error("Use a game's visible title")
     if not 2 <= args.players <= 32:
         parser.error("--players must be within 2..32")
     if (args.driver == "overdrive" or args.offline) and args.players != 2:
         parser.error("The Overdrive driver and the offline check need a duo")
-    if args.chain == "localnet" and not fixtures:
-        parser.error("FORMATION_REWARDS must provide at least one reward")
 
     running = re.findall(r"^(emulator-\d+)\s+device$", subprocess.run([ADB, "devices"], capture_output=True, text=True).stdout, re.M)
     serials = [args.seeker, *args.guest] if args.seeker and args.guest else running
@@ -395,15 +374,13 @@ def main():
               for index, serial in enumerate(serials[1:args.players], 1)]
     guest = guests[0]
     phones = [seeker, *guests]
-    title, code = args.title, args.code
-    validator = None
+    title = args.title
     saved = None
     try:
         if not args.no_build:
-            build(args.chain)
-        apk = os.path.join(ROOT, "app", "androidApp", "build", "outputs", "apk", "dev", "debug", "androidApp-dev-debug.apk")
+            build()
         for i, phone in enumerate(phones):
-            phone.adb("install", "-r", apk)
+            phone.adb("install", "-r", APK)
             phone.adb("forward", f"tcp:{47000 + i}", "tcp:47000")
         # The test changes these; put back whatever the person had, such as a connected wallet.
         saved = {phone: {k: phone.pref(k) for k in ("wallet",)} for phone in phones}
@@ -415,34 +392,16 @@ def main():
             name, light = PEOPLE[index % len(PEOPLE)]
             phone.launch()
             onboard(phone, name if index < len(PEOPLE) else f"{name}{index}", light)
-        if not (seeker.pref("seeker") and json.loads(seeker.pref("seeker")).get("simulated")):
-            pretend_seeker(seeker)
-        seeker_wallet = json.loads(seeker.pref("seeker"))["wallet"]
+        identity = json.loads(seeker.pref("seeker") or "null") or become_test_seeker(seeker)
+        seeker_wallet = identity["wallet"]
         host_name = json.loads(seeker.pref("profile"))["name"]
         log(f"seeker {seeker.serial} wallet {seeker_wallet}; guests {', '.join(g.serial for g in guests)}")
 
-        if args.chain == "localnet":
-            log("starting a local validator")
-            validator = subprocess.Popen([os.path.join(ROOT, "scripts", "localnet.py"), seeker_wallet], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            for _ in range(60):
-                try:
-                    if rpc("localnet", "getHealth", []) == "ok":
-                        break
-                except OSError:
-                    pass
-                time.sleep(1)
-        if args.chain == "devnet":
-            log("funding a devnet contest only the seeker's test Genesis Token can unlock")
-            budget = str(fixtures[0].amount if fixtures else 120)
-            for command in (["seeker", seeker_wallet], ["contest", "--only", seeker_wallet, "--budget", budget, "--title", title]):
-                subprocess.run([os.path.join(ROOT, "scripts", "devnet.py"), *command], check=True)
         seeker.launch()
 
         seeker.wait("Scan QR", timeout=20)
         log(f"seeker: hosting a {args.players}-player {title}")
-        # The host picks the difficulty; fixtures name it as 0..3.
-        level = ("Easy", "Normal", "Hard", "Extreme")[fixtures[0].difficulty] if fixtures else None
-        host_group(seeker, title, args.players, level)
+        host_group(seeker, title, args.players, args.difficulty)
         seeker.wait("JOIN CODE", timeout=20)
 
         for other in guests:
@@ -460,7 +419,7 @@ def main():
         payout = guest.find("Lands in", prefix=True)
         payout_wallet = re.search(r"Lands in (\S+)", payout.get("text")).group(1) if payout is not None else None
         chain_wallet = wallet or (guest.pref("wallet") if args.wallet == "connect" else None)
-        before = skr_balance(args.chain, chain_wallet) if chain_wallet else None
+        before = skr_balance(chain_wallet) if chain_wallet else None
         log(f"guest: share lands in {payout_wallet or 'nowhere yet (claim later)'}")
 
         seeker.tap_text("Begin", timeout=30)
@@ -496,8 +455,6 @@ def main():
     finally:
         for phone, prefs in (saved or {}).items():
             phone.set_prefs(**prefs)
-        if validator and not args.keep_chain:
-            validator.terminate()
         if args.offline:
             seeker.shell("svc wifi enable; svc data enable")
 
@@ -539,26 +496,26 @@ def finish(args, seeker, guests, chain_wallet, before):
         if not owner_ticket or not guest_ticket:
             raise Failed("Every phone must retain the chain reward tickets")
         try:
-            result = verify_settlement(lambda method, params: rpc(args.chain, method, params), owner_ticket, guest_ticket,
-                                       json.loads(seeker.pref(f"sol.submissions.{args.chain}") or "[]"))
+            result = verify_settlement(rpc, owner_ticket, guest_ticket,
+                                       json.loads(seeker.pref(f"sol.submissions.{CHAIN}") or "[]"))
         except ValueError as error:
             raise Failed(f"{other.role}: {error}") from error
-        result["chain"] = args.chain
+        result["chain"] = CHAIN
         suffix = "" if len(guests) == 1 else f"-{guest_ticket['index']}"
         with open(os.path.join(OUT, f"settlement-{result['opportunity']}{suffix}.json"), "w") as record:
             json.dump(result, record, indent=2)
-        log(f"confirmed {args.chain} settlement for {other.role}: {result['signatures'][0]}; "
+        log(f"confirmed {CHAIN} settlement for {other.role}: {result['signatures'][0]}; "
             f"owner {result['owner_amount'] / SKR:g} SKR")
     if before is not None:
         share = 0
         for _ in range(30):
-            share = skr_balance(args.chain, chain_wallet) - before
+            share = skr_balance(chain_wallet) - before
             if share > 0:
                 break
             time.sleep(2)
         if not share:
-            raise Failed(f"guest wallet {chain_wallet} received nothing on {args.chain}")
-        log(f"guest wallet {chain_wallet} received {share / 1e6:g} SKR on {args.chain}")
+            raise Failed(f"guest wallet {chain_wallet} received nothing on {CHAIN}")
+        log(f"guest wallet {chain_wallet} received {share / 1e6:g} SKR on {CHAIN}")
     if args.offline:
         log("guest: relaunching to check the saved share")
         guest.launch()

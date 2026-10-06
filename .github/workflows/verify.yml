@@ -31,11 +31,11 @@ jobs:
         run: >-
           ./gradlew
           testAndroidHostTest
-          :androidApp:lintProdRelease
+          :androidApp:lintRelease
           :androidApp:assembleDebug
-      - name: Test the emulator driver
+      - name: Test the scripts
         working-directory: scripts
-        run: python3 -m unittest test_overdrive_driver
+        run: python3 -m unittest test_overdrive_driver test_mosaic_driver test_chain_verification
 
   ios:
     runs-on: macos-15

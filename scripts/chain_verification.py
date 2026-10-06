@@ -3,10 +3,21 @@ import base64
 import hashlib
 import json
 import os
-from localnet import b58encode
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PROGRAM = json.load(open(os.path.join(ROOT, "program", "formation-vault", "idl", "formation_vault.json")))["address"]
+
+ALPHABET = b"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+
+
+def b58encode(b):
+    n = int.from_bytes(b, "big")
+    out = bytearray()
+    while n:
+        n, r = divmod(n, 58)
+        out.append(ALPHABET[r])
+    return (b"1" * (len(b) - len(b.lstrip(b"\0"))) + bytes(reversed(out))).decode()
+
 
 # Entry: contest, SGT mint, round, index, rent payer, holder at unlock, state, budget, roster root and size,
 # guest share, owner's payment, claimed bits.
