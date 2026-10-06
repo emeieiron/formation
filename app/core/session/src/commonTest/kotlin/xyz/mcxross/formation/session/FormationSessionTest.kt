@@ -39,7 +39,7 @@ class FormationSessionTest {
     val clock = Clock { test.testScheduler.currentTime }
     val host =
       FormationHost(
-        FormationInfo("session-1", "K7QX", "Aaron", opportunity),
+        FormationInfo("session-1", "K7QX", "Theo", opportunity),
         rules,
         test.backgroundScope,
         clock,
@@ -92,7 +92,7 @@ class FormationSessionTest {
       }
     }
     val f = Formation(this, privateRules)
-    val phones = listOf(f.join("Aaron", seeker = true), f.join("Maya"), f.join("Kofi"))
+    val phones = listOf(f.join("Theo", seeker = true), f.join("Maya"), f.join("Kofi"))
     runCurrent()
     f.host.begin()
     runCurrent()
@@ -118,14 +118,14 @@ class FormationSessionTest {
   @Test
   fun aFullFormationPlaysWinsSealsAndUnlocks() = runTest {
     val f = Formation(this)
-    val aaron = f.join("Aaron", seeker = true)
+    val theo = f.join("Theo", seeker = true)
     runCurrent()
     val maya = f.join("Maya")
     val kofi = f.join("Kofi")
     runCurrent()
 
     val players = f.host.snapshot.value.players
-    assertEquals(listOf("Aaron", "Maya", "Kofi"), players.map { it.name })
+    assertEquals(listOf("Theo", "Maya", "Kofi"), players.map { it.name })
     assertTrue(players.first().seeker)
     assertEquals(players[1].id, maya.me.value)
 
@@ -133,7 +133,7 @@ class FormationSessionTest {
     runCurrent()
     assertIs<Stage.Briefing>(maya.snapshot.value!!.stage)
 
-    val phones = listOf(aaron, maya, kofi)
+    val phones = listOf(theo, maya, kofi)
     phones.forEach { it.ready(true) }
     runCurrent()
     val playing = assertIs<Stage.Playing>(f.stage)
@@ -176,7 +176,7 @@ class FormationSessionTest {
     val f = Formation(this)
     val mayaWallet = Base58.encode(ByteArray(32) { 3 })
     val kofiWallet = Base58.encode(ByteArray(32) { 4 })
-    val aaron = f.join("Aaron", seeker = true, wallet = Base58.encode(ByteArray(32) { 9 }))
+    val theo = f.join("Theo", seeker = true, wallet = Base58.encode(ByteArray(32) { 9 }))
     runCurrent()
     val maya = f.join("Maya", wallet = mayaWallet)
     val kofi = f.join("Kofi")
@@ -193,7 +193,7 @@ class FormationSessionTest {
 
     f.host.begin()
     runCurrent()
-    val phones = listOf(aaron, maya, kofi)
+    val phones = listOf(theo, maya, kofi)
     phones.forEach { it.ready(true) }
     runCurrent()
     val playing = assertIs<Stage.Playing>(f.stage)
@@ -226,7 +226,7 @@ class FormationSessionTest {
   @Test
   fun namesAndLightsCanChangeOnlyInTheLobby() = runTest {
     val f = Formation(this)
-    val aaron = f.join("Aaron", seeker = true)
+    val theo = f.join("Theo", seeker = true)
     runCurrent()
     val maya = f.join("Maya")
     f.join("Kofi")
@@ -241,13 +241,13 @@ class FormationSessionTest {
     maya.setProfile("Late", 0)
     runCurrent()
     assertEquals("Maya B", f.host.snapshot.value.players[1].name)
-    assertIs<Stage.Briefing>(aaron.snapshot.value!!.stage)
+    assertIs<Stage.Briefing>(theo.snapshot.value!!.stage)
   }
 
   @Test
   fun aBrokenAttemptCanBeRunBack() = runTest {
     val f = Formation(this)
-    val phones = listOf(f.join("Aaron", seeker = true), f.join("Maya"), f.join("Kofi"))
+    val phones = listOf(f.join("Theo", seeker = true), f.join("Maya"), f.join("Kofi"))
     runCurrent()
     f.host.begin()
     runCurrent()
@@ -272,7 +272,7 @@ class FormationSessionTest {
   @Test
   fun theBriefingStartsOnItsOwn() = runTest {
     val f = Formation(this)
-    listOf(f.join("Aaron", seeker = true), f.join("Maya"), f.join("Kofi"))
+    listOf(f.join("Theo", seeker = true), f.join("Maya"), f.join("Kofi"))
     runCurrent()
     f.host.begin()
     runCurrent()
@@ -283,7 +283,7 @@ class FormationSessionTest {
   @Test
   fun fullStartedAndDuplicatePhonesAreTurnedAway() = runTest {
     val f = Formation(this)
-    f.join("Aaron", seeker = true)
+    f.join("Theo", seeker = true)
     val key = Ed25519KeyPair.generate()
     f.join("Maya", key = key)
     runCurrent()
@@ -308,7 +308,7 @@ class FormationSessionTest {
   @Test
   fun aRemotePhoneCannotTakeTheSeekersSeat() = runTest {
     val f = Formation(this)
-    f.join("Aaron", seeker = true, device = "seeker-device")
+    f.join("Theo", seeker = true, device = "seeker-device")
     runCurrent()
     val impostor = f.join("Impostor", device = "seeker-device")
     runCurrent()
@@ -318,7 +318,7 @@ class FormationSessionTest {
   @Test
   fun aPhoneThatDropsComesBackToItsSeat() = runTest {
     val f = Formation(this)
-    val phones = listOf(f.join("Aaron", seeker = true), f.join("Maya"), f.join("Kofi"))
+    val phones = listOf(f.join("Theo", seeker = true), f.join("Maya"), f.join("Kofi"))
     runCurrent()
     f.host.begin()
     runCurrent()
@@ -345,7 +345,7 @@ class FormationSessionTest {
   @Test
   fun aLinkThatFailsInsteadOfClosingIsRetried() = runTest {
     val f = Formation(this)
-    f.join("Aaron", seeker = true)
+    f.join("Theo", seeker = true)
     runCurrent()
     val maya = f.join("Maya", link = { phone ->
       object : LinkChannel by phone {
@@ -366,20 +366,20 @@ class FormationSessionTest {
   @Test
   fun lobbyLeaversFreeTheirSeat() = runTest {
     val f = Formation(this)
-    f.join("Aaron", seeker = true)
+    f.join("Theo", seeker = true)
     val maya = f.join("Maya")
     runCurrent()
     maya.leave()
     runCurrent()
     advanceTimeBy(500)
-    assertEquals(listOf("Aaron"), f.host.snapshot.value.players.map { it.name })
+    assertEquals(listOf("Theo"), f.host.snapshot.value.players.map { it.name })
     assertIs<FormationClient.Status.Ended>(maya.status.value)
   }
 
   @Test
   fun theBeaconDescribesTheLobby() = runTest {
     val f = Formation(this)
-    f.join("Aaron", seeker = true)
+    f.join("Theo", seeker = true)
     runCurrent()
     val beacon = FormationJson.decodeFromString(Beacon.serializer(), f.host.beacon())
     assertEquals("K7QX", beacon.code)
@@ -392,7 +392,7 @@ class FormationSessionTest {
   @Test
   fun closingEndsEveryPhone() = runTest {
     val f = Formation(this)
-    val phones = listOf(f.join("Aaron", seeker = true), f.join("Maya"))
+    val phones = listOf(f.join("Theo", seeker = true), f.join("Maya"))
     runCurrent()
     f.host.close("Done for today")
     runCurrent()

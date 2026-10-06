@@ -25,7 +25,7 @@ class TicketBookTest {
       OpportunityId("o-1"),
       "11111111111111111111111111111111",
       ChallengeId("sync"),
-      "Aaron",
+      "Theo",
       Skr.of(60),
       0,
       "root",

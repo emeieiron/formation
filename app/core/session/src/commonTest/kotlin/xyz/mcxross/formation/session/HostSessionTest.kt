@@ -66,7 +66,7 @@ class HostSessionTest {
   }
 
   private fun TestScope.host(credentials: HostCredentials?): FormationHost =
-    FormationHost(FormationInfo(SESSION, "K7QX", "Aaron", opportunity), TapChallenge, backgroundScope,
+    FormationHost(FormationInfo(SESSION, "K7QX", "Theo", opportunity), TapChallenge, backgroundScope,
       { testScheduler.currentTime }, Random(1), HostTiming(briefingMs = 5_000, countdownMs = 1_000), host = credentials)
 
   private fun TestScope.join(
@@ -90,11 +90,11 @@ class HostSessionTest {
   @Test
   fun guestsJoinAnAuthorizedHost() = runTest {
     val host = host(authorized())
-    join(host, "Aaron", verifier = null, local = true)
+    join(host, "Theo", verifier = null, local = true)
     val maya = join(host, "Maya", verifier())
     runCurrent()
     assertEquals(FormationClient.Status.Joined, maya.status.value)
-    assertEquals(listOf("Aaron", "Maya"), maya.snapshot.value?.players?.map { it.name })
+    assertEquals(listOf("Theo", "Maya"), maya.snapshot.value?.players?.map { it.name })
   }
 
   @Test
@@ -119,10 +119,10 @@ class HostSessionTest {
     val host = host(authorized())
     val maya = join(host, "Maya", verifier(), link = { phone ->
       object : LinkChannel by phone {
-        override val incoming = phone.incoming.map { it.replace("Aaron", "Mallo") }
+        override val incoming = phone.incoming.map { it.replace("Theo", "Mallo") }
       }
     })
-    join(host, "Aaron", verifier = null, local = true)
+    join(host, "Theo", verifier = null, local = true)
     runCurrent()
     assertEquals(FormationClient.Status.Untrusted("The Seeker's updates couldn't be verified."), maya.status.value)
   }

@@ -36,7 +36,7 @@ TOKEN = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
 RPC = {"localnet": "http://127.0.0.1:8899", "devnet": "https://api.devnet.solana.com"}
 APP_RPC = {"localnet": ("http://10.0.2.2:8899", "localnet"), "devnet": ("https://api.devnet.solana.com", "devnet")}
 WALLET_APPS = ("com.solflare.mobile", "app.phantom")
-PEOPLE = (("Aaron", "Nova"), ("Maya", "Jade"), ("Kofi", "Sky"), ("Lena", "Sol"), ("Ravi", "Lime"), ("Ines", "Bloom"),
+PEOPLE = (("Theo", "Nova"), ("Maya", "Jade"), ("Kofi", "Sky"), ("Lena", "Sol"), ("Ravi", "Lime"), ("Ines", "Bloom"),
           ("Tomas", "Tide"), ("Yara", "Ember"))
 
 

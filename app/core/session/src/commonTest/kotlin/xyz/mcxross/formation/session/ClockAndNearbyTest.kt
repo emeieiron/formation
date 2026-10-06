@@ -56,7 +56,7 @@ class ClockAndNearbyTest {
         PROTOCOL_VERSION,
         session,
         "K7QX",
-        "Aaron",
+        "Theo",
         ChallengeId("rally"),
         Skr.of(600),
         5,

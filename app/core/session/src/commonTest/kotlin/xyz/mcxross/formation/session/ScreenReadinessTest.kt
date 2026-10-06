@@ -35,7 +35,7 @@ class ScreenReadinessTest {
   }
 
   private fun TestScope.host(rules: Rules) = FormationHost(
-    FormationInfo("session-1", "K7QX", "Aaron", opportunity), rules, backgroundScope,
+    FormationInfo("session-1", "K7QX", "Theo", opportunity), rules, backgroundScope,
     Clock { testScheduler.currentTime }, Random(1), HostTiming(briefingMs = 5_000, countdownMs = 1_000),
   )
 
@@ -54,7 +54,7 @@ class ScreenReadinessTest {
   @Test
   fun phonesThatCannotMeasureTheirScreenAreTurnedAway() = runTest {
     val host = host(Rules())
-    join(host, "Aaron", seeker = true, setOf(ScreenRequirement.CAPABILITY))
+    join(host, "Theo", seeker = true, setOf(ScreenRequirement.CAPABILITY))
     runCurrent()
     val guest = join(host, "Maya", seeker = false, emptySet())
     runCurrent()
@@ -65,7 +65,7 @@ class ScreenReadinessTest {
   fun readinessWaitsForAnAcceptedScreenAndTheSetupKeepsIt() = runTest {
     val rules = Rules()
     val host = host(rules)
-    val phones = listOf(join(host, "Aaron", true, setOf(ScreenRequirement.CAPABILITY)),
+    val phones = listOf(join(host, "Theo", true, setOf(ScreenRequirement.CAPABILITY)),
       join(host, "Maya", false, setOf(ScreenRequirement.CAPABILITY)))
     runCurrent()
     host.begin()

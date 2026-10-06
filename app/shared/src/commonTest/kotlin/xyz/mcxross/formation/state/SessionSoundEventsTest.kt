@@ -19,10 +19,10 @@ import xyz.mcxross.formation.session.Stage
 import xyz.mcxross.formation.session.Unlock
 
 class SessionSoundEventsTest {
-  private val host = Player(PlayerId("host"), "Aaron", 0, true, "host-key")
+  private val host = Player(PlayerId("host"), "Theo", 0, true, "host-key")
   private val guest = Player(PlayerId("guest"), "Maya", 1, false, "guest-key")
   private val info = FormationInfo(
-    "session", "A123", "Aaron",
+    "session", "A123", "Theo",
     Opportunity(Budget(OpportunityId("So11111111111111111111111111111111111111112"), "11111111111111111111111111111111", "sgt", Skr.of(120), 3, 31, Long.MAX_VALUE, "Test"), ChallengeId("sync"), 2),
   )
   private val lobby = SessionSnapshot(info, listOf(host), Stage.Lobby, 0)
