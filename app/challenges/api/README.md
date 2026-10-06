@@ -16,6 +16,8 @@ Add `include(":challenges:<game>")` to `app/settings.gradle.kts` and the corresp
 
 Registration supplies ID lookup, vault-code lookup, player-count checks, and advertised format versions. It also adds the game to Home's Games section using its metadata and instructions, independently of reward funding. Home displays `info.steps` beneath the selected card and derives its availability label from valid rewards and host identity. Keep each step focused on one control or objective. No game-specific switch or separate catalogue registration is needed in the app.
 
+Add a how-to-play page at `docs/<game>.md`, in the same short, point-based form as the existing games, and link it from the Games table in the root README.
+
 ## Implement the contracts
 
 | Contract | Responsibility |
