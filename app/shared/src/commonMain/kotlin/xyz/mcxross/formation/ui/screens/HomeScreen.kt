@@ -56,7 +56,6 @@ import xyz.mcxross.formation.resources.action_join
 import xyz.mcxross.formation.resources.action_scan
 import xyz.mcxross.formation.resources.action_unlock
 import xyz.mcxross.formation.resources.copy_offline_unlock
-import xyz.mcxross.formation.resources.label_dev
 import xyz.mcxross.formation.resources.label_nearby
 import xyz.mcxross.formation.resources.label_profile
 import xyz.mcxross.formation.resources.label_rewards
@@ -193,10 +192,6 @@ fun HomeScreen(presentation: HomePresentation) {
       FormationMark(Modifier.size(width = 40.dp, height = 24.dp), progress = { entrance.value })
       Spacer(Modifier.width(Space.s))
       Text("Formation", style = Theme.type.title3)
-      if (developer) {
-        Spacer(Modifier.width(Space.s))
-        Tag(stringResource(Res.string.label_dev), tone = Tone.Warning)
-      }
       Spacer(Modifier.weight(1f))
       profile?.let { p ->
         Box(
@@ -303,7 +298,7 @@ fun HomeScreen(presentation: HomePresentation) {
       val hostable = gameRewards.values.sumOf { it.size }
       fun LazyListScope.games() = gameCatalog(ChallengeCatalog.all, canHost = me != null,
         seekerPhone = role != PhoneRole.PLAYER,
-        playable = gameRewards.filterValues { it.isNotEmpty() }.keys, testHost = role == PhoneRole.TEST_HOST,
+        playable = gameRewards.filterValues { it.isNotEmpty() }.keys,
         motionActive = active && coverVisible,
         entrance = { entrance.value },
         onOpen = { gameActions = it })

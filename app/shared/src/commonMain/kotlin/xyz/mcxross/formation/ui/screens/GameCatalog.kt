@@ -54,7 +54,6 @@ import xyz.mcxross.formation.resources.action_game_details
 import xyz.mcxross.formation.resources.action_select_game
 import xyz.mcxross.formation.resources.a11y_game_position
 import xyz.mcxross.formation.resources.label_games
-import xyz.mcxross.formation.resources.label_test_host
 import xyz.mcxross.formation.resources.player_choices
 import xyz.mcxross.formation.resources.player_count
 import xyz.mcxross.formation.resources.player_range
@@ -70,15 +69,12 @@ internal fun LazyListScope.gameCatalog(
   // A Seeker that can't host yet is told to link; any other phone is told it plays with a Seeker.
   seekerPhone: Boolean,
   playable: Set<ChallengeId>,
-  testHost: Boolean,
   motionActive: Boolean,
   entrance: () -> Float,
   onOpen: (Challenge<*, *>) -> Unit,
 ) {
   item(key = "games-header") {
-    SectionHeader(stringResource(Res.string.label_games), Modifier.padding(end = Space.m), trailing = {
-      if (testHost) Tag(stringResource(Res.string.label_test_host), tone = Tone.Warning)
-    })
+    SectionHeader(stringResource(Res.string.label_games), Modifier.padding(end = Space.m))
   }
   item(key = "games-catalog") {
     if (games.isEmpty()) {

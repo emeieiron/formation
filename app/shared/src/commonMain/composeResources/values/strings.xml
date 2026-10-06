@@ -24,7 +24,6 @@
     <string name="label_games">Games</string>
     <string name="label_how_to_play">How to play</string>
     <string name="label_funded_rewards">Funded rewards</string>
-    <string name="label_test_host">Test host</string>
     <string name="label_name">Name</string>
     <string name="label_light">Light</string>
     <string name="label_nearby">Nearby</string>
@@ -32,7 +31,6 @@
     <string name="label_your_share">Your share</string>
     <string name="label_each_helper">Each helper</string>
     <string name="label_code">Join code</string>
-    <string name="label_simulated">Simulated</string>
     <string name="label_emulator">Emulator</string>
     <string name="label_you">You</string>
     <string name="label_hosted">Hosted</string>
@@ -152,8 +150,6 @@
     <string name="join_intro_body">Ask someone with a Seeker to start one near you. This phone joins in, plays its part and earns a share of the reward.</string>
     <string name="join_intro_searching">Looking for Formations on this network…</string>
     <string name="action_pretend_seeker">Pretend to be a Seeker</string>
-    <string name="label_developer_build">Developer build</string>
-    <string name="label_dev">Dev</string>
     <string name="seeker_setup_title">Your Seeker</string>
     <string name="seeker_setup_body">Once it's set up, this Seeker can:</string>
     <string name="seeker_can_host">Start Formations for the phones around you</string>

@@ -39,7 +39,6 @@ import xyz.mcxross.formation.resources.join_intro_body
 import xyz.mcxross.formation.resources.join_intro_overline
 import xyz.mcxross.formation.resources.join_intro_searching
 import xyz.mcxross.formation.resources.join_intro_title
-import xyz.mcxross.formation.resources.label_developer_build
 import xyz.mcxross.formation.resources.seeker_can_earn
 import xyz.mcxross.formation.resources.seeker_can_host
 import xyz.mcxross.formation.resources.seeker_can_practice
@@ -83,8 +82,6 @@ internal fun JoinIntro(searching: Boolean, onLink: () -> Unit, onPretend: (() ->
         Spacer(Modifier.height(Space.m))
         Hairline()
         Spacer(Modifier.height(Space.m))
-        Overline(stringResource(Res.string.label_developer_build), color = c.warning)
-        Spacer(Modifier.height(Space.s))
         Button(stringResource(Res.string.action_pretend_seeker), it, style = ButtonStyle.Secondary,
           size = ButtonSize.Small, fillWidth = false, leadingIcon = Icons.Seeker)
       }
