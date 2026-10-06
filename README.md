@@ -6,6 +6,17 @@ Formation turns the phones in a room into one shared game. A Seeker owner starts
 
 The idea is that a Seeker is a key to a shared experience rather than a solo device: its owner brings people together, and anyone who helps earns a share, with no wallet needed to join.
 
+## Try Formation
+
+Trying Formation takes no build: the app runs against the vault already deployed on Solana devnet.
+
+1. Download [`formation.apk`](https://github.com/emeieiron/formation/releases/latest/download/formation.apk) on each phone and open it. Android asks once to allow installs from your browser.
+2. Put the phones on the same Wi-Fi network. Office and guest networks often block local discovery; the host can open a hotspot from its lobby instead.
+3. On the phone that will host, tap **Want to host? Become a test Seeker** on Home, or **Become a test Seeker** in Settings. The phone gets a test Genesis Token and a little devnet SOL for fees.
+4. Pick a game and a funded reward, then tap **Start Formation**. The other phones join from Nearby, by QR code or with the four-letter code.
+
+Real Genesis Tokens only exist on mainnet, so on devnet every host, a Seeker owner included, uses a test token. Building from source is for changing Formation; see [Building](#building).
+
 ## How a Formation works
 
 1. **A sponsor funds a contest.** SKR is locked in the Formation vault for Seeker Genesis Token holders.
@@ -42,7 +53,7 @@ Three games ship today. They are a starting set: every game plugs into the same 
 - **Session.** The host's phone is authoritative: it admits players, keeps clocks in sync, runs the game rules and broadcasts signed state. Guests send inputs and draw what the host sends. Every phone signs the final result before anything settles.
 - **Games.** Each game is a self-contained module with its rules and its screen. The session and reward code have no game-specific branches.
 - **Rewards.** The vault program holds contests and pays out. It enforces who can unlock, the committed roster, the split, one payment per guest slot and refunds. It does not check the gameplay itself. See [Rewards and the vault](docs/rewards.md).
-- **Hosting.** Only a phone whose linked wallet holds a Seeker Genesis Token can host. Every joining phone checks the wallet's authorization and the reward on chain.
+- **Hosting.** Only a phone whose linked wallet holds a Seeker Genesis Token can host. On a Seeker that's the Seed Vault Wallet, linked with one approval. On devnet, **Become a test Seeker** gives the phone its own test wallet with a test token instead; everything after linking is the same. Every joining phone checks the wallet's authorization and the reward on chain.
 - **Identity and recovery.** Each install has its own claim key, separate from any wallet, protected by the Android Keystore with an encrypted local copy. Wins are saved before they settle, so a result survives a restart or a lost connection. Profile → Rewards → Reward recovery exports an encrypted backup.
 - **Offline play.** Without Wi-Fi, the host can open a local hotspot from the lobby. Settlement waits until the host is back online.
 
@@ -57,7 +68,8 @@ Three games ship today. They are a starting set: every game plugs into the same 
 | `app/design` | Design system: tokens, components, icons |
 | `app/solana/vault` | Kotlin client for the vault program |
 | `program/formation-vault` | The vault program (Anchor) |
-| `scripts` | Devnet and local-validator setup, emulator helpers, end-to-end journeys |
+| `faucet` | Cloudflare Worker that gives test Seekers devnet SOL and a test Genesis Token |
+| `scripts` | Devnet setup, emulator helpers, end-to-end journeys |
 | `docs` | How to play each game, and the reward system |
 
 The app is Kotlin Multiplatform with Compose UI. Android is the main platform; iOS builds and runs the shared code but doesn't yet have wallet support or secure recovery.
@@ -75,15 +87,12 @@ The app is Kotlin Multiplatform with Compose UI. Android is the main platform; i
 
 ```sh
 cd app
-./gradlew :androidApp:assembleDevDebug
+./gradlew :androidApp:assembleDebug
 ```
 
-| Flavor | For | Notes |
-| --- | --- | --- |
-| `dev` | Development | Installs as **Formation Dev** beside the release app. Any phone can pretend to be a Seeker, and emulators get simulated motion. |
-| `prod` | Release | Only a linked Seeker wallet can host. No developer tools. |
+There is one app. Debug builds add tools for developing on emulators: a motion pad, autoplay and an emulator bridge, in Profile → Developer. Release builds have none of them.
 
-The app talks to devnet by default. To use another cluster, pass `-Pformation.rpcUrl=… -Pformation.cluster=…`; an emulator reaches a validator on your machine at `http://10.0.2.2:8899`.
+The app talks to devnet and its faucet by default. Pass `-Pformation.rpcUrl=…`, `-Pformation.cluster=…` and `-Pformation.faucetUrl=…` to change them; a mainnet build has no faucet, so **Become a test Seeker** doesn't appear.
 
 ### The vault program
 
@@ -96,29 +105,23 @@ After changing the program, copy `program/target/idl/formation_vault.json` to `p
 
 ### Devnet
 
-Deploy the program, then create the test token mint, the test Seeker Genesis Token group and the vault config:
+The vault, a standing test contest and the faucet are already live on devnet, so these steps are only for a fresh deployment. Deploy the program, then create the test SKR mint, a test Genesis Token group owned by the vault, and the vault config:
 
 ```sh
 solana program deploy program/target/deploy/formation_vault.so \
   --program-id program/target/deploy/formation_vault-keypair.json \
   -u devnet -k ~/.config/solana/seekers-devnet.json
 scripts/devnet.py setup
+scripts/devnet.py contest --budget 300 --budgets 1000 --wins 3 --hours 2159 --title "Formation test contest"
 ```
 
-To host on devnet, give the host's wallet a test Genesis Token and fund a contest for it:
-
-```sh
-scripts/devnet.py seeker HOST_WALLET
-scripts/devnet.py contest --only HOST_WALLET --budget 120
-```
-
-[Rewards and the vault](docs/rewards.md) lists the other contest types and admin commands.
+[Rewards and the vault](docs/rewards.md) covers the faucet, the other contest types and the admin commands.
 
 ### Development workflow
 
 1. Start two or more Android emulators.
-2. `scripts/emulators.sh install` builds the dev app and installs it on every running emulator; `scripts/emulators.sh link` lets them find each other.
-3. On the host emulator, tap **Pretend to be a Seeker** on Home. Its claim key acts as the host's wallet: fund a contest for that address with `scripts/devnet.py`.
+2. `scripts/emulators.sh install` builds the debug app and installs it on every running emulator; `scripts/emulators.sh link` lets them find each other.
+3. On the host emulator, tap **Want to host? Become a test Seeker** on Home.
 4. Choose a game, pick its funded reward and tap **Start Formation**. Join from another emulator's Nearby list.
 
 If emulator screens stop redrawing after animations, cold-start them with software graphics: `emulator -avd YOUR_AVD -gpu swiftshader -no-snapshot-load`.
@@ -128,9 +131,9 @@ If emulator screens stop redrawing after animations, cold-start them with softwa
 Run these before pushing; CI runs the same checks on every push and pull request.
 
 ```sh
-# App: shared and Android tests, release lint, both debug builds
+# App: shared and Android tests, release lint, debug build
 cd app
-./gradlew testAndroidHostTest :androidApp:lintProdRelease :androidApp:assembleDebug
+./gradlew testAndroidHostTest :androidApp:lintRelease :androidApp:assembleDebug
 
 # iOS: shared tests on the simulator
 ./gradlew iosSimulatorArm64Test
@@ -139,22 +142,25 @@ cd app
 cd ../program
 anchor build
 cargo test -p formation-vault
+
+# Scripts
+cd ../scripts
+python3 -m unittest test_overdrive_driver test_mosaic_driver test_chain_verification
 ```
 
 ### End-to-end journeys
 
-`scripts/e2e.py` drives real emulators through a whole Formation: host, join, play, seal and unlock on devnet. It funds a contest for the host, then checks the on-chain result and every payout.
+`scripts/e2e.py` drives real emulators through a whole Formation on devnet: the host becomes a test Seeker with the app's own button, hosts a budget from the standing contest, and the group joins, plays, seals and unlocks. It then checks the on-chain result and every payout.
 
 ```sh
-FORMATION_REWARDS="$PWD/scripts/fixtures/overdrive.json" \
-  scripts/e2e.py --title Overdrive --code 6 --driver overdrive --layout android
+scripts/e2e.py --title Ricochet --layout android
 ```
 
 | Option | Use |
 | --- | --- |
 | `--driver overdrive \| mosaic \| autoplay \| manual` | Who plays: a game-specific driver, the built-in autoplay, or you |
 | `--players N` | Group size; one emulator per player |
-| `--chain localnet` | Run against `scripts/localnet.py` instead of devnet |
+| `--difficulty Easy \| Normal \| Hard \| Extreme` | For games that offer a choice |
 | `--wallet ADDRESS \| connect` | Pay the guest's share to a wallet, or connect one through the wallet app |
 | `--offline` | Cut the host's network at unlock and check it recovers |
 | `--layout android` | Faster screen reads through the Android CLI |

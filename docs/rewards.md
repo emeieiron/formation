@@ -1,6 +1,6 @@
 # Rewards and the vault
 
-Rewards are held by the `formation-vault` Anchor program (`program/formation-vault`). Its devnet address is `9NqxUaDuCrk92aDXEvhVppRVW1EmvygXKvtLm6LR5uy7`.
+Rewards are held by the `formation-vault` Anchor program (`program/formation-vault`). Its devnet address is `8haw7C2rGLgF4dmn3kciRERtrLmRFQLX6Hg14Hg4Jvg5`.
 
 ## Contests
 
@@ -38,12 +38,29 @@ All numbers live in the vault's settings: the modes offered, a pause switch, own
 | Command | What it does |
 | --- | --- |
 | `setup` | Creates the test SKR mint, the test SGT group and the vault config |
-| `seeker WALLET` | Gives `WALLET` a test SGT and SOL for fees |
+| `test-token WALLET` | Gives `WALLET` its test Genesis Token and SOL for fees, as the faucet does |
 | `contest [options]` | Funds a contest: first come (`--budget`, `--budgets`, `--wins`), one token (`--only WALLET`), or a draw (`--draw BPS --pool SKR`) |
 | `draw CONTEST` | Requests a draw's randomness once entry closes, then finalizes it |
 | `settings [KEY=VALUE ...]` | Shows the settings, or changes them as the admin |
 | `fund WALLET [SOL]` | Sends devnet SOL |
 
+## Test Genesis Tokens
+
+Real Genesis Tokens only exist on mainnet. On devnet the vault's `test_tokens` setting lets any wallet mint itself one test token in the vault's own group, through `mint_test_token`. The token's address comes from the wallet, so each wallet gets one. Because it's a real member of the group the contests accept, it unlocks exactly like a real token. Mainnet keeps the setting off.
+
+The faucet in `faucet/` is a Cloudflare Worker holding a funded devnet account. **Become a test Seeker** posts the phone's test-wallet address to it; the faucet sends 0.1 SOL for fees, at most once a day per wallet, and mints the wallet's test token if it has none, paying every fee itself. It limits requests per IP address. To deploy it:
+
+```sh
+cd faucet
+npm install
+npx wrangler kv namespace create LIMITS   # put the id in wrangler.jsonc
+npx wrangler secret put FAUCET_KEY        # the faucet's keypair, a JSON array of 64 bytes
+npx wrangler secret put RPC_URL           # a devnet RPC endpoint; the public one refuses Cloudflare
+npx wrangler deploy
+```
+
+Top the faucet account up from the deployment wallet with `scripts/devnet.py fund FAUCET_ADDRESS SOL`.
+
 ## Linking a Seeker
 
-A Seeker owner links the wallet that holds their SGT, on the Seeker or on any other phone. The wallet signs one message that authorizes a key kept on the phone to host for it. The app checks the token against the group the vault accepts and rechecks it on every launch.
+A Seeker owner links the wallet that holds their SGT, normally the Seed Vault Wallet on the Seeker itself. The wallet signs one message that authorizes a key kept on the phone to host for it. The app checks the token against the group the vault accepts and rechecks it on every launch. A test Seeker does the same with the phone's own test wallet, signing locally instead of in a wallet app.
