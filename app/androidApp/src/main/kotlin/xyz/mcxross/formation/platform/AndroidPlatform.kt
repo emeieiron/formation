@@ -44,6 +44,7 @@ class AndroidPlatform(private val context: Context) : PlatformServices {
       developer = BuildConfig.DEBUG,
       rpcUrl = BuildConfig.SOLANA_RPC_URL,
       cluster = BuildConfig.SOLANA_CLUSTER,
+      fallbackRpcUrl = BuildConfig.SOLANA_FALLBACK_RPC_URL.takeUnless { it == BuildConfig.SOLANA_RPC_URL },
       faucetUrl = BuildConfig.FAUCET_URL.takeUnless { it.isEmpty() || BuildConfig.SOLANA_CLUSTER == "mainnet-beta" },
     )
 

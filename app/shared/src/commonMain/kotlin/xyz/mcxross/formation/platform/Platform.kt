@@ -89,6 +89,8 @@ data class AppConfig(
   val developer: Boolean,
   val rpcUrl: String,
   val cluster: String,
+  // Takes over while [rpcUrl] is rate limited, out of quota or refusing its key.
+  val fallbackRpcUrl: String? = null,
   // Where real Genesis Tokens don't exist, the faucet that makes a phone a test Seeker; null on mainnet.
   val faucetUrl: String? = null,
 )

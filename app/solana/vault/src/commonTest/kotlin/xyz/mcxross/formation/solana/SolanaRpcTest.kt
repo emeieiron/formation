@@ -5,6 +5,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
 import io.ktor.http.headersOf
 import kotlin.test.Test
@@ -234,5 +235,52 @@ class SolanaRpcTest {
         .toByteArray()
     assertContentEquals(sgt.bytes, bytes.copyOfRange(VaultEntry.SGT_OFFSET, VaultEntry.SGT_OFFSET + 32))
     return bytes
+  }
+
+  // The preferred node is a keyed provider; the public one stands in while it refuses.
+  private class Nodes(var preferred: Pair<HttpStatusCode, String>) {
+    val hosts = mutableListOf<String>()
+    val http = HttpClient(MockEngine { request ->
+      hosts += request.url.host
+      val (status, body) =
+        if (request.url.host == "helius.test") preferred
+        else HttpStatusCode.OK to """"result":{"value":{"blockhash":"public","lastValidBlockHeight":1},"context":{"slot":1}}"""
+      respond("{\"jsonrpc\":\"2.0\",\"id\":1,$body}", status, headersOf(HttpHeaders.ContentType, "application/json"))
+    })
+
+    fun rpc(cooldown: kotlin.time.Duration) =
+      SolanaRpc(http, "https://helius.test", fallback = "https://public.test", cooldown = cooldown)
+  }
+
+  @Test
+  fun aRefusingProviderHandsOverToThePublicNodeUntilItRecovers() = runTest {
+    val ok = HttpStatusCode.OK to """"result":{"value":{"blockhash":"helius","lastValidBlockHeight":1},"context":{"slot":1}}"""
+    val nodes = Nodes(HttpStatusCode.TooManyRequests to """"error":{"code":-32429,"message":"rate limited"}""")
+    val rpc = nodes.rpc(cooldown = 0.milliseconds)
+    nodes.preferred = HttpStatusCode.Unauthorized to """"error":{"code":401,"message":"invalid api key"}"""
+    assertEquals("public", rpc.latestBlockhash())
+    assertEquals(listOf("helius.test", "public.test"), nodes.hosts)
+
+    nodes.preferred = ok
+    nodes.hosts.clear()
+    assertEquals("helius", rpc.latestBlockhash())
+    assertEquals(listOf("helius.test"), nodes.hosts, "after the cooldown the provider is tried first again")
+  }
+
+  @Test
+  fun duringTheCooldownTheProviderIsNotAsked() = runTest {
+    val nodes = Nodes(HttpStatusCode.TooManyRequests to """"error":{"code":-32429,"message":"rate limited"}""")
+    val rpc = nodes.rpc(cooldown = kotlin.time.Duration.INFINITE)
+    rpc.latestBlockhash()
+    nodes.hosts.clear()
+    assertEquals("public", rpc.latestBlockhash())
+    assertEquals(listOf("public.test"), nodes.hosts)
+  }
+
+  @Test
+  fun aTransactionErrorIsNotTheProvidersFault() = runTest {
+    val nodes = Nodes(HttpStatusCode.OK to """"error":{"code":-32002,"message":"Transaction simulation failed"}""")
+    assertFailsWith<RpcException> { nodes.rpc(cooldown = 0.milliseconds).latestBlockhash() }
+    assertEquals(listOf("helius.test"), nodes.hosts)
   }
 }

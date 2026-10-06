@@ -53,6 +53,7 @@ class AppGraph(
   ledger: RewardLedger? = null,
 ) {
   val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+  private val rpc = SolanaRpc(platform.network.http, platform.config.rpcUrl, fallback = platform.config.fallbackRpcUrl)
   val navigator = Navigator()
   val diagnostics = LocalDiagnostics(platform.store, ::now)
   val simulator = if (platform.config.developer && platform.device.emulator) MotionSimulator(scope) else null
@@ -71,7 +72,7 @@ class AppGraph(
       platform.wallet,
       platform.device.seeker,
       platform.config.cluster,
-      seekerCheck ?: sgtCheck(SolanaRpc(platform.network.http, platform.config.rpcUrl)),
+      seekerCheck ?: sgtCheck(rpc),
       platform.config.faucetUrl?.let { url -> TestFaucet(platform.network.http, url, "Formation/${platform.config.version}")::fund },
     )
   val revocations = AttestationRevocations(platform.store, platform.network.http, ::now)
@@ -87,7 +88,7 @@ class AppGraph(
   val ledger: RewardLedger =
     ledger
       ?: SolanaLedger(
-        SolanaRpc(platform.network.http, platform.config.rpcUrl),
+        rpc,
         platform.wallet,
         { identity.claimKey },
         { seeker.testWallet() },

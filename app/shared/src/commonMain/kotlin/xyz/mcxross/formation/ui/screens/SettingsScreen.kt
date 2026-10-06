@@ -163,8 +163,12 @@ fun SettingsScreen() {
                 Button("Unlink", { graph.seeker.forget() }, style = ButtonStyle.Ghost, size = ButtonSize.Medium, fillWidth = false)
               }
               graph.seeker.testSeekers ->
-                Button("Become a test Seeker", { scope.launch { graph.seeker.becomeTestSeeker() } }, style = ButtonStyle.Reward,
-                  size = ButtonSize.Medium, loading = status == SeekerStatus.Checking, leadingIcon = Icons.Seeker)
+                Column(verticalArrangement = Arrangement.spacedBy(Space.s)) {
+                  Button("Become a test Seeker", { scope.launch { graph.seeker.becomeTestSeeker() } }, style = ButtonStyle.Reward,
+                    size = ButtonSize.Medium, loading = status == SeekerStatus.Checking, leadingIcon = Icons.Seeker)
+                  // A wallet app that already holds a test token hosts through the same path a Seed Vault Wallet will.
+                  TextButton("Link a wallet that holds a test token instead", { scope.launch { graph.seeker.link() } })
+                }
               graph.platform.device.seeker ->
                 Button("Link this Seeker", { scope.launch { graph.seeker.link() } }, style = ButtonStyle.Reward,
                   size = ButtonSize.Medium, loading = status == SeekerStatus.Checking)

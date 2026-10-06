@@ -1,6 +1,9 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
-val rpcUrl = providers.gradleProperty("formation.rpcUrl").orElse("https://api.devnet.solana.com")
+// The preferred RPC, usually a keyed provider such as Helius set in ~/.gradle/gradle.properties or by the
+// release workflow; the app falls back to the public node while it is rate limited or refusing its key.
+val publicRpcUrl = providers.gradleProperty("formation.fallbackRpcUrl").orElse("https://api.devnet.solana.com")
+val rpcUrl = providers.gradleProperty("formation.rpcUrl").orElse(publicRpcUrl)
 val cluster = providers.gradleProperty("formation.cluster").orElse("devnet")
 // Makes phones test Seekers on networks without real Genesis Tokens; a mainnet build passes an empty one.
 val faucetUrl = providers.gradleProperty("formation.faucetUrl").orElse("https://formation-faucet.em-eieiron.workers.dev")
@@ -30,6 +33,7 @@ android {
     versionCode = formationVersionCode.get()
     versionName = formationVersionName.get()
     buildConfigField("String", "SOLANA_RPC_URL", "\"${rpcUrl.get()}\"")
+    buildConfigField("String", "SOLANA_FALLBACK_RPC_URL", "\"${publicRpcUrl.get()}\"")
     buildConfigField("String", "SOLANA_CLUSTER", "\"${cluster.get()}\"")
     buildConfigField("String", "FAUCET_URL", "\"${faucetUrl.get()}\"")
   }

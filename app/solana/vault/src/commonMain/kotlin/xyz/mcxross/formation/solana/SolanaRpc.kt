@@ -5,10 +5,12 @@ import io.ktor.client.HttpClient
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.ContentType
 import io.ktor.http.content.TextContent
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 import kotlinx.coroutines.Dispatchers
@@ -36,12 +38,18 @@ import kotlinx.serialization.json.putJsonObject
 import xyz.mcxross.formation.crypto.Base58
 import xyz.mcxross.formation.crypto.Base64
 
+// [url] is the preferred endpoint, such as a keyed provider; [fallback] takes over while it is rate limited,
+// out of quota, refusing its key or unreachable, and the preferred one is retried after [cooldown].
 class SolanaRpc(
   private val http: HttpClient,
   private val url: String,
   private val commitment: String = "confirmed",
   private val callTimeout: Duration = 20.seconds,
+  private val fallback: String? = null,
+  private val cooldown: Duration = 10.minutes,
 ) {
+  private var preferredDownSince: TimeSource.Monotonic.ValueTimeMark? = null
+
   class Account(val owner: SolanaPublicKey, val lamports: Long, val data: ByteArray)
 
   sealed interface Filter {
@@ -203,20 +211,20 @@ class SolanaRpc(
       put("method", method)
       put("params", params)
     }
-    // Offline, a request can hang for minutes; failing fast lets callers keep the work for later.
-    val text =
-      withContext(Dispatchers.Default) {
-        withTimeoutOrNull(callTimeout) {
-          http
-            .post(url) { setBody(TextContent(body.toString(), ContentType.Application.Json)) }
-            .bodyAsText()
+    val preferredUp = preferredDownSince?.let { it.elapsedNow() >= cooldown } ?: true
+    val backup = fallback
+    val response =
+      if (backup == null) post(url, body)
+      else if (!preferredUp) post(backup, body)
+      else post(url, body).takeIf { it != null && !it.refused() }
+        ?.also { preferredDownSince = null }
+        ?: run {
+          preferredDownSince = TimeSource.Monotonic.markNow()
+          post(backup, body)
         }
-      } ?: throw RpcException(-1, "No connection to Solana")
-    val response = runCatching {
-      Json.parseToJsonElement(text).jsonObject
-    }
-      .getOrElse { throw RpcException(-1, "The Solana node sent something unexpected") }
-    response["error"]
+    val json = response?.json
+      ?: throw RpcException(-1, if (response == null) "No connection to Solana" else "The Solana node sent something unexpected")
+    json["error"]
       ?.takeUnless { it is JsonNull }
       ?.jsonObject
       ?.let { e ->
@@ -228,8 +236,33 @@ class SolanaRpc(
           logs = (data?.get("logs") as? JsonArray)?.map { it.jsonPrimitive.content }.orEmpty(),
         )
       }
-    return response["result"] ?: JsonNull
+    return json["result"] ?: JsonNull
   }
+
+  private class Reply(val status: HttpStatusCode, val json: JsonObject?) {
+    // A keyed provider says no to every request this way while its quota is spent or its key is revoked.
+    fun refused(): Boolean {
+      if (status == HttpStatusCode.TooManyRequests || status == HttpStatusCode.Unauthorized ||
+        status == HttpStatusCode.Forbidden || status.value >= 500 || json == null) return true
+      val error = json["error"] as? JsonObject ?: return false
+      val code = error["code"]?.jsonPrimitive?.intOrNull
+      val message = error["message"]?.jsonPrimitive?.contentOrNull.orEmpty().lowercase()
+      return code == -32429 || code == 429 || code == 401 || code == 403 ||
+        listOf("rate limit", "api key", "credits", "quota", "unauthorized").any { it in message }
+    }
+  }
+
+  // Offline, a request can hang for minutes; failing fast lets callers keep the work for later.
+  private suspend fun post(endpoint: String, body: JsonObject): Reply? =
+    withContext(Dispatchers.Default) {
+      withTimeoutOrNull(callTimeout) {
+        runCatching {
+          val response = http.post(endpoint) { setBody(TextContent(body.toString(), ContentType.Application.Json)) }
+          val text = response.bodyAsText()
+          Reply(response.status, runCatching { Json.parseToJsonElement(text).jsonObject }.getOrNull())
+        }.getOrNull()
+      }
+    }
 
   private fun JsonElement.toAccount(): Account? {
     if (this is JsonNull) return null
