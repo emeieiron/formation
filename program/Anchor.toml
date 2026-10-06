@@ -7,10 +7,10 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-formation_vault = "9NqxUaDuCrk92aDXEvhVppRVW1EmvygXKvtLm6LR5uy7"
+formation_vault = "8haw7C2rGLgF4dmn3kciRERtrLmRFQLX6Hg14Hg4Jvg5"
 
 [programs.localnet]
-formation_vault = "9NqxUaDuCrk92aDXEvhVppRVW1EmvygXKvtLm6LR5uy7"
+formation_vault = "8haw7C2rGLgF4dmn3kciRERtrLmRFQLX6Hg14Hg4Jvg5"
 
 [provider]
 cluster = "localnet"

@@ -2,7 +2,9 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
 use anchor_lang::solana_program::program::invoke;
 use anchor_spl::associated_token::AssociatedToken;
-use anchor_spl::token_interface::{self, CloseAccount, Mint, TokenAccount, TokenInterface, TransferChecked};
+use anchor_spl::token_2022::Token2022;
+use anchor_spl::token_2022_extensions::{token_member_initialize, TokenMemberInitialize};
+use anchor_spl::token_interface::{self, CloseAccount, Mint, MintTo, TokenAccount, TokenInterface, TransferChecked};
 
 pub mod rules;
 pub mod state;
@@ -10,12 +12,17 @@ pub mod state;
 pub use rules::*;
 pub use state::*;
 
-declare_id!("9NqxUaDuCrk92aDXEvhVppRVW1EmvygXKvtLm6LR5uy7");
+declare_id!("8haw7C2rGLgF4dmn3kciRERtrLmRFQLX6Hg14Hg4Jvg5");
 
 pub const CONFIG_SEED: &[u8] = b"config";
 pub const CONTEST_SEED: &[u8] = b"contest";
 pub const ENTRY_SEED: &[u8] = b"entry";
 pub const RECEIPT_SEED: &[u8] = b"receipt";
+/// Signs as the test group's update authority and every test token's mint authority.
+pub const TEST_AUTHORITY_SEED: &[u8] = b"test-authority";
+pub const TEST_TOKEN_SEED: &[u8] = b"test-token";
+/// The group member entry a test token gains on joining the group, with its type and length header.
+const GROUP_MEMBER_LEN: usize = 4 + 72;
 pub const BPS: u64 = 10_000;
 /// Guests fit a u64 bitmap of who has claimed.
 pub const MAX_GUESTS: u8 = 64;
@@ -348,6 +355,50 @@ pub mod formation_vault {
         pay_out(&ctx.accounts.vault, &ctx.accounts.recipient_token, &ctx.accounts.mint, c, &ctx.accounts.token_program, amount)?;
         ctx.accounts.entry.claimed |= bit;
         emit!(Claimed { contest: c.key(), entry: ctx.accounts.entry.key(), index, claimer, recipient, amount });
+        Ok(())
+    }
+
+    /// Gives `wallet` one test Genesis Token in the config's group, so it can host where real tokens don't
+    /// exist. The token's address comes from the wallet, so a second one can't be minted.
+    pub fn mint_test_token(ctx: Context<MintTestToken>) -> Result<()> {
+        require!(ctx.accounts.config.settings.test_tokens, VaultError::TestTokensOff);
+        let a = &ctx.accounts;
+        let seeds: &[&[u8]] = &[TEST_AUTHORITY_SEED, &[ctx.bumps.authority]];
+
+        // Joining the group appends a member entry to the mint, which Token-2022 grows in place.
+        let mint_info = a.mint.to_account_info();
+        let needed = Rent::get()?.minimum_balance(mint_info.data_len() + GROUP_MEMBER_LEN);
+        let top_up = needed.saturating_sub(mint_info.lamports());
+        if top_up > 0 {
+            anchor_lang::system_program::transfer(
+                CpiContext::new(
+                    a.system_program.key(),
+                    anchor_lang::system_program::Transfer { from: a.payer.to_account_info(), to: mint_info.clone() },
+                ),
+                top_up,
+            )?;
+        }
+        token_member_initialize(CpiContext::new_with_signer(
+            a.token_program.key(),
+            TokenMemberInitialize {
+                program_id: a.token_program.to_account_info(),
+                member: mint_info.clone(),
+                member_mint: mint_info.clone(),
+                member_mint_authority: a.authority.to_account_info(),
+                group: a.group.to_account_info(),
+                group_update_authority: a.authority.to_account_info(),
+            },
+            &[seeds],
+        ))?;
+        token_interface::mint_to(
+            CpiContext::new_with_signer(
+                a.token_program.key(),
+                MintTo { mint: mint_info, to: a.token_account.to_account_info(), authority: a.authority.to_account_info() },
+                &[seeds],
+            ),
+            1,
+        )?;
+        emit!(TestTokenMinted { wallet: a.wallet.key(), mint: a.mint.key() });
         Ok(())
     }
 
@@ -780,6 +831,45 @@ pub struct Claim<'info> {
 }
 
 #[derive(Accounts)]
+pub struct MintTestToken<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    /// CHECK: any wallet; it receives the token.
+    pub wallet: UncheckedAccount<'info>,
+    #[account(seeds = [CONFIG_SEED], bump = config.bump)]
+    pub config: Box<Account<'info, Config>>,
+    /// CHECK: a PDA that only signs; the group names it as update authority.
+    #[account(seeds = [TEST_AUTHORITY_SEED], bump)]
+    pub authority: UncheckedAccount<'info>,
+    /// CHECK: the config's group; Token-2022 checks its update authority when the token joins.
+    #[account(mut, address = config.sgt_group @ VaultError::NotASeeker)]
+    pub group: UncheckedAccount<'info>,
+    #[account(
+        init,
+        payer = payer,
+        seeds = [TEST_TOKEN_SEED, wallet.key().as_ref()],
+        bump,
+        mint::decimals = 0,
+        mint::authority = authority,
+        mint::token_program = token_program,
+        extensions::group_member_pointer::authority = authority,
+        extensions::group_member_pointer::member_address = mint,
+    )]
+    pub mint: Box<InterfaceAccount<'info, Mint>>,
+    #[account(
+        init,
+        payer = payer,
+        associated_token::mint = mint,
+        associated_token::authority = wallet,
+        associated_token::token_program = token_program,
+    )]
+    pub token_account: Box<InterfaceAccount<'info, TokenAccount>>,
+    pub token_program: Program<'info, Token2022>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
 pub struct CloseEntry<'info> {
     /// CHECK: receives the rent it paid.
     #[account(mut)]
@@ -892,6 +982,12 @@ pub struct Claimed {
 }
 
 #[event]
+pub struct TestTokenMinted {
+    pub wallet: Pubkey,
+    pub mint: Pubkey,
+}
+
+#[event]
 pub struct ContestClosed {
     pub contest: Pubkey,
     pub returned: u64,
@@ -965,4 +1061,6 @@ pub enum VaultError {
     WrongMint,
     #[msg("Arithmetic overflow")]
     Overflow,
+    #[msg("Test tokens are off on this network")]
+    TestTokensOff,
 }

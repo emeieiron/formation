@@ -1,11 +1,12 @@
 use anchor_lang::prelude::Pubkey;
 use anchor_lang::solana_program::program_pack::Pack;
 use anchor_lang::{AccountDeserialize, InstructionData, ToAccountMetas};
-use anchor_spl::associated_token::{self, get_associated_token_address};
+use anchor_spl::associated_token::{self, get_associated_token_address, get_associated_token_address_with_program_id};
 use anchor_spl::token::spl_token;
 use formation_vault::{
     accounts, instruction, permute, split, Config, Contest, Entry, EntryState, Mode, Receipt, Settings, VaultError, CONFIG_SEED,
-    CONTEST_SEED, ENTRY_SEED, MODE_DRAW, MODE_FIRST_COME, RECEIPT_SEED, TOKEN_2022, UNBOUND, VRF_NETWORK_SEED, VRF_REQUEST_SEED,
+    CONTEST_SEED, ENTRY_SEED, MODE_DRAW, MODE_FIRST_COME, RECEIPT_SEED, TEST_AUTHORITY_SEED, TEST_TOKEN_SEED, TOKEN_2022, UNBOUND,
+    VRF_NETWORK_SEED, VRF_REQUEST_SEED,
 };
 use litesvm::LiteSVM;
 use solana_account::Account;
@@ -33,6 +34,8 @@ const DAY: i64 = 24 * HOUR;
 const CLAIM_WINDOW: i64 = 30 * DAY;
 const RESULT: [u8; 32] = [7; 32];
 
+const GROUP_POINTER: u16 = 20;
+const TOKEN_GROUP: u16 = 21;
 const GROUP_MEMBER_POINTER: u16 = 22;
 const TOKEN_GROUP_MEMBER: u16 = 23;
 const VRF: Pubkey = Pubkey::from_str_const("VRFzZoJdhFWL8rkvu87LpKM3RbcVezpMEc6X5GVDr7y");
@@ -53,6 +56,7 @@ fn defaults() -> Settings {
         min_enter_window: HOUR,
         max_enter_window: 30 * DAY,
         draw_timeout: HOUR,
+        test_tokens: false,
     }
 }
 
@@ -177,6 +181,10 @@ fn network_state() -> Pubkey {
 /// ORAO's network state holds its authority, then its treasury.
 fn treasury() -> Pubkey {
     Pubkey::new_from_array(include_bytes!("fixtures/orao-network-state.bin")[40..72].try_into().unwrap())
+}
+
+fn wallet_of(k: &Keypair) -> Pubkey {
+    wallet(k)
 }
 
 fn wallet(k: &Keypair) -> Pubkey {
@@ -536,6 +544,28 @@ impl Env {
         )
     }
 
+    fn mint_test_token(&mut self, wallet: &Pubkey) -> Result<Seeker, String> {
+        let payer = self.user();
+        let mint = Pubkey::find_program_address(&[TEST_TOKEN_SEED, wallet.as_ref()], &program_id()).0;
+        let token_account = get_associated_token_address_with_program_id(wallet, &mint, &TOKEN_2022);
+        let ix = self.ix(
+            instruction::MintTestToken {},
+            accounts::MintTestToken {
+                payer: wallet_of(&payer),
+                wallet: *wallet,
+                config: config_pda(),
+                authority: test_authority(),
+                group: self.group,
+                mint,
+                token_account,
+                token_program: TOKEN_2022,
+                associated_token_program: associated_token::ID,
+                system_program: system_program(),
+            },
+        );
+        self.send(ix, &[&payer]).map(|_| Seeker { wallet: Keypair::new(), sgt: mint, sgt_account: token_account })
+    }
+
     fn close_entry(&mut self, entry: &Pubkey, payer: &Pubkey) -> Result<(), String> {
         let signer = self.user();
         let ix = self.ix(instruction::CloseEntry {}, accounts::CloseEntry { payer: *payer, entry: *entry });
@@ -595,6 +625,21 @@ fn sgt_mint(mint: &Pubkey, member_mint: &Pubkey, group: &Pubkey) -> Vec<u8> {
     data.push(1);
     tlv(&mut data, GROUP_MEMBER_POINTER, &[[0; 32].as_slice(), mint.as_ref()].concat());
     tlv(&mut data, TOKEN_GROUP_MEMBER, &[member_mint.as_ref(), group.as_ref(), &42u64.to_le_bytes()].concat());
+    data
+}
+
+fn test_authority() -> Pubkey {
+    Pubkey::find_program_address(&[TEST_AUTHORITY_SEED], &program_id()).0
+}
+
+/// A Token-2022 group mint whose update authority is `authority`, as `devnet.py` creates it.
+fn group_mint(group: &Pubkey, authority: &Pubkey) -> Vec<u8> {
+    let mut data = vec![0; spl_token::state::Account::LEN];
+    spl_token::state::Mint { mint_authority: Some(Pubkey::new_unique()).into(), supply: 0, decimals: 0, is_initialized: true, freeze_authority: None.into() }
+        .pack_into_slice(&mut data[..spl_token::state::Mint::LEN]);
+    data.push(1);
+    tlv(&mut data, GROUP_POINTER, &[authority.as_ref(), group.as_ref()].concat());
+    tlv(&mut data, TOKEN_GROUP, &[authority.as_ref(), group.as_ref(), &0u64.to_le_bytes(), &1_000_000u64.to_le_bytes()].concat());
     data
 }
 
@@ -1300,4 +1345,34 @@ fn each_mode_keeps_to_its_own_instructions() {
     expect_err(env.unlock(&seeker, &draw, 0, &Roster::of(&guests(1)), 1), code(VaultError::BadMode));
     set_time(&mut env.svm, terms.enter_until);
     expect_err(env.request_draw(&draw), code(VaultError::NoEntries));
+}
+
+#[test]
+fn any_wallet_can_mint_one_test_token_that_unlocks_like_a_real_one() {
+    let mut env = Env::new();
+    let group = env.group;
+    put(&mut env.svm, &group, group_mint(&group, &test_authority()), &TOKEN_2022);
+    let holder = env.user();
+    expect_err(env.mint_test_token(&wallet(&holder)).map(|_| ()), code(VaultError::TestTokensOff));
+
+    env.set_settings(|s| s.test_tokens = true);
+    let minted = env.mint_test_token(&wallet(&holder)).unwrap();
+    expect_err(env.mint_test_token(&wallet(&holder)).map(|_| ()), ALREADY_IN_USE);
+    let seeker = Seeker { wallet: holder, ..minted };
+    let account = env.svm.get_account(&addr(&seeker.sgt_account)).unwrap();
+    assert_eq!(spl_token::state::Account::unpack(&account.data[..spl_token::state::Account::LEN]).unwrap().amount, 1);
+
+    let terms = env.first_come(3_000 * SKR, 300 * SKR);
+    let contest = env.create(&terms).unwrap();
+    env.unlock(&seeker, &contest, 0, &Roster::of(&guests(1)), 1).unwrap();
+    assert_eq!(env.balance(&seeker.key()), 225 * SKR);
+}
+
+#[test]
+fn only_the_vaults_own_group_takes_test_tokens() {
+    let mut env = Env::new();
+    let group = env.group;
+    put(&mut env.svm, &group, group_mint(&group, &Pubkey::new_unique()), &TOKEN_2022);
+    env.set_settings(|s| s.test_tokens = true);
+    assert!(env.mint_test_token(&Pubkey::new_unique()).is_err());
 }

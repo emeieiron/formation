@@ -37,6 +37,9 @@ pub struct Settings {
     pub max_enter_window: i64,
     /// How long a draw request may go unanswered before anyone can request again.
     pub draw_timeout: i64,
+    /// Lets any wallet mint itself one test Genesis Token, for networks where real ones don't exist.
+    /// Never on for mainnet.
+    pub test_tokens: bool,
 }
 
 impl Settings {

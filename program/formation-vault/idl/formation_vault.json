@@ -1,5 +1,5 @@
 {
-  "address": "9NqxUaDuCrk92aDXEvhVppRVW1EmvygXKvtLm6LR5uy7",
+  "address": "8haw7C2rGLgF4dmn3kciRERtrLmRFQLX6Hg14Hg4Jvg5",
   "metadata": {
     "name": "formation_vault",
     "version": "0.1.0",
@@ -679,7 +679,7 @@
         },
         {
           "name": "program",
-          "address": "9NqxUaDuCrk92aDXEvhVppRVW1EmvygXKvtLm6LR5uy7"
+          "address": "8haw7C2rGLgF4dmn3kciRERtrLmRFQLX6Hg14Hg4Jvg5"
         },
         {
           "name": "program_data"
@@ -707,6 +707,178 @@
           }
         }
       ]
+    },
+    {
+      "name": "mint_test_token",
+      "docs": [
+        "Gives `wallet` one test Genesis Token in the config's group, so it can host where real tokens don't",
+        "exist. The token's address comes from the wallet, so a second one can't be minted."
+      ],
+      "discriminator": [
+        173,
+        1,
+        219,
+        194,
+        158,
+        97,
+        116,
+        40
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "wallet"
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  101,
+                  115,
+                  116,
+                  45,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "group",
+          "writable": true
+        },
+        {
+          "name": "mint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  101,
+                  115,
+                  116,
+                  45,
+                  116,
+                  111,
+                  107,
+                  101,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "wallet"
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "wallet"
+              },
+              {
+                "kind": "account",
+                "path": "token_program"
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
     },
     {
       "name": "register",
@@ -1526,6 +1698,19 @@
       ]
     },
     {
+      "name": "TestTokenMinted",
+      "discriminator": [
+        3,
+        75,
+        153,
+        111,
+        240,
+        171,
+        31,
+        229
+      ]
+    },
+    {
       "name": "Unlocked",
       "discriminator": [
         219,
@@ -1704,6 +1889,11 @@
       "code": 6032,
       "name": "Overflow",
       "msg": "Arithmetic overflow"
+    },
+    {
+      "code": 6033,
+      "name": "TestTokensOff",
+      "msg": "Test tokens are off on this network"
     }
   ],
   "types": [
@@ -2352,6 +2542,14 @@
               "How long a draw request may go unanswered before anyone can request again."
             ],
             "type": "i64"
+          },
+          {
+            "name": "test_tokens",
+            "docs": [
+              "Lets any wallet mint itself one test Genesis Token, for networks where real ones don't exist.",
+              "Never on for mainnet."
+            ],
+            "type": "bool"
           }
         ]
       }
@@ -2368,6 +2566,22 @@
                 "name": "Settings"
               }
             }
+          }
+        ]
+      }
+    },
+    {
+      "name": "TestTokenMinted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "mint",
+            "type": "pubkey"
           }
         ]
       }

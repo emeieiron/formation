@@ -1,44 +1,12 @@
 {
   "seekers": {
-    "AfweqkwpnxckPtJS46CE4vwdEGWpc4424Dzrtx7WSv4E": {
-      "sgt": "ELKBC9x9ro9jh66az7J1rKvntYfdV7rBaewscpxetTvb",
-      "account": "GormjzmeeACq7WRn1Hn4GSWtnHF1znZKkJuFG5hoygEF"
-    },
-    "ePTWBNK5mi4Re1md6oVRJ7hVer1mBsfyzM2LDcnLukS": {
-      "sgt": "CvEey2puwbq84roGGuj85NjmvKp39Dkanime5JVK2c14",
-      "account": "G2qKQ1n3YrzbEA4h6gF4ZCxSE2scoH5fsdbSssTLQ1cw"
-    },
-    "33XXMyv4HZT6PyR5rssrX35HXNhkFJ563T4wdhYNTe9T": {
-      "sgt": "BJ7DssfaAaLDQP8PYRi4NUTNcGi4g8M2TDwknDFMTRya",
-      "account": "HznyJkxhmFMp9VM7xRWgTKpt1RCZjbcS8diFz8Mc362e"
-    },
-    "2Tn6rhgE2b2Cu7nxGqvHvVm5m1GVtkN2bgG2uVZW8CUp": {
-      "sgt": "HJobJqPrnTZB4BicQkRTzzeb1Gtc82R6fZebcHtjzkvx",
-      "account": "FaKqUXzdFHXHWRLpB7fkZDZAqJUfAcj12BLfmwr3fpX5"
-    },
-    "4iAayCe15sUF1pqkn2bFHQcJu5VgxzVM2fZKSAJXvL7t": {
-      "sgt": "BeJTtReWXzaLm6V6jFU8EWcnk675AiJU7uz3A1hVL1PY",
-      "account": "4wPcEcqySjrnL5ySM1AaZ9zwup4UFBERwTpCngcS6R2G"
-    },
-    "Gn3EsPWNGcaT9ZcsnajNtivpWv2QWXedGmyVDufz7rfL": {
-      "sgt": "DB9oj2YNw68iTetDUV5JRTjjbZJFfUexu7wZLXAffpFi",
-      "account": "GrU7gDsHHZVHTsQH3RjtJQtqs88tLQzCHLi8NTFzaHmx"
-    },
-    "Ebe7BcmFV96KTKpJW3usCZmca7k5jTCnQjKKpsh4Aunh": {
-      "sgt": "HmB1TDKdHDTbbhG1eqoXUj2pKrrEBYRP3qzAiPMgr44r",
-      "account": "3GkNY13tiWZc8zxZn8wgDWSpiz3wrAhMY1fVf3nBWcaY"
-    },
-    "BrBDTAW2qhuYhaZSJ5kfijuAAmM4ft6TpzwGukd42iFa": {
-      "sgt": "BmmfBNEwTm4EWnYPFsCYDp626yzZKrZXTPXf3kBziTuA",
-      "account": "5dL1b2agr5CyB5VDsJUD2E7w9RWP1NVRBLUGRuJX41CD"
-    },
-    "GqDG4MNH1JqmztjkUS7t7NzSZfPHv4divw4u3ajat4m7": {
-      "sgt": "8B8Hp6TJZLakg4tSKzjfw8aQnGsySw9imnYrf8CUh1cu",
-      "account": "EEjg8FR5FirUh4pzZec8giVceDphcNi7GZz2w3j9o99V"
+    "AMP4UP1adfwPkfiL3f3oUHJkV8arKDq3Aiug33J6h6vL": {
+      "sgt": "GbaH67gdmMbzxnwQf4xtdVVdt3hGD8nXZ1x4ujMk8yzq",
+      "account": "ARLjowFaUwmgRmR1wb2KA3rfriMocRd8bGGXoUVbLs2k"
     }
   },
   "skr": "ARR9SPkE1SLwKiJvrE8baJBx8rhpQhaz1d6un3jv7YU6",
-  "group": "CNtWGaQU8cS1aMsyDmoacSGyJvUyUS9xXZq96M5voJgY",
+  "group": "8gLAahjS7g3Bns7CLdEF7Do1Q5WFRQPSYcEkaYCGpXdi",
   "contests": [
     "5FKC3njysGwEsiGMwvK1o1EFRGNjoLqqHsPs5mJxWLZM",
     "J9WsHN7aqZdcxgawTP96wJ2uGpy9bCokDzkGjfsFpvwh",
@@ -50,6 +18,7 @@
     "FrHMKTTWQBy6HxF5ShpNjgYVu3NkTcxmu3nYZYqzpHXK",
     "5DJSFA5KUG9GpQmwHZv2jxJ1FBzhWoNuwVDiLpuzP4Bm",
     "AqxRXkX6MLtsgCjmz8UEfKLEVcEYUpXRPFJa3TtQtLJR",
-    "98ez59cq4QQk88Dh497qp1VrUDB4T9dP3eXVHpQrdzfG"
+    "98ez59cq4QQk88Dh497qp1VrUDB4T9dP3eXVHpQrdzfG",
+    "8Z1i7bz37j4J34LaAoAk5Ry3x1oc1YGjEEgRSpSZSdsz"
   ]
 }
