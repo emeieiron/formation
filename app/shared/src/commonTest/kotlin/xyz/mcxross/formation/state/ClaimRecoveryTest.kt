@@ -13,7 +13,7 @@ class ClaimRecoveryTest {
     var failTickets = false
     override fun get(key: String) = map[key]
     override fun put(key: String, value: String?) {
-      if (failTickets && key == "sim.tickets") error("Disk full")
+      if (failTickets && key == "sol.tickets") error("Disk full")
       if (value == null) map.remove(key) else map[key] = value
     }
   }
@@ -53,7 +53,7 @@ class ClaimRecoveryTest {
     val sourceStore = Store()
     val sourceSecrets = Secrets()
     val source = ClaimIdentity(sourceStore, sourceSecrets)
-    val ledger = SimulatedLedger(sourceStore)
+    val ledger = TicketLedger(sourceStore)
     ledger.keep(ticket(source.key))
     val sourceRecovery = RecoveryService(source, ledger, sourceStore, sourceSecrets, "testnet", { true })
     val password = "a-test-recovery-password"
@@ -63,7 +63,7 @@ class ClaimRecoveryTest {
     val targetStore = Store()
     val targetSecrets = Secrets()
     val target = ClaimIdentity(targetStore, targetSecrets)
-    val targetLedger = SimulatedLedger(targetStore)
+    val targetLedger = TicketLedger(targetStore)
     val recovery = RecoveryService(target, targetLedger, targetStore, targetSecrets, "testnet", { true })
     val previous = target.address
     assertFailsWith<IllegalStateException> { recovery.import(export, "wrong-password") }
@@ -77,7 +77,7 @@ class ClaimRecoveryTest {
     assertFailsWith<IllegalStateException> { recovery.import(export, password) }
     targetStore.failTickets = false
     val reopened = ClaimIdentity(targetStore, targetSecrets)
-    val reopenedLedger = SimulatedLedger(targetStore)
+    val reopenedLedger = TicketLedger(targetStore)
     RecoveryService(reopened, reopenedLedger, targetStore, targetSecrets, "testnet", { false }).resumePending()
     assertEquals(source.address, reopened.address)
     assertEquals(ledger.tickets.value, reopenedLedger.tickets.value)

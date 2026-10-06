@@ -15,11 +15,6 @@ import xyz.mcxross.formation.platform.KeyValueStore
 import xyz.mcxross.formation.session.FormationJson
 import xyz.mcxross.formation.session.Seal
 
-enum class LedgerMode(val label: String) {
-  SIMULATED("Simulated"),
-  SOLANA("Solana"),
-}
-
 @Serializable
 data class ClaimTicket(
   // The vault entry the share is paid from, and its contest.
@@ -65,8 +60,6 @@ data class OpenDraw(
 )
 
 interface RewardLedger {
-  val mode: LedgerMode
-
   // What the linked Genesis Token can unlock now.
   val budgets: StateFlow<List<Budget>>
 

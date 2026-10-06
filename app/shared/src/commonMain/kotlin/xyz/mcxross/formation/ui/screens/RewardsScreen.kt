@@ -40,7 +40,6 @@ import xyz.mcxross.formation.resources.Res
 import xyz.mcxross.formation.resources.a11y_wallet_address
 import xyz.mcxross.formation.resources.action_claim
 import xyz.mcxross.formation.resources.copy_rewards_empty
-import xyz.mcxross.formation.resources.copy_simulated_rewards
 import xyz.mcxross.formation.resources.label_hosted
 import xyz.mcxross.formation.resources.label_rewards
 import xyz.mcxross.formation.resources.state_no_rewards
@@ -72,7 +71,6 @@ import xyz.mcxross.formation.design.tokens.Tone
 import xyz.mcxross.formation.model.Skr
 import xyz.mcxross.formation.platform.SoundCue
 import xyz.mcxross.formation.state.ClaimTicket
-import xyz.mcxross.formation.state.LedgerMode
 import xyz.mcxross.formation.state.NO_WALLET
 import xyz.mcxross.formation.ui.LocalGraph
 import xyz.mcxross.formation.ui.components.ChallengeGlyph
@@ -118,13 +116,6 @@ fun RewardsScreen() {
             }
           }
           Spacer(Modifier.height(Space.l))
-          if (graph.ledger.mode == LedgerMode.SIMULATED) {
-            Notice(
-              stringResource(Res.string.copy_simulated_rewards),
-              tone = Tone.Warning,
-            )
-            Spacer(Modifier.height(Space.l))
-          }
         }
       }
       if (tickets.isEmpty()) {
@@ -248,7 +239,7 @@ private fun ClaimSheet(ticket: ClaimTicket, onDismiss: () -> Unit) {
   var noWallet by remember { mutableStateOf(false) }
   var done by remember { mutableStateOf<String?>(null) }
   val onPhone = graph.identity.claimAddress
-  val canKeepOnPhone = graph.ledger.mode == LedgerMode.SIMULATED || graph.platform.config.developer
+  val canKeepOnPhone = graph.platform.config.developer
   val walletReady = rememberWalletInstalled(graph.platform)
   val needsWallet = noWallet || !walletReady
   LaunchedEffect(walletReady) { if (walletReady) noWallet = false }

@@ -65,7 +65,6 @@
     <string name="headline_play_together">Play together</string>
     <string name="headline_scan_to_join">Scan to join</string>
     <string name="copy_no_account">No account needed.</string>
-    <string name="copy_simulated_rewards">Simulated rewards. No on-chain value.</string>
     <string name="copy_rewards_empty">Join a Formation to get started.</string>
     <string name="copy_offline_unlock">Connect to unlock this reward.</string>
     <string name="state_reward_unavailable">This reward is no longer available.</string>

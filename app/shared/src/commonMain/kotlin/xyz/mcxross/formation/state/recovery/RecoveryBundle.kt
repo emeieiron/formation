@@ -7,19 +7,17 @@ import xyz.mcxross.formation.crypto.Ed25519KeyPair
 import xyz.mcxross.formation.crypto.RosterTree
 import xyz.mcxross.formation.crypto.hexToBytes
 import xyz.mcxross.formation.state.ClaimTicket
-import xyz.mcxross.formation.state.LedgerMode
 
 @Serializable
 data class RecoveryBundle(
   val version: Int = 1,
   val cluster: String,
-  val mode: LedgerMode,
   val seed: String,
   val address: String,
   val tickets: List<ClaimTicket>,
 ) {
-  fun validate(expectedCluster: String, expectedMode: LedgerMode): Ed25519KeyPair {
-    require(version == 1 && cluster == expectedCluster && mode == expectedMode) { "Recovery belongs to another network or ledger" }
+  fun validate(expectedCluster: String): Ed25519KeyPair {
+    require(version == 1 && cluster == expectedCluster) { "Recovery belongs to another network" }
     val key = Ed25519KeyPair.fromSeed(Base64.decode(seed))
     require(Base58.encode(key.publicKey) == address) { "Recovery identity does not match its key" }
     validateTickets(tickets, key)

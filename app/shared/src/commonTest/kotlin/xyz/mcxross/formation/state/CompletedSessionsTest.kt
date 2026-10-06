@@ -30,11 +30,11 @@ class CompletedSessionsTest {
     assertTrue((recovered.stage as Stage.Won).seal.complete)
     assertIs<Unlock.Unlocked>((recovered.stage as Stage.Won).unlock)
     validatedCompletion(recovered)
-    val ledger = SimulatedLedger(store)
+    val ledger = TicketLedger(store)
     val ownerWallet = Base58.encode(keys.first().publicKey)
     SettlementCompletion(journal, ledger).record(PendingUnlock(info.opportunity, (complete.stage as Stage.Won).seal, 100),
       UnlockReceipt("receipt", null, listOf(players.last().id)), SeekerIdentity(ownerWallet, null, true), 200)
-    val restoredOwnerReceipt = SimulatedLedger(store).tickets.value.single()
+    val restoredOwnerReceipt = TicketLedger(store).tickets.value.single()
     assertEquals(ownerWallet, restoredOwnerReceipt.claimedTo)
     assertEquals("receipt", restoredOwnerReceipt.claimReceipt)
   }

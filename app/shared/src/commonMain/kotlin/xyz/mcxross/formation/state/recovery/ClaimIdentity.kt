@@ -44,7 +44,7 @@ class ClaimIdentity(private val store: KeyValueStore, private val secrets: Secre
     seed?.takeIf { it.size == 32 }?.let(Ed25519KeyPair::fromSeed)
   } finally { seed?.fill(0) }
 
-  private fun hasRecords() = listOf("sol.tickets", "sim.tickets", "sessions.completed").any {
+  private fun hasRecords() = listOf("sol.tickets", "sessions.completed").any {
     store.get(it)?.let { raw -> raw.isNotBlank() && raw != "[]" } == true
   }
 

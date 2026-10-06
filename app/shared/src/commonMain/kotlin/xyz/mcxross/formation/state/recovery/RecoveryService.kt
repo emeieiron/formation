@@ -29,9 +29,9 @@ class RecoveryService(
   suspend fun export(password: String): String = withContext(Dispatchers.Default) { lock.withLock {
     require(password.length in 12..256) { "Use a recovery password of at least 12 characters" }
     val key = identity.key
-    val bundle = RecoveryBundle(cluster = cluster, mode = ledger.mode, seed = Base64.encode(key.seed),
+    val bundle = RecoveryBundle(cluster = cluster, seed = Base64.encode(key.seed),
       address = Base58.encode(key.publicKey), tickets = ledger.tickets.value)
-    bundle.validate(cluster, ledger.mode)
+    bundle.validate(cluster)
     val plain = FormationJson.encodeToString(RecoveryBundle.serializer(), bundle).encodeToByteArray()
     try { PREFIX + Base64.encode(cipher.encrypt(plain, password)) } finally { plain.fill(0) }
   } }
@@ -43,7 +43,7 @@ class RecoveryService(
       catch (_: Exception) { error("The password or recovery data is incorrect") }
     val bundle = try { FormationJson.decodeFromString(RecoveryBundle.serializer(), plain.decodeToString()) }
       finally { plain.fill(0) }
-    val key = bundle.validate(cluster, ledger.mode)
+    val key = bundle.validate(cluster)
     val matchingLegacyProofs = identity.address == null && ledger.tickets.value.isNotEmpty() &&
       runCatching { validateTickets(ledger.tickets.value, key) }.isSuccess
     check(identity.address == bundle.address || matchingLegacyProofs || replacementAllowed()) { "This phone has rewards belonging to a different claim key" }
@@ -54,14 +54,14 @@ class RecoveryService(
     }
     secrets.put(STAGED_KEY, key.seed)
     store.putDurable(PENDING, FormationJson.encodeToString(PendingRecovery.serializer(),
-      PendingRecovery(bundle.address, bundle.tickets, cluster, ledger.mode.name)))
-    finish(PendingRecovery(bundle.address, bundle.tickets, cluster, ledger.mode.name), key)
+      PendingRecovery(bundle.address, bundle.tickets, cluster)))
+    finish(PendingRecovery(bundle.address, bundle.tickets, cluster), key)
   } }
 
   // Idempotent: if the process died between the key and reward writes, finish that exact restore.
   fun resumePending() {
     val pending = store.get(PENDING)?.let { FormationJson.decodeFromString(PendingRecovery.serializer(), it) } ?: return
-    require(pending.cluster == cluster && pending.mode == ledger.mode.name) { "Switch back to the recovery export's ledger to finish restoring" }
+    require(pending.cluster == cluster) { "Switch back to the recovery export's network to finish restoring" }
     val key = Ed25519KeyPair.fromSeed(secrets.get(STAGED_KEY) ?: error("The staged recovery key is unavailable"))
     require(Base58.encode(key.publicKey) == pending.address) { "The staged recovery key is invalid" }
     validateTickets(pending.tickets, key)
@@ -76,7 +76,7 @@ class RecoveryService(
   }
 
   @Serializable
-  private data class PendingRecovery(val address: String, val tickets: List<ClaimTicket>, val cluster: String, val mode: String)
+  private data class PendingRecovery(val address: String, val tickets: List<ClaimTicket>, val cluster: String)
   private companion object {
     const val PREFIX = "formation-recovery:1:"
     const val PENDING = "claim.restore.pending"

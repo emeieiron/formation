@@ -84,21 +84,16 @@ class AppGraph(
   val role: StateFlow<PhoneRole> = seeker.identity.map { phoneRole(platform.device.seeker, it) }
     .stateIn(scope, SharingStarted.Eagerly, phoneRole(platform.device.seeker, seeker.identity.value))
 
-  val ledgerChoice = selectLedger(platform.store.get(KEY_LEDGER), platform.config.developer)
   val ledger: RewardLedger =
     ledger
-      ?: when (ledgerChoice) {
-        LedgerMode.SIMULATED -> SimulatedLedger(platform.store)
-        LedgerMode.SOLANA ->
-          SolanaLedger(
-            SolanaRpc(platform.network.http, platform.config.rpcUrl),
-            platform.wallet,
-            { identity.claimKey },
-            platform.config.cluster,
-            platform.store,
-            observe = diagnostics.sink(TraceSource.SETTLEMENT),
-          )
-      }
+      ?: SolanaLedger(
+        SolanaRpc(platform.network.http, platform.config.rpcUrl),
+        platform.wallet,
+        { identity.claimKey },
+        platform.config.cluster,
+        platform.store,
+        observe = diagnostics.sink(TraceSource.SETTLEMENT),
+      )
 
   val pending = PendingUnlocks(platform.store)
   val completed = CompletedSessions(platform.store)
@@ -129,9 +124,6 @@ class AppGraph(
     identity.save(profile)
     _session.value?.client?.setProfile(profile.name, profile.light)
   }
-
-  fun chooseLedger(mode: LedgerMode) =
-    platform.store.put(KEY_LEDGER, selectLedger(mode.name, platform.config.developer).name)
 
   suspend fun connectWallet(): String? =
     when (val connected = platform.wallet.connect()) {
@@ -326,7 +318,6 @@ class AppGraph(
   }
 
   private companion object {
-    const val KEY_LEDGER = "ledger"
   }
 }
 

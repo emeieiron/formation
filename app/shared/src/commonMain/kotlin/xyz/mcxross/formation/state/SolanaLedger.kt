@@ -43,8 +43,6 @@ class SolanaLedger(
   private val vault: FormationVault = FormationVault(),
   private val observe: (xyz.mcxross.formation.session.DiagnosticEvent) -> Unit = {},
 ) : RewardLedger {
-  override val mode = LedgerMode.SOLANA
-
   private val _budgets = MutableStateFlow<List<Budget>>(emptyList())
   override val budgets: StateFlow<List<Budget>> = _budgets.asStateFlow()
 

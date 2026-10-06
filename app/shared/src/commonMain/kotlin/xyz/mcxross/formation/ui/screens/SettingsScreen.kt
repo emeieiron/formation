@@ -52,7 +52,6 @@ import xyz.mcxross.formation.design.tokens.Space
 import xyz.mcxross.formation.link.EmulatorBridge
 import xyz.mcxross.formation.state.HardwareCheck
 import xyz.mcxross.formation.state.KEY_DEV_SEEKER_HARDWARE
-import xyz.mcxross.formation.state.LedgerMode
 import xyz.mcxross.formation.state.Profile
 import xyz.mcxross.formation.state.SeekerStatus
 import xyz.mcxross.formation.ui.LocalGraph
@@ -177,10 +176,7 @@ fun SettingsScreen() {
         Column {
           SettingRow(
             "Ledger",
-            detail =
-              "${graph.ledger.mode.label}. " +
-                if (graph.ledger.mode == LedgerMode.SIMULATED) "Nothing touches a chain."
-                else "Formation vault on ${graph.platform.config.cluster}.",
+            detail = "Formation vault on ${graph.platform.config.cluster}.",
             icon = Icons.Coin,
           )
           Hairline()
@@ -256,27 +252,6 @@ fun SettingsScreen() {
                   graph.platform.store.put(KEY_DEV_SEEKER_HARDWARE, if (on) "true" else null)
                   toaster.show("Restart Formation to apply")
                 })
-              },
-            )
-            Hairline()
-            var solana by remember { mutableStateOf(graph.ledgerChoice == LedgerMode.SOLANA) }
-            SettingRow(
-              "Solana ledger",
-              detail =
-                "Use the vault program on ${graph.platform.config.cluster} (${graph.platform.config.rpcUrl})." +
-                  if (solana != (graph.ledger.mode == LedgerMode.SOLANA))
-                    " Restart Formation to switch."
-                  else "",
-              icon = Icons.Coin,
-              trailing = {
-                Toggle(
-                  solana,
-                  { on ->
-                    solana = on
-                    graph.chooseLedger(if (on) LedgerMode.SOLANA else LedgerMode.SIMULATED)
-                    toaster.show("Restart Formation to switch ledgers")
-                  },
-                )
               },
             )
             Hairline()

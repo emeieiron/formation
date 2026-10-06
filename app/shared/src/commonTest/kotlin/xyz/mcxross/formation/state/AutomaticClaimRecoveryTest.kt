@@ -37,14 +37,14 @@ class AutomaticClaimRecoveryTest {
       val secrets = Secrets()
       val original = ClaimIdentity(store, secrets)
       val seed = original.key.seed.copyOf()
-      store.put("sim.tickets", "saved-entitlement")
+      store.put("sol.tickets", "saved-entitlement")
       secrets.primary = damaged
       val repaired = ClaimIdentity(store, secrets)
       assertEquals(original.address, repaired.address)
       assertTrue(assertIs<ClaimKeyState.Ready>(repaired.status.value).protectedOnDevice)
       assertContentEquals(seed, repaired.key.seed)
       assertContentEquals(seed, secrets.primary)
-      assertEquals("saved-entitlement", store.get("sim.tickets"))
+      assertEquals("saved-entitlement", store.get("sol.tickets"))
     }
   }
 
