@@ -1,6 +1,8 @@
 name: Release Android
 
 # Push a tag like v1.2.3 from main to build, sign and publish the Android APK for direct download.
+# During development Formation stays at 0.1.0: move the tag to ship a new build, and its release is replaced.
+#   git tag -f v0.1.0 && git push -f origin v0.1.0
 # Signing secrets live in the android-release environment, which only v* tags can use and which
 # waits for approval before each run.
 #
@@ -110,6 +112,8 @@ jobs:
           - Signing certificate SHA-256: \`${EXPECTED_CERT_SHA256}\`
           - Build provenance: \`gh attestation verify formation.apk --repo ${GITHUB_REPOSITORY}\`
           EOF
+          # Re-releasing a version replaces its release; the tag itself stays where it was pushed.
+          gh release delete "$GITHUB_REF_NAME" --yes 2>/dev/null || true
           gh release create "$GITHUB_REF_NAME" dist/* \
             --title "Formation ${{ steps.version.outputs.name }}" \
             --notes-file notes.md \
