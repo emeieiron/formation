@@ -67,8 +67,14 @@ class SolanaRpc(
   suspend fun blockHeight(): Long =
     call("getBlockHeight", buildJsonArray { add(options()) }).jsonPrimitive.long
 
+  suspend fun genesisHash(): String =
+    call("getGenesisHash", buildJsonArray {}).jsonPrimitive.content
+
+  suspend fun slot(): Long =
+    call("getSlot", buildJsonArray { add(options()) }).jsonPrimitive.long
+
   suspend fun chainTimeMillis(): Long? {
-    val slot = call("getSlot", buildJsonArray { add(options()) }).jsonPrimitive.long
+    val slot = slot()
     val time = call("getBlockTime", buildJsonArray { add(slot) })
     return if (time == JsonNull) null else time.jsonPrimitive.long * 1_000
   }

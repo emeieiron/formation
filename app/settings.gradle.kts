@@ -52,6 +52,8 @@ include(":challenges:mosaic")
 
 include(":solana:vault")
 
+include(":solana:ore")
+
 include(":shared")
 
 include(":androidApp")
