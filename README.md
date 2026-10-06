@@ -235,7 +235,7 @@ Verified on devnet on 5 October 2026:
 
 - A 50% draw over three registered test tokens took ORAO's answer, selected two at 200 SKR each, paid both winners and refused the third with `NotSelected`.
 - In the two-emulator Ricochet journey, a pretend Seeker hosted a 120 SKR single-token contest; the unlock settled with the owner paid 90 SKR.
-- The Overdrive journey hosted and played, but its driver lost the game on headless emulators, so that run didn't reach an unlock.
+- On 6 October the Overdrive journey, played on Easy, completed all 12 waves and settled the same way: owner paid 90 SKR, the guest's 30 SKR share kept for a later claim.
 
 ## Releasing the Android app
 

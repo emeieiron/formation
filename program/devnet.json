@@ -7,8 +7,20 @@
     "ePTWBNK5mi4Re1md6oVRJ7hVer1mBsfyzM2LDcnLukS": {
       "sgt": "CvEey2puwbq84roGGuj85NjmvKp39Dkanime5JVK2c14",
       "account": "G2qKQ1n3YrzbEA4h6gF4ZCxSE2scoH5fsdbSssTLQ1cw"
+    },
+    "33XXMyv4HZT6PyR5rssrX35HXNhkFJ563T4wdhYNTe9T": {
+      "sgt": "BJ7DssfaAaLDQP8PYRi4NUTNcGi4g8M2TDwknDFMTRya",
+      "account": "HznyJkxhmFMp9VM7xRWgTKpt1RCZjbcS8diFz8Mc362e"
+    },
+    "2Tn6rhgE2b2Cu7nxGqvHvVm5m1GVtkN2bgG2uVZW8CUp": {
+      "sgt": "HJobJqPrnTZB4BicQkRTzzeb1Gtc82R6fZebcHtjzkvx",
+      "account": "FaKqUXzdFHXHWRLpB7fkZDZAqJUfAcj12BLfmwr3fpX5"
     }
   },
   "skr": "ARR9SPkE1SLwKiJvrE8baJBx8rhpQhaz1d6un3jv7YU6",
-  "group": "CNtWGaQU8cS1aMsyDmoacSGyJvUyUS9xXZq96M5voJgY"
+  "group": "CNtWGaQU8cS1aMsyDmoacSGyJvUyUS9xXZq96M5voJgY",
+  "contests": [
+    "5FKC3njysGwEsiGMwvK1o1EFRGNjoLqqHsPs5mJxWLZM",
+    "J9WsHN7aqZdcxgawTP96wJ2uGpy9bCokDzkGjfsFpvwh"
+  ]
 }
