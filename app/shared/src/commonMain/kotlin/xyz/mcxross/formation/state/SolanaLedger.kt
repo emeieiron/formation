@@ -130,10 +130,12 @@ class SolanaLedger(
       return@attempt submissions.execute(it)
     }
     val holder = holder(seeker)
-    val blockhash = rpc.latestBlockhashInfo()
-    val tx = transaction(holder.wallet, blockhash.value, vault.register(holder, SolanaPublicKey.from(draw.contest)))
-    val signed = if (seeker.test) tx.signedBy(testKey()).serialize() else walletSign(listOf(tx)).single()
-    val signature = submissions.execute(journal.prepare(operation, signed, blockhash.lastValidBlockHeight))
+    val ix = vault.register(holder, SolanaPublicKey.from(draw.contest))
+    val build = { blockhash: String -> listOf(transaction(holder.wallet, blockhash, ix)) }
+    val (blockhash, _, signed) =
+      if (seeker.test) rpc.latestBlockhashInfo().let { Approved(it, Unit, build(it.value).map { tx -> tx.signedBy(testKey()).serialize() }) }
+      else approved { Unit to build(it) }
+    val signature = submissions.execute(journal.prepare(operation, signed.single(), blockhash.lastValidBlockHeight))
     _draws.update { list -> list.map { if (it.contest == draw.contest) it.copy(entered = true) else it } }
     signature
   } }
@@ -175,10 +177,12 @@ class SolanaLedger(
       share to vault.claim(payer, SolanaPublicKey.from(share.claimKey), SolanaPublicKey.from(share.wallet!!),
         contest, entryAddress, mint, share.index, Sealing.proof(seal, share.player).orEmpty(), claimerSigns = false)
     }
-    val blockhash = rpc.latestBlockhashInfo()
-    val batches = packTransactions(payer, blockhash.value, unlock, payouts)
-    val signed = if (seeker.test) batches.map { it.transaction.signedBy(testKey()).serialize() }
-      else if (batches.isEmpty()) emptyList() else walletSign(batches.map { it.transaction })
+    val pack = { blockhash: String -> packTransactions(payer, blockhash, unlock, payouts).let { it to it.map { batch -> batch.transaction } } }
+    val (blockhash, batches, signed) =
+      if (seeker.test) rpc.latestBlockhashInfo().let { latest ->
+        pack(latest.value).let { (batches, txs) -> Approved(latest, batches, txs.map { it.signedBy(testKey()).serialize() }) }
+      }
+      else approved(pack)
     check(signed.size == batches.size) { "The wallet did not sign every transaction" }
     // Save all approved batches before sending any of them.
     val saved = signed.zip(batches).map { (bytes, batch) ->
@@ -213,12 +217,13 @@ class SolanaLedger(
     val claimer = SolanaPublicKey(key.publicKey)
     val payer = SolanaPublicKey.from(recipient)
     val to = ticket.wallet?.let(SolanaPublicKey::from) ?: payer
-    val blockhash = rpc.latestBlockhashInfo()
     val ix = vault.claim(payer, claimer, to, SolanaPublicKey.from(ticket.contest), SolanaPublicKey.from(ticket.opportunity.value),
       config().mint, ticket.index, ticket.proof.map { it.hexToBytes() }, claimerSigns = ticket.wallet == null)
-    val tx = transaction(payer, blockhash.value, ix).let { if (ticket.wallet == null) it.signedBy(key) else it }
-    val signed = if (payer == claimer) tx.serialize() else walletSign(listOf(tx)).single()
-    val signature = submissions.execute(journal.prepare(operation, signed, blockhash.lastValidBlockHeight, to.base58()))
+    val build = { blockhash: String -> transaction(payer, blockhash, ix).let { if (ticket.wallet == null) it.signedBy(key) else it } }
+    val (blockhash, _, signed) =
+      if (payer == claimer) rpc.latestBlockhashInfo().let { Approved(it, Unit, listOf(build(it.value).serialize())) }
+      else approved { Unit to listOf(build(it)) }
+    val signature = submissions.execute(journal.prepare(operation, signed.single(), blockhash.lastValidBlockHeight, to.base58()))
     book.claimed(ticket, to.base58(), signature)
     signature
   } }
@@ -317,6 +322,9 @@ class SolanaLedger(
         )
         .also { config = it }
 
+  private suspend fun <T> approved(build: (String) -> Pair<T, List<Transaction>>): Approved<T> =
+    approvedInTime(rpc::latestBlockhashInfo, rpc::blockHeight, ::walletSign, build)
+
   private suspend fun walletSign(txs: List<Transaction>): List<ByteArray> =
     when (val signed = wallet.signAll(txs.map { it.serialize() })) {
       is WalletResult.Ok -> signed.value
@@ -334,4 +342,30 @@ class SolanaLedger(
     (e as? RpcException)?.describe() ?: e.message ?: "Solana request failed"
 
   private fun shortKey(key: SolanaPublicKey) = key.base58().let { "${it.take(4)}…${it.takeLast(4)}" }
+
 }
+
+internal data class Approved<T>(val blockhash: SolanaRpc.Blockhash, val built: T, val signed: List<ByteArray>)
+
+// A blockhash lives about a minute on mainnet and can be half that on devnet, while a wallet's approval can take
+// longer, say behind its own reminders. Transactions that come back too late to land are built again on a fresh
+// blockhash and the wallet asked once more.
+internal suspend fun <T> approvedInTime(
+  latest: suspend () -> SolanaRpc.Blockhash,
+  height: suspend () -> Long,
+  sign: suspend (List<Transaction>) -> List<ByteArray>,
+  build: (String) -> Pair<T, List<Transaction>>,
+): Approved<T> {
+  repeat(APPROVALS) {
+    val blockhash = latest()
+    val (built, txs) = build(blockhash.value)
+    if (txs.isEmpty()) return Approved(blockhash, built, emptyList())
+    val signed = sign(txs)
+    if (height() + LANDING_BLOCKS <= blockhash.lastValidBlockHeight) return Approved(blockhash, built, signed)
+  }
+  error("The wallet took too long to approve. Try again and approve right away.")
+}
+
+private const val APPROVALS = 3
+// Room to send the transaction and see it land: a few seconds even on fast devnet blocks.
+private const val LANDING_BLOCKS = 20
