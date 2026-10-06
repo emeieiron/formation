@@ -1,0 +1,15 @@
+{
+  "name": "formation-faucet",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "PROGRAM_ID": "8haw7C2rGLgF4dmn3kciRERtrLmRFQLX6Hg14Hg4Jvg5",
+    // 0.1 SOL: enough for dozens of hosted games (unlock fees, entry rent, token accounts).
+    "GRANT_LAMPORTS": "100000000",
+    "REQUESTS_PER_IP_PER_DAY": "10"
+  },
+  // Secrets: FAUCET_KEY, the funded devnet keypair as a JSON array of 64 bytes, and RPC_URL, a devnet RPC endpoint
+  // that accepts Cloudflare (the public one refuses it). Set each with `wrangler secret put NAME`.
+  "kv_namespaces": [{ "binding": "LIMITS", "id": "437b2fd4bfc2433ab3e1ff2ebc34afe5" }]
+}
