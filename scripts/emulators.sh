@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Emulators each sit behind their own virtual router. `link` forwards host port 47000+i to emulator
-# i's Formation port; debug builds probe 10.0.2.2:47000-47009, so the emulators find each other.
+# i's Formation port; builds running on emulators probe 10.0.2.2:47000-47009 to find each other.
 # Usage: scripts/emulators.sh install | link | unlink | list
 set -euo pipefail
 

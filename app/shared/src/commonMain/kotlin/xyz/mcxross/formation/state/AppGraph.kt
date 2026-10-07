@@ -312,8 +312,10 @@ class AppGraph(
     // A test Seeker signs with its own key, so it can retry quietly; a real one waits for a tap.
     scope.launch {
       while (true) {
-        if (seeker.identity.value?.test == true)
-          pending.pending.value.forEach { unlockWin(it) }
+        if (seeker.identity.value?.test == true) {
+          val active = _session.value?.host?.snapshot?.value
+          pending.pending.value.filter { it.canRetryAutomatically(active) }.forEach { unlockWin(it) }
+        }
         delay(30_000)
       }
     }

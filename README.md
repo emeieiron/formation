@@ -90,7 +90,7 @@ cd app
 ./gradlew :androidApp:assembleDebug
 ```
 
-There is one app. Debug builds add tools for developing on emulators: a motion pad, autoplay and an emulator bridge, in Profile → Developer. Release builds have none of them.
+There is one app. Debug builds add a motion pad and autoplay in Profile → Developer. The emulator network bridge works in both debug and release builds when running on emulators, so the published build can be tested across two devices with `scripts/emulators.sh link`.
 
 The app talks to devnet and its faucet by default. Pass `-Pformation.rpcUrl=…`, `-Pformation.cluster=…` and `-Pformation.faucetUrl=…` to change them; a mainnet build has no faucet, so **Become a test Seeker** doesn't appear.
 
@@ -145,7 +145,7 @@ cargo test -p formation-vault
 
 # Scripts
 cd ../scripts
-python3 -m unittest test_overdrive_driver test_mosaic_driver test_chain_verification
+python3 -m unittest test_overdrive_driver test_mosaic_driver test_chain_verification test_verify_release_demo
 ```
 
 ### End-to-end journeys

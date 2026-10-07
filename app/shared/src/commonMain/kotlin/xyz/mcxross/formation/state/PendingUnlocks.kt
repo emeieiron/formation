@@ -10,9 +10,20 @@ import xyz.mcxross.formation.model.OpportunityId
 import xyz.mcxross.formation.platform.KeyValueStore
 import xyz.mcxross.formation.session.FormationJson
 import xyz.mcxross.formation.session.Seal
+import xyz.mcxross.formation.session.SessionSnapshot
+import xyz.mcxross.formation.session.Stage
+import xyz.mcxross.formation.session.Unlock
 
 @Serializable
 data class PendingUnlock(val opportunity: Opportunity, val seal: Seal, val sealedAt: Long, val unlocked: Boolean = false)
+
+// Saving a fresh win makes it recoverable, but does not authorize background settlement while the
+// active result screen is waiting for the host's Unlock action. Failed or abandoned wins still retry.
+internal fun PendingUnlock.canRetryAutomatically(active: SessionSnapshot?): Boolean {
+  if (active?.formation?.opportunity?.id != opportunity.id) return true
+  val unlock = (active.stage as? Stage.Won)?.unlock
+  return unlock != Unlock.Waiting && unlock != Unlock.Unlocking
+}
 
 // Wins sealed by the whole group but not yet unlocked on chain, kept on the Seeker until they are.
 class PendingUnlocks(private val store: KeyValueStore) {

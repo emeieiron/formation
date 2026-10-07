@@ -91,7 +91,10 @@ class SolanaLedger(
         _draws.value = draws
         _problem.value = null
       }
-      .onFailure { _problem.value = "Couldn't reach Solana: ${describe(it)}" }
+      .onFailure {
+        if (it is CancellationException) throw it
+        _problem.value = "Couldn't reach Solana: ${describe(it)}"
+      }
   }
 
   // The next budget [sgt] can take from [contest], given the entries it already has there.
