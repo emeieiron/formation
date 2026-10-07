@@ -6,6 +6,12 @@ Formation turns the phones in a room into one shared game. A Seeker owner starts
 
 The idea is that a Seeker is a key to a shared experience rather than a solo device: its owner brings people together, and anyone who helps earns a share, with no wallet needed to join.
 
+## Watch Formation
+
+https://github.com/user-attachments/assets/d034e7f3-b810-4a21-ad08-d02b9500eea4
+
+[Download in 4K](https://github.com/emeieiron/formation/releases/download/v0.1.0/formation-v0.1.0-demo.mp4)
+
 ## Try Formation
 
 Trying Formation takes no build: the app runs against the vault already deployed on Solana devnet.
