@@ -2,9 +2,65 @@ import base64
 import hashlib
 import unittest
 from unittest.mock import patch
+import xml.etree.ElementTree as ET
 
 from chain_verification import PROGRAM, b58encode
+from e2e import Failed
+from release_demo import claim_wallet
 from verify_release_demo import verify
+
+
+class WalletApprovalTransitionTest(unittest.TestCase):
+    def phone(self, screens):
+        class Wallet:
+            def __init__(self):
+                self.screens = iter(screens)
+                self.swipes = []
+
+            def nodes(self):
+                root = ET.Element("hierarchy")
+                for value in next(self.screens):
+                    attributes = {"text": value}
+                    if value == "Slide to approve":
+                        attributes = {"class": "android.widget.Button", "content-desc": value,
+                                      "bounds": "[100,2700][260,2860]"}
+                    ET.SubElement(root, "node", attributes)
+                return root
+
+            def dismiss_stalls(self, root):
+                pass
+
+            def find(self, *args, **kwargs):
+                return None
+
+            def adb(self, *args):
+                return "Physical size: 1344x2992"
+
+            def shell(self, command):
+                self.swipes.append(command)
+
+        return Wallet()
+
+    def prompt(self):
+        return ["formation.mcxross.xyz", "+75", "ARR9...7YU6", "Slide to approve"]
+
+    @patch("release_demo.time.sleep")
+    def test_approval_animation_does_not_trigger_another_swipe_or_a_false_failure(self, _):
+        phone = self.phone([self.prompt(), self.prompt(), self.prompt(), ["Claimed"]])
+        claim_wallet(phone, 75, lambda message: None)
+        self.assertEqual(1, len(phone.swipes))
+
+    @patch("release_demo.time.sleep")
+    def test_a_returning_approval_prompt_fails_without_approving_twice(self, _):
+        phone = self.phone([self.prompt(), ["Processing"], self.prompt()])
+        with self.assertRaisesRegex(Failed, "second transaction approval"):
+            claim_wallet(phone, 75, lambda message: None)
+        self.assertEqual(1, len(phone.swipes))
+
+    def test_claim_receipt_without_an_observed_approval_fails(self):
+        phone = self.phone([["Claimed"]])
+        with self.assertRaisesRegex(Failed, "without observing"):
+            claim_wallet(phone, 75, lambda message: None)
 
 
 class ReleasedDuoReceiptTest(unittest.TestCase):

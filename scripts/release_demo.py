@@ -21,6 +21,13 @@ from overdrive_driver import play_overdrive
 
 
 class ReleasePhone(Phone):
+    def tap_text(self, text, prefix=False, timeout=30):
+        node = self.wait(text, prefix=prefix, timeout=timeout)
+        if text == "Start Formation":
+            # Keep the selected game, funded budget and split readable in the final take.
+            time.sleep(3)
+        self.tap(node)
+
     def prefs(self):
         raise Failed("Release journeys must not access application preferences")
 
@@ -75,10 +82,15 @@ def claim_wallet(phone, amount, log, timeout=90):
     # Approval must show Formation and the exact configured test mint/amount. A changed prompt fails.
     deadline = time.monotonic() + timeout
     approved, trusted, connected = False, False, False
+    approval_prompt_left = False
     while time.monotonic() < deadline:
         root = phone.nodes()
         text = labels(root)
         phone.dismiss_stalls(root)
+        approval_prompt = ("formation.mcxross.xyz" in text and "+" + str(amount) in text
+                           and "ARR9...7YU6" in text)
+        if approved and not approval_prompt:
+            approval_prompt_left = True
         if "Claimed" in text:
             if not approved:
                 raise Failed("The claim completed without observing its wallet approval")
@@ -104,7 +116,12 @@ def claim_wallet(phone, amount, log, timeout=90):
                               and n.get("content-desc") == "Slide to approve"), None)
                 if slide is not None:
                     if approved:
-                        raise Failed("The release claim requested a second transaction approval")
+                        if approval_prompt_left:
+                            raise Failed("The release claim requested a second transaction approval")
+                        # Solflare keeps this node during its approval animation. Observe the
+                        # transition without swiping again; an unaccepted gesture still times out.
+                        time.sleep(.2)
+                        continue
                     left, top, right, bottom = bounds(slide)
                     width = int(phone.adb("shell", "wm size").strip().split("x")[-2].split()[-1])
                     phone.shell(f"input swipe {(left + right) // 2} {(top + bottom) // 2} "
@@ -214,6 +231,7 @@ def main():
         log("host: reward received; guest: explicit claim ready")
         time.sleep(6)
         guest.tap_text(r"Claim [\d,.]+ SKR", prefix="regex")
+        guest.wait(r"Claim before .+ UTC", prefix="regex")
         guest.tap_text("Claim")
         guest.tap_text("Connect wallet")
         claim_wallet(guest, 75, log)
@@ -232,7 +250,7 @@ def main():
             text = labels(phone.nodes())
             if any(part in value for value in text for part in (
                 "Couldn't reach Solana", "Could not update reward status", "left the composition",
-                "payments are pending", "Not saved yet")):
+                "payments are pending", "Not saved yet", "Claim before")):
                 raise Failed(f"{phone.role}: reward history contains an error: {text}")
             phone.screenshot("receipt")
         time.sleep(8)
