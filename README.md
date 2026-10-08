@@ -6,6 +6,18 @@ Formation turns the phones in a room into one shared game. A Seeker owner starts
 
 The idea is that a Seeker is a key to a shared experience rather than a solo device: its owner brings people together, and anyone who helps earns a share, with no wallet needed to join.
 
+## Index
+
+- [Watch Formation](#watch-formation)
+- [Try Formation](#try-formation)
+- [How a Formation works](#how-a-formation-works)
+- [Games](#games)
+- [Architecture](#architecture)
+- [Repository](#repository)
+- [Building](#building)
+- [Testing](#testing)
+- [Trust model](#trust-model)
+
 ## Watch Formation
 
 https://github.com/user-attachments/assets/d034e7f3-b810-4a21-ad08-d02b9500eea4
@@ -67,13 +79,8 @@ Three games ship today. They are a starting set: every game plugs into the same 
 
 | Path | What's there |
 | --- | --- |
-| `app/androidApp`, `app/iosApp` | Platform entry points: wallets, secure storage, networking |
-| `app/shared` | Screens, app coordination, settlement and recovery |
-| `app/core` | Session protocol, networking and discovery, crypto, sensors, shared models |
-| `app/challenges` | The game API and one module per game |
-| `app/design` | Design system: tokens, components, icons |
-| `app/solana/vault` | Kotlin client for the vault program |
-| `program/formation-vault` | The vault program (Anchor) |
+| `app` | Kotlin Multiplatform app, games, shared libraries, and platform integrations |
+| `program` | Solana vault program, integration tests, and program interface |
 | `faucet` | Cloudflare Worker that gives test Seekers devnet SOL and a test Genesis Token |
 | `scripts` | Devnet setup, emulator helpers, end-to-end journeys |
 | `docs` | How to play each game, and the reward system |
