@@ -37,3 +37,7 @@ id.json
 # Tooling output
 *.hprof
 *.log
+
+# Local video exports; published demos are hosted on GitHub
+/videos/
+/docs/videos/
