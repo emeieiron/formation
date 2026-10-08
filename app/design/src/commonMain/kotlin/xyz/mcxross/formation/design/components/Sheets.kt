@@ -165,7 +165,9 @@ private fun SheetLayer(entry: SheetEntry, controller: OverlayController) {
     AnimatedVisibility(
       visibility,
       Modifier.align(Alignment.BottomCenter),
-      enter = slideInVertically(Motion.emphasized(260)) { (it / 8).coerceAtMost(84) } + fadeIn(Motion.standard(260)),
+      enter =
+        slideInVertically(Motion.emphasized(260)) { (it / 8).coerceAtMost(84) } +
+          fadeIn(Motion.standard(260)),
       exit = slideOutVertically(Motion.exit()) { it / 8 } + fadeOut(Motion.exit()),
     ) {
       CompositionLocalProvider(entry.locals) {

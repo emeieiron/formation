@@ -4,7 +4,11 @@ import kotlinx.serialization.Serializable
 import xyz.mcxross.formation.model.PlayerId
 
 @Serializable
-enum class SeamOutcome { Sealed, Wrong, Misaligned }
+enum class SeamOutcome {
+  Sealed,
+  Wrong,
+  Misaligned,
+}
 
 @Serializable
 data class SeamEvent(
@@ -32,9 +36,14 @@ data class MosaicState(
   val events: List<SeamEvent> = emptyList(),
   val finishedAt: Long? = null,
 ) {
-  val canvas: Canvas get() = Canvas(grid, fragment, gaps)
-  val seams: List<Seam> get() = grid.seams()
-  val won: Boolean get() = sealed.size == seams.size
+  val canvas: Canvas
+    get() = Canvas(grid, fragment, gaps)
+
+  val seams: List<Seam>
+    get() = grid.seams()
+
+  val won: Boolean
+    get() = sealed.size == seams.size
 
   fun position(player: PlayerId): Int = positions.indexOf(player)
 
@@ -43,7 +52,14 @@ data class MosaicState(
   }
 }
 
-// One finger of a pinch: it slid toward [edge] of the phone's fragment and lifted [alongMm] from the
+// One finger of a pinch: it slid toward [edge] of the phone's fragment and lifted [alongMm] from
+// the
 // fragment's left or top corner along that edge.
 @Serializable
-data class Pinch(val id: Long, val edge: Edge, val alongMm: Double, val downAt: Long, val upAt: Long)
+data class Pinch(
+  val id: Long,
+  val edge: Edge,
+  val alongMm: Double,
+  val downAt: Long,
+  val upAt: Long,
+)

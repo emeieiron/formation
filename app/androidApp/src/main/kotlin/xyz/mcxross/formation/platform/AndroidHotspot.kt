@@ -9,8 +9,8 @@ import android.os.Handler
 import android.os.Looper
 import androidx.core.content.ContextCompat
 import kotlin.coroutines.resume
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.suspendCancellableCoroutine
 
 internal class AndroidHotspot(context: Context, private val bridge: () -> ActivityBridge?) :
   HotspotPort {
@@ -48,15 +48,22 @@ internal class AndroidHotspot(context: Context, private val bridge: () -> Activi
       val callback =
         object : WifiManager.LocalOnlyHotspotCallback() {
           override fun onStarted(res: WifiManager.LocalOnlyHotspotReservation) {
-            val accepted = synchronized(lock) {
-              if (request != generation || !cont.isActive) false
-              else { reservation = res; active.value = describe(res); true }
-            }
+            val accepted =
+              synchronized(lock) {
+                if (request != generation || !cont.isActive) false
+                else {
+                  reservation = res
+                  active.value = describe(res)
+                  true
+                }
+              }
             if (!accepted) res.close()
             else if (cont.isActive) cont.resume(Result.success(describe(res)))
           }
 
-          override fun onStopped() { stopRequest(request) }
+          override fun onStopped() {
+            stopRequest(request)
+          }
 
           override fun onFailed(reason: Int) {
             stopRequest(request)
@@ -82,19 +89,27 @@ internal class AndroidHotspot(context: Context, private val bridge: () -> Activi
   }
 
   override fun stop() {
-    val previous = synchronized(lock) {
-      generation++
-      reservation.also { reservation = null; active.value = null }
-    }
+    val previous =
+      synchronized(lock) {
+        generation++
+        reservation.also {
+          reservation = null
+          active.value = null
+        }
+      }
     previous?.close()
   }
 
   private fun stopRequest(request: Long) {
-    val previous = synchronized(lock) {
-      if (generation != request) return
-      generation++
-      reservation.also { reservation = null; active.value = null }
-    }
+    val previous =
+      synchronized(lock) {
+        if (generation != request) return
+        generation++
+        reservation.also {
+          reservation = null
+          active.value = null
+        }
+      }
     previous?.close()
   }
 

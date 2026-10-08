@@ -2,15 +2,33 @@ package xyz.mcxross.formation.crypto
 
 class AttestationException(message: String) : Exception(message)
 
-enum class SecurityLevel { SOFTWARE, TRUSTED_ENVIRONMENT, STRONG_BOX }
+enum class SecurityLevel {
+  SOFTWARE,
+  TRUSTED_ENVIRONMENT,
+  STRONG_BOX,
+}
 
-enum class VerifiedBootState { VERIFIED, SELF_SIGNED, UNVERIFIED, FAILED }
+enum class VerifiedBootState {
+  VERIFIED,
+  SELF_SIGNED,
+  UNVERIFIED,
+  FAILED,
+}
 
-enum class Provisioning { REMOTE, FACTORY, UNKNOWN }
+enum class Provisioning {
+  REMOTE,
+  FACTORY,
+  UNKNOWN,
+}
 
-class RootOfTrust(val verifiedBootKey: ByteArray, val deviceLocked: Boolean, val verifiedBootState: VerifiedBootState)
+class RootOfTrust(
+  val verifiedBootKey: ByteArray,
+  val deviceLocked: Boolean,
+  val verifiedBootState: VerifiedBootState,
+)
 
-// Package names and SHA-256 signing-certificate digests (lowercase hex) of the app that made the key.
+// Package names and SHA-256 signing-certificate digests (lowercase hex) of the app that made the
+// key.
 class AttestedApplication(val packages: List<String>, val signers: List<String>)
 
 class AuthorizationList(
@@ -56,7 +74,8 @@ class AuthorizationList(
       return RootOfTrust(
         fields[0].octets(),
         fields[1].boolean(),
-        VerifiedBootState.entries.getOrNull(state.toInt()).takeIf { state in 0..3 } ?: throw DerException("Unknown boot state $state"),
+        VerifiedBootState.entries.getOrNull(state.toInt()).takeIf { state in 0..3 }
+          ?: throw DerException("Unknown boot state $state"),
       )
     }
 
@@ -102,24 +121,32 @@ class KeyDescription(
 
     private fun level(value: Der): SecurityLevel {
       val level = value.enumerated()
-      return SecurityLevel.entries.getOrNull(level.toInt()).takeIf { level in 0..2 } ?: throw DerException("Unknown security level $level")
+      return SecurityLevel.entries.getOrNull(level.toInt()).takeIf { level in 0..2 }
+        ?: throw DerException("Unknown security level $level")
     }
   }
 }
 
-class AttestedKey(val publicKey: PublicKeyInfo, val description: KeyDescription, val provisioning: Provisioning)
+class AttestedKey(
+  val publicKey: PublicKeyInfo,
+  val description: KeyDescription,
+  val provisioning: Provisioning,
+)
 
-// Verifies an Android key attestation chain the way Google's reference verifier does: trust comes from the
-// pinned root keys, never from the root the device sends, and only the leaf may carry an attestation record.
+// Verifies an Android key attestation chain the way Google's reference verifier does: trust comes
+// from the
+// pinned root keys, never from the root the device sends, and only the leaf may carry an
+// attestation record.
 // Seeker-specific rules live with the caller.
 object KeyAttestation {
   private const val MAX_CHAIN = 8
 
-  // Google's hardware attestation roots, as published at developer.android.com/privacy-and-security/security-key-attestation.
+  // Google's hardware attestation roots, as published at
+  // developer.android.com/privacy-and-security/security-key-attestation.
   // Earlier certificates for the RSA root reuse its key, so chains that end in them still verify.
   val googleRoots: List<Certificate> by lazy {
     listOf(
-      """
+        """
     MIIFHDCCAwSgAwIBAgIJAPHBcqaZ6vUdMA0GCSqGSIb3DQEBCwUAMBsxGTAXBgNVBAUTEGY5MjAwOWU4NTNiNmIwNDUwHhcNMjIw
     MzIwMTgwNzQ4WhcNNDIwMzE1MTgwNzQ4WjAbMRkwFwYDVQQFExBmOTIwMDllODUzYjZiMDQ1MIICIjANBgkqhkiG9w0BAQEFAAOC
     Ag8AMIICCgKCAgEAr7bHgiuxpwHsK7Qui8xUFmOr75gvMsd/dTEDDJdSSxtf6An7xyqpRR90PL2abxM1dEqlXnf2tqw1Ne4Xwl5j
@@ -139,7 +166,7 @@ object KeyAttestation {
     zbH4yswbt02tKtKEFhx+v+OTge/06V+jGsqTWLsfrOCNLuA8H++z+pUENmpqnnHovaI47gC+TNpkgYGkkBT6B/m/U01BuOBBTzhI
     lMEZq9qkDWuM2cA5kW5V3FJUcfHnw1IdYIg2Wxg7yHcQZemFQg==
       """,
-      """
+        """
     MIICIjCCAaigAwIBAgIRAISp0Cl7DrWK5/8OgN52BgUwCgYIKoZIzj0EAwMwUjEcMBoGA1UEAwwTS2V5IEF0dGVzdGF0aW9uIENB
     MTEQMA4GA1UECwwHQW5kcm9pZDETMBEGA1UECgwKR29vZ2xlIExMQzELMAkGA1UEBhMCVVMwHhcNMjUwNzE3MjIzMjE4WhcNMzUw
     NzE1MjIzMjE4WjBSMRwwGgYDVQQDDBNLZXkgQXR0ZXN0YXRpb24gQ0ExMRAwDgYDVQQLDAdBbmRyb2lkMRMwEQYDVQQKDApHb29n
@@ -149,20 +176,37 @@ object KeyAttestation {
     METfjPO/HwqReR2CS7p0ZWoD/LHs6hDi422opifHEUaYLxwGlT9SLdjkVpz0UUOR5wIxAIoGyxGKRHVTpqpGRFiJtQEOOTp/+s1G
     cxeYuR2zh/80lQyu9vAFCj6E4AXc+osmRg==
       """,
-    ).map { Certificate.parse(Base64.decode(it.filterNot(Char::isWhitespace))) }
+      )
+      .map { Certificate.parse(Base64.decode(it.filterNot(Char::isWhitespace))) }
   }
 
-  fun verify(chain: List<ByteArray>, now: Long, revoked: Set<String>, roots: List<Certificate> = googleRoots): AttestedKey {
+  fun verify(
+    chain: List<ByteArray>,
+    now: Long,
+    revoked: Set<String>,
+    roots: List<Certificate> = googleRoots,
+  ): AttestedKey {
     if (chain.size < 2) fail("The attestation chain is too short")
     if (chain.size > MAX_CHAIN) fail("The attestation chain is too long")
-    val certificates = try { chain.map(Certificate::parse) } catch (e: DerException) { fail("A certificate can't be read: ${e.message}") }
+    val certificates =
+      try {
+        chain.map(Certificate::parse)
+      } catch (e: DerException) {
+        fail("A certificate can't be read: ${e.message}")
+      }
     val top = certificates.last()
-    val pinnedCopy = top.takeIf { it.selfIssued && roots.any { root -> root.publicKey.encoded.contentEquals(it.publicKey.encoded) } }
+    val pinnedCopy = top.takeIf {
+      it.selfIssued &&
+        roots.any { root -> root.publicKey.encoded.contentEquals(it.publicKey.encoded) }
+    }
     val path = if (pinnedCopy != null) certificates.dropLast(1) else certificates
     if (path.size < 2) fail("The attestation chain is too short")
-    val anchor = pinnedCopy ?: roots.firstOrNull { it.subject.contentEquals(path.last().issuer) }
-      ?: fail("The attestation doesn't lead to Google's root")
-    var issuerKey = roots.first { it.publicKey.encoded.contentEquals(anchor.publicKey.encoded) }.publicKey
+    val anchor =
+      pinnedCopy
+        ?: roots.firstOrNull { it.subject.contentEquals(path.last().issuer) }
+        ?: fail("The attestation doesn't lead to Google's root")
+    var issuerKey =
+      roots.first { it.publicKey.encoded.contentEquals(anchor.publicKey.encoded) }.publicKey
     var issuerName = anchor.subject
     for (cert in path.asReversed()) {
       if (!cert.issuer.contentEquals(issuerName)) fail("The attestation chain is out of order")
@@ -173,46 +217,67 @@ object KeyAttestation {
     val provisioning = provisioning(path.last())
     // The leaf's dates come from the device itself, so they prove nothing.
     for (cert in path.drop(1)) {
-      if (now < cert.notBefore) fail("The attestation isn't valid yet. Check this phone's date and time.")
-      // Factory keys can't be rotated, so their expired intermediates are still accepted, as Google does.
-      if (now > cert.notAfter && provisioning != Provisioning.FACTORY) fail("The attestation has expired")
+      if (now < cert.notBefore)
+        fail("The attestation isn't valid yet. Check this phone's date and time.")
+      // Factory keys can't be rotated, so their expired intermediates are still accepted, as Google
+      // does.
+      if (now > cert.notAfter && provisioning != Provisioning.FACTORY)
+        fail("The attestation has expired")
     }
-    if (certificates.any { it.serial in revoked }) fail("Google has revoked a certificate in this attestation")
-    if (certificates.drop(1).any { KeyDescription.OID in it.extensions }) fail("Only the leaf may carry an attestation record")
+    if (certificates.any { it.serial in revoked })
+      fail("Google has revoked a certificate in this attestation")
+    if (certificates.drop(1).any { KeyDescription.OID in it.extensions })
+      fail("Only the leaf may carry an attestation record")
     val leaf = certificates.first()
-    val description = try {
-      KeyDescription.parse(leaf.extensions[KeyDescription.OID] ?: fail("The key has no attestation record"))
-    } catch (e: DerException) { fail("The attestation record can't be read: ${e.message}") }
-    if (description.attestationSecurityLevel == SecurityLevel.SOFTWARE || description.keyMintSecurityLevel == SecurityLevel.SOFTWARE)
+    val description =
+      try {
+        KeyDescription.parse(
+          leaf.extensions[KeyDescription.OID] ?: fail("The key has no attestation record")
+        )
+      } catch (e: DerException) {
+        fail("The attestation record can't be read: ${e.message}")
+      }
+    if (
+      description.attestationSecurityLevel == SecurityLevel.SOFTWARE ||
+        description.keyMintSecurityLevel == SecurityLevel.SOFTWARE
+    )
       fail("The key isn't held in secure hardware")
     val chainLevel = chainLevel(path, provisioning)
-    val consistent = when (description.attestationSecurityLevel) {
-      SecurityLevel.STRONG_BOX -> chainLevel == SecurityLevel.STRONG_BOX
-      else -> chainLevel == null || chainLevel == SecurityLevel.TRUSTED_ENVIRONMENT
-    }
+    val consistent =
+      when (description.attestationSecurityLevel) {
+        SecurityLevel.STRONG_BOX -> chainLevel == SecurityLevel.STRONG_BOX
+        else -> chainLevel == null || chainLevel == SecurityLevel.TRUSTED_ENVIRONMENT
+      }
     if (!consistent) fail("The attestation's security level doesn't match its certificates")
-    if (description.hardwareEnforced.origin != AuthorizationList.ORIGIN_GENERATED) fail("The key wasn't generated in secure hardware")
+    if (description.hardwareEnforced.origin != AuthorizationList.ORIGIN_GENERATED)
+      fail("The key wasn't generated in secure hardware")
     return AttestedKey(leaf.publicKey, description, provisioning)
   }
 
-  private fun provisioning(intermediate: Certificate) = when {
-    intermediate.attribute(Certificate.COMMON_NAME) == "Droid CA2" && intermediate.attribute(Certificate.ORGANIZATION) == "Google LLC" ->
-      Provisioning.REMOTE
-    intermediate.attribute(Certificate.SERIAL_NUMBER) != null -> Provisioning.FACTORY
-    else -> Provisioning.UNKNOWN
-  }
+  private fun provisioning(intermediate: Certificate) =
+    when {
+      intermediate.attribute(Certificate.COMMON_NAME) == "Droid CA2" &&
+        intermediate.attribute(Certificate.ORGANIZATION) == "Google LLC" -> Provisioning.REMOTE
+      intermediate.attribute(Certificate.SERIAL_NUMBER) != null -> Provisioning.FACTORY
+      else -> Provisioning.UNKNOWN
+    }
 
-  private fun chainLevel(path: List<Certificate>, provisioning: Provisioning): SecurityLevel? = when (provisioning) {
-    Provisioning.REMOTE -> when (path[1].attribute(Certificate.ORGANIZATION)) {
-      "TEE" -> SecurityLevel.TRUSTED_ENVIRONMENT
-      "StrongBox" -> SecurityLevel.STRONG_BOX
-      else -> SecurityLevel.SOFTWARE
+  private fun chainLevel(path: List<Certificate>, provisioning: Provisioning): SecurityLevel? =
+    when (provisioning) {
+      Provisioning.REMOTE ->
+        when (path[1].attribute(Certificate.ORGANIZATION)) {
+          "TEE" -> SecurityLevel.TRUSTED_ENVIRONMENT
+          "StrongBox" -> SecurityLevel.STRONG_BOX
+          else -> SecurityLevel.SOFTWARE
+        }
+      Provisioning.FACTORY ->
+        SecurityLevel.STRONG_BOX.takeIf {
+          listOf(path[1], path.last()).any { cert ->
+            cert.subjectAttributes.any { it.second.contains("strongbox", ignoreCase = true) }
+          }
+        }
+      Provisioning.UNKNOWN -> null
     }
-    Provisioning.FACTORY -> SecurityLevel.STRONG_BOX.takeIf {
-      listOf(path[1], path.last()).any { cert -> cert.subjectAttributes.any { it.second.contains("strongbox", ignoreCase = true) } }
-    }
-    Provisioning.UNKNOWN -> null
-  }
 
   private fun fail(message: String): Nothing = throw AttestationException(message)
 }

@@ -16,6 +16,7 @@ internal class PaddleControl(paddle: Paddle, rally: Int) {
   private val player = paddle.player
   var y by mutableDoubleStateOf(paddle.y)
     private set
+
   private var sequence by mutableLongStateOf(paddle.sequence)
   private var rally by mutableIntStateOf(rally)
   private var sentAt = Long.MIN_VALUE
@@ -28,8 +29,17 @@ internal class PaddleControl(paddle: Paddle, rally: Int) {
     }
   }
 
-  fun move(position: Double, state: RicochetState, now: Long, force: Boolean, send: (MovePaddle) -> Unit) {
-    if (state.finishedAt != null || now < state.startAt || now >= state.endsAt || !position.isFinite()) return
+  fun move(
+    position: Double,
+    state: RicochetState,
+    now: Long,
+    force: Boolean,
+    send: (MovePaddle) -> Unit,
+  ) {
+    if (
+      state.finishedAt != null || now < state.startAt || now >= state.endsAt || !position.isFinite()
+    )
+      return
     reconcile(state.paddle(player), state.rally)
     y = Arena.paddleY(position, state.paddleHeight)
     sequence++

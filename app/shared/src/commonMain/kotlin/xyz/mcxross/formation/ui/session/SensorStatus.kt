@@ -36,40 +36,77 @@ internal fun SensorStatus(session: ActiveSession, modifier: Modifier = Modifier)
   val snapshot by session.snapshot.collectAsState()
   val challenge = session.challenge ?: return
   val count = snapshot?.formation?.opportunity?.players ?: return
-  if (challenge.requiredCapabilities(count).isEmpty() && challenge.optionalCapabilities(count).isEmpty()) return
+  if (
+    challenge.requiredCapabilities(count).isEmpty() &&
+      challenge.optionalCapabilities(count).isEmpty()
+  )
+    return
   val c = Theme.colors
   var calibrating by remember { mutableStateOf(false) }
-  val unavailable = (state as? PreparationState.Blocked)?.assessment?.issues
-    ?.mapNotNull { it.availability as? Availability.Unavailable }?.firstOrNull()
-  val screenProblem = when (screen) {
-    ScreenReadiness.NotNeeded, is ScreenReadiness.Ready -> null
-    is ScreenReadiness.TooSmall -> Res.string.screen_too_small
-    ScreenReadiness.NeedsCalibration -> Res.string.screen_calibrate
-    ScreenReadiness.NotFullScreen -> Res.string.screen_full
-    ScreenReadiness.Unsupported -> Res.string.screen_unsupported
-  }
-  val resource = screenProblem ?: when (val current = state) {
-    PreparationState.Ready ->
-      if (screen is ScreenReadiness.Ready && challenge.requiredSensors(count).isEmpty()) Res.string.screen_ready
-      else Res.string.sensor_ready
-    PreparationState.Starting -> Res.string.sensor_checking
-    is PreparationState.Interrupted -> if (current.acquisition == Acquisition.Suspended) Res.string.sensor_paused else Res.string.sensor_failed
-    is PreparationState.Blocked -> if (unavailable?.reason == UnavailableReason.SYSTEM_RESTRICTION ||
-      unavailable?.reason == UnavailableReason.PERMISSION_REQUIRED) Res.string.sensor_access_restricted
-    else when (current.assessment.issues.firstOrNull()?.requirement?.capability) {
-      InputCapability.COVER -> Res.string.sensor_cover_unavailable
-      InputCapability.ROTATION -> Res.string.sensor_rotation_unavailable
-      InputCapability.LIGHT -> Res.string.sensor_light_unavailable
-      else -> Res.string.sensor_motion_unavailable
+  val unavailable =
+    (state as? PreparationState.Blocked)
+      ?.assessment
+      ?.issues
+      ?.mapNotNull { it.availability as? Availability.Unavailable }
+      ?.firstOrNull()
+  val screenProblem =
+    when (screen) {
+      ScreenReadiness.NotNeeded,
+      is ScreenReadiness.Ready -> null
+      is ScreenReadiness.TooSmall -> Res.string.screen_too_small
+      ScreenReadiness.NeedsCalibration -> Res.string.screen_calibrate
+      ScreenReadiness.NotFullScreen -> Res.string.screen_full
+      ScreenReadiness.Unsupported -> Res.string.screen_unsupported
     }
-  }
+  val resource =
+    screenProblem
+      ?: when (val current = state) {
+        PreparationState.Ready ->
+          if (screen is ScreenReadiness.Ready && challenge.requiredSensors(count).isEmpty())
+            Res.string.screen_ready
+          else Res.string.sensor_ready
+        PreparationState.Starting -> Res.string.sensor_checking
+        is PreparationState.Interrupted ->
+          if (current.acquisition == Acquisition.Suspended) Res.string.sensor_paused
+          else Res.string.sensor_failed
+        is PreparationState.Blocked ->
+          if (
+            unavailable?.reason == UnavailableReason.SYSTEM_RESTRICTION ||
+              unavailable?.reason == UnavailableReason.PERMISSION_REQUIRED
+          )
+            Res.string.sensor_access_restricted
+          else
+            when (current.assessment.issues.firstOrNull()?.requirement?.capability) {
+              InputCapability.COVER -> Res.string.sensor_cover_unavailable
+              InputCapability.ROTATION -> Res.string.sensor_rotation_unavailable
+              InputCapability.LIGHT -> Res.string.sensor_light_unavailable
+              else -> Res.string.sensor_motion_unavailable
+            }
+      }
   val ready = state == PreparationState.Ready && screenProblem == null
-  Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.s)) {
-    Icon(if (ready) Icons.Check else Icons.Seeker, null, tint = if (ready) c.positive else c.warning, size = 16.dp)
-    Text(stringResource(resource), Modifier.weight(1f), style = Theme.type.footnote, color = c.contentSecondary)
+  Row(
+    modifier,
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.spacedBy(Space.s),
+  ) {
+    Icon(
+      if (ready) Icons.Check else Icons.Seeker,
+      null,
+      tint = if (ready) c.positive else c.warning,
+      size = 16.dp,
+    )
+    Text(
+      stringResource(resource),
+      Modifier.weight(1f),
+      style = Theme.type.footnote,
+      color = c.contentSecondary,
+    )
     if (screen == ScreenReadiness.NeedsCalibration || screen is ScreenReadiness.TooSmall)
       TextButton(stringResource(Res.string.screen_measure), { calibrating = true })
-    else if ((state as? PreparationState.Interrupted)?.acquisition is Acquisition.Failed || unavailable?.recovery != null)
+    else if (
+      (state as? PreparationState.Interrupted)?.acquisition is Acquisition.Failed ||
+        unavailable?.recovery != null
+    )
       TextButton(stringResource(Res.string.sensor_retry), monitor::retry)
   }
   if (calibrating) ScreenCalibration(LocalGraph.current.platform.screen) { calibrating = false }

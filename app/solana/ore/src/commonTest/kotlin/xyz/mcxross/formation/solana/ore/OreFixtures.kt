@@ -1,6 +1,7 @@
 package xyz.mcxross.formation.solana.ore
 
-internal val oreFixtures = """
+internal val oreFixtures =
+  """
 {
   "slot": 508044077,
   "accounts": {

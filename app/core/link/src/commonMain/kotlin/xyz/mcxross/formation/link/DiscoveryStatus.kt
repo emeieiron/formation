@@ -2,6 +2,7 @@ package xyz.mcxross.formation.link
 
 sealed interface DiscoveryStatus {
   data object Searching : DiscoveryStatus
+
   data class Failed(val reason: Reason) : DiscoveryStatus
 
   enum class Reason(val message: String) {

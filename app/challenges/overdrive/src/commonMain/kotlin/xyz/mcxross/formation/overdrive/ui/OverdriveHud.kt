@@ -42,26 +42,45 @@ internal fun OverdriveHud(state: OverdriveState, tenths: Int) {
     }
   }
   Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.SpaceBetween) {
+    Row(
+      Modifier.fillMaxWidth(),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
       Text("${state.clears.toString().padStart(2, '0')} / 12", style = Theme.type.numeral)
-      Text(clock(tenths), style = Theme.type.numeral, color = if (urgent) colors.negative else colors.content,
-        modifier = Modifier.graphicsLayer {
-          scaleX = beat.value
-          scaleY = beat.value
-        })
+      Text(
+        clock(tenths),
+        style = Theme.type.numeral,
+        color = if (urgent) colors.negative else colors.content,
+        modifier =
+          Modifier.graphicsLayer {
+            scaleX = beat.value
+            scaleY = beat.value
+          },
+      )
     }
-    Canvas(Modifier.fillMaxWidth().height(5.dp).semantics {
-      contentDescription = "${state.clears} of 12 waves complete"
-    }) {
+    Canvas(
+      Modifier.fillMaxWidth().height(5.dp).semantics {
+        contentDescription = "${state.clears} of 12 waves complete"
+      }
+    ) {
       val gap = 3.dp.toPx()
       val width = (size.width - gap * 11) / 12
       repeat(12) { index ->
         val at = Offset(index * (width + gap), 0f)
-        drawRoundRect(if (index < state.clears) colors.accent else colors.line, at, Size(width, size.height),
-          CornerRadius(1.dp.toPx()))
+        drawRoundRect(
+          if (index < state.clears) colors.accent else colors.line,
+          at,
+          Size(width, size.height),
+          CornerRadius(1.dp.toPx()),
+        )
         if (index == state.clears - 1 && glow.value > 0f) {
-          drawRoundRect(Color.White.copy(alpha = glow.value), at, Size(width, size.height), CornerRadius(1.dp.toPx()))
+          drawRoundRect(
+            Color.White.copy(alpha = glow.value),
+            at,
+            Size(width, size.height),
+            CornerRadius(1.dp.toPx()),
+          )
         }
       }
     }

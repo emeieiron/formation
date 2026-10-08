@@ -65,14 +65,26 @@ class KtorLinkTest {
   }
 
   private fun hangUpAfterHello(socket: Socket) {
-    val request = socket.getInputStream().bufferedReader().lineSequence().takeWhile { it.isNotEmpty() }.toList()
-    val key = request.first { it.startsWith("Sec-WebSocket-Key:", ignoreCase = true) }.substringAfter(':').trim()
-    val accept = Base64.getEncoder().encodeToString(
-      MessageDigest.getInstance("SHA-1").digest("${key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11".toByteArray()))
-    val upgrade = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n" +
-      "Sec-WebSocket-Accept: $accept\r\n\r\n"
+    val request =
+      socket.getInputStream().bufferedReader().lineSequence().takeWhile { it.isNotEmpty() }.toList()
+    val key =
+      request
+        .first { it.startsWith("Sec-WebSocket-Key:", ignoreCase = true) }
+        .substringAfter(':')
+        .trim()
+    val accept =
+      Base64.getEncoder()
+        .encodeToString(
+          MessageDigest.getInstance("SHA-1")
+            .digest("${key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11".toByteArray())
+        )
+    val upgrade =
+      "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n" +
+        "Sec-WebSocket-Accept: $accept\r\n\r\n"
     // 0x81 opens a final text frame; 5 is its unmasked payload length.
-    socket.getOutputStream().write(upgrade.toByteArray() + byteArrayOf(0x81.toByte(), 5) + "hello".toByteArray())
+    socket
+      .getOutputStream()
+      .write(upgrade.toByteArray() + byteArrayOf(0x81.toByte(), 5) + "hello".toByteArray())
   }
 
   @Test

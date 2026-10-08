@@ -4,7 +4,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.Serializable
-import xyz.mcxross.formation.crypto.Base58
 import xyz.mcxross.formation.crypto.Ed25519KeyPair
 import xyz.mcxross.formation.crypto.secureRandomBytes
 import xyz.mcxross.formation.crypto.toHex
@@ -15,7 +14,10 @@ import xyz.mcxross.formation.state.recovery.ClaimIdentity
 
 @Serializable data class Profile(val name: String, val light: Int)
 
-class Identity(private val platform: PlatformServices, private val capabilities: () -> Set<String>) {
+class Identity(
+  private val platform: PlatformServices,
+  private val capabilities: () -> Set<String>,
+) {
   private val _profile = MutableStateFlow(load())
   val profile: StateFlow<Profile?> = _profile.asStateFlow()
 
@@ -30,12 +32,18 @@ class Identity(private val platform: PlatformServices, private val capabilities:
   val device: String =
     platform.store.get(KEY_DEVICE) ?: newUuid().also { platform.store.put(KEY_DEVICE, it) }
 
-  val claims = ClaimIdentity(platform.store, platform.secrets) {
-    loadList(platform.store, "sessions.completed", CompletedSession.serializer())
-      .flatMap { it.snapshot.players }.firstOrNull { it.device == device }?.claimKey
-  }
-  val claimKey: Ed25519KeyPair get() = claims.key
-  val claimAddress: String get() = claims.address ?: "Claim key unavailable"
+  val claims =
+    ClaimIdentity(platform.store, platform.secrets) {
+      loadList(platform.store, "sessions.completed", CompletedSession.serializer())
+        .flatMap { it.snapshot.players }
+        .firstOrNull { it.device == device }
+        ?.claimKey
+    }
+  val claimKey: Ed25519KeyPair
+    get() = claims.key
+
+  val claimAddress: String
+    get() = claims.address ?: "Claim key unavailable"
 
   fun save(profile: Profile) {
     platform.store.put(KEY_PROFILE, FormationJson.encodeToString(Profile.serializer(), profile))
@@ -44,9 +52,15 @@ class Identity(private val platform: PlatformServices, private val capabilities:
 
   fun player(): PlayerIdentity {
     val p = profile.value ?: Profile("Player", 0)
-    return PlayerIdentity(device, p.name, p.light, claimKey, wallet.value,
+    return PlayerIdentity(
+      device,
+      p.name,
+      p.light,
+      claimKey,
+      wallet.value,
       ChallengeCatalog.formats,
-      capabilities())
+      capabilities(),
+    )
   }
 
   private fun load(): Profile? =

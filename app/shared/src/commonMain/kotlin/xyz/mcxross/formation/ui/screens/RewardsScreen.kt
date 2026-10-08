@@ -1,11 +1,8 @@
 package xyz.mcxross.formation.ui.screens
 
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -14,9 +11,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -36,6 +36,29 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
+import xyz.mcxross.formation.design.Theme
+import xyz.mcxross.formation.design.components.Button
+import xyz.mcxross.formation.design.components.ButtonSize
+import xyz.mcxross.formation.design.components.ButtonStyle
+import xyz.mcxross.formation.design.components.EmptyState
+import xyz.mcxross.formation.design.components.LiveryRule
+import xyz.mcxross.formation.design.components.ModalSheet
+import xyz.mcxross.formation.design.components.NavigationBarSpacer
+import xyz.mcxross.formation.design.components.Notice
+import xyz.mcxross.formation.design.components.Overline
+import xyz.mcxross.formation.design.components.Page
+import xyz.mcxross.formation.design.components.RewardPass
+import xyz.mcxross.formation.design.components.SheetActions
+import xyz.mcxross.formation.design.components.SkrAmount
+import xyz.mcxross.formation.design.components.TopBar
+import xyz.mcxross.formation.design.foundation.Icon
+import xyz.mcxross.formation.design.foundation.Panel
+import xyz.mcxross.formation.design.foundation.Text
+import xyz.mcxross.formation.design.icons.Icons
+import xyz.mcxross.formation.design.tokens.Space
+import xyz.mcxross.formation.design.tokens.Tone
+import xyz.mcxross.formation.model.Skr
+import xyz.mcxross.formation.platform.SoundCue
 import xyz.mcxross.formation.resources.Res
 import xyz.mcxross.formation.resources.a11y_wallet_address
 import xyz.mcxross.formation.resources.action_claim
@@ -47,29 +70,6 @@ import xyz.mcxross.formation.resources.state_reward_claimed
 import xyz.mcxross.formation.resources.state_reward_expired
 import xyz.mcxross.formation.resources.state_reward_pending
 import xyz.mcxross.formation.resources.state_reward_ready
-import xyz.mcxross.formation.design.Theme
-import xyz.mcxross.formation.design.components.LiveryRule
-import xyz.mcxross.formation.design.components.RewardPass
-import xyz.mcxross.formation.design.components.Button
-import xyz.mcxross.formation.design.components.ButtonSize
-import xyz.mcxross.formation.design.components.ButtonStyle
-import xyz.mcxross.formation.design.components.EmptyState
-import xyz.mcxross.formation.design.components.ModalSheet
-import xyz.mcxross.formation.design.components.NavigationBarSpacer
-import xyz.mcxross.formation.design.components.Notice
-import xyz.mcxross.formation.design.components.Overline
-import xyz.mcxross.formation.design.components.Page
-import xyz.mcxross.formation.design.components.SheetActions
-import xyz.mcxross.formation.design.components.SkrAmount
-import xyz.mcxross.formation.design.components.TopBar
-import xyz.mcxross.formation.design.foundation.Panel
-import xyz.mcxross.formation.design.foundation.Icon
-import xyz.mcxross.formation.design.foundation.Text
-import xyz.mcxross.formation.design.icons.Icons
-import xyz.mcxross.formation.design.tokens.Space
-import xyz.mcxross.formation.design.tokens.Tone
-import xyz.mcxross.formation.model.Skr
-import xyz.mcxross.formation.platform.SoundCue
 import xyz.mcxross.formation.state.ClaimTicket
 import xyz.mcxross.formation.state.NO_WALLET
 import xyz.mcxross.formation.ui.LocalGraph
@@ -91,7 +91,7 @@ fun RewardsScreen() {
   Page(
     topBar = {
       TopBar(title = stringResource(Res.string.label_rewards), onBack = { graph.navigator.pop() })
-    },
+    }
   ) {
     LiveryRule(Modifier.padding(horizontal = Space.gutter))
     LazyColumn(
@@ -100,21 +100,25 @@ fun RewardsScreen() {
     ) {
       item {
         Column(Modifier.fillMaxWidth()) {
-          if (tickets.isNotEmpty()) BoxWithConstraints(Modifier.fillMaxWidth()) {
-            val showPass = maxWidth >= 340.dp && LocalDensity.current.fontScale <= 1.15f
-            Row(verticalAlignment = Alignment.CenterVertically) {
-              Column(Modifier.weight(1f)) {
-                Overline(stringResource(Res.string.state_reward_ready), color = c.contentSecondary)
-                Spacer(Modifier.height(Space.s))
-                SkrAmount(
-                  Skr(waiting.sumOf { it.amount.units }).format(2),
-                  style = Theme.type.numeralHero,
-                  coin = false,
-                )
+          if (tickets.isNotEmpty())
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+              val showPass = maxWidth >= 340.dp && LocalDensity.current.fontScale <= 1.15f
+              Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                  Overline(
+                    stringResource(Res.string.state_reward_ready),
+                    color = c.contentSecondary,
+                  )
+                  Spacer(Modifier.height(Space.s))
+                  SkrAmount(
+                    Skr(waiting.sumOf { it.amount.units }).format(2),
+                    style = Theme.type.numeralHero,
+                    coin = false,
+                  )
+                }
+                if (showPass) RewardPass(Modifier.size(width = 112.dp, height = 70.dp))
               }
-              if (showPass) RewardPass(Modifier.size(width = 112.dp, height = 70.dp))
             }
-          }
           Spacer(Modifier.height(Space.l))
         }
       }
@@ -127,9 +131,11 @@ fun RewardsScreen() {
           )
         }
       }
-      reconciliationProblem?.let { message -> item {
-        Notice(message, Modifier.padding(horizontal = Space.gutter), tone = Tone.Warning)
-      } }
+      reconciliationProblem?.let { message ->
+        item {
+          Notice(message, Modifier.padding(horizontal = Space.gutter), tone = Tone.Warning)
+        }
+      }
       items(tickets, key = { it.opportunity.value + it.index }) { ticket ->
         TicketCard(ticket, onClaim = { claiming = ticket })
         Spacer(Modifier.height(Space.m))
@@ -144,22 +150,25 @@ fun RewardsScreen() {
 private fun TicketCard(ticket: ClaimTicket, onClaim: () -> Unit) {
   val c = Theme.colors
   val info = challengeInfo(ticket.challenge)
-  val status = when {
-    ticket.claimed -> Res.string.state_reward_claimed
-    ticket.lapsed -> Res.string.state_reward_expired
-    ticket.unlocked -> Res.string.state_reward_ready
-    else -> Res.string.state_reward_pending
-  }
-  val statusIcon = when {
-    ticket.claimed -> Icons.Check
-    ticket.lapsed -> Icons.Clock
-    ticket.unlocked -> Icons.Unlock
-    else -> Icons.Lock
-  }
+  val status =
+    when {
+      ticket.claimed -> Res.string.state_reward_claimed
+      ticket.lapsed -> Res.string.state_reward_expired
+      ticket.unlocked -> Res.string.state_reward_ready
+      else -> Res.string.state_reward_pending
+    }
+  val statusIcon =
+    when {
+      ticket.claimed -> Icons.Check
+      ticket.lapsed -> Icons.Clock
+      ticket.unlocked -> Icons.Unlock
+      else -> Icons.Lock
+    }
   Panel(Modifier.fillMaxWidth()) {
     Column {
       Row(
-        Modifier.fillMaxWidth().background(c.inverse)
+        Modifier.fillMaxWidth()
+          .background(c.inverse)
           .drawBehind { drawRect(c.accent, size = Size(4.dp.toPx(), size.height)) }
           .padding(horizontal = Space.m, vertical = Space.s),
         verticalAlignment = Alignment.CenterVertically,
@@ -169,14 +178,26 @@ private fun TicketCard(ticket: ClaimTicket, onClaim: () -> Unit) {
         Text(
           stringResource(status),
           Modifier.weight(1f),
-          style = Theme.type.overline, color = c.onInverse,
+          style = Theme.type.overline,
+          color = c.onInverse,
         )
       }
       Column(Modifier.padding(Space.l), verticalArrangement = Arrangement.spacedBy(Space.m)) {
-        ticket.claimDeadline?.takeIf { !ticket.claimed && !ticket.lapsed }?.let { deadline ->
-          Text("Claim before " + kotlin.time.Instant.fromEpochMilliseconds(deadline).toString().substringBefore('.').removeSuffix("Z").replace('T', ' ') + " UTC",
-            style = Theme.type.caption, color = c.contentSecondary)
-        }
+        ticket.claimDeadline
+          ?.takeIf { !ticket.claimed && !ticket.lapsed }
+          ?.let { deadline ->
+            Text(
+              "Claim before " +
+                kotlin.time.Instant.fromEpochMilliseconds(deadline)
+                  .toString()
+                  .substringBefore('.')
+                  .removeSuffix("Z")
+                  .replace('T', ' ') +
+                " UTC",
+              style = Theme.type.caption,
+              color = c.contentSecondary,
+            )
+          }
         Row(verticalAlignment = Alignment.CenterVertically) {
           ChallengeGlyph(info, size = 32.dp)
           Spacer(Modifier.width(Space.m))
@@ -200,9 +221,12 @@ private fun TicketCard(ticket: ClaimTicket, onClaim: () -> Unit) {
             )
             if (ticket.claimed) {
               Spacer(Modifier.height(Space.xxs))
-              val walletLabel = stringResource(Res.string.a11y_wallet_address, ticket.claimedTo.orEmpty())
-              Row(verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(Space.xs)) {
+              val walletLabel =
+                stringResource(Res.string.a11y_wallet_address, ticket.claimedTo.orEmpty())
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Space.xs),
+              ) {
                 Icon(Icons.Wallet, null, size = 14.dp, tint = c.contentSecondary)
                 Text(
                   shortAddress(ticket.claimedTo.orEmpty()),
@@ -213,7 +237,13 @@ private fun TicketCard(ticket: ClaimTicket, onClaim: () -> Unit) {
               }
             }
           }
-          if (!ticket.claimed && !ticket.lapsed && ticket.unlocked && (ticket.claimDeadline == null || xyz.mcxross.formation.state.now() <= ticket.claimDeadline)) {
+          if (
+            !ticket.claimed &&
+              !ticket.lapsed &&
+              ticket.unlocked &&
+              (ticket.claimDeadline == null ||
+                xyz.mcxross.formation.state.now() <= ticket.claimDeadline)
+          ) {
             Spacer(Modifier.width(Space.m))
             Button(
               stringResource(Res.string.action_claim),
@@ -274,14 +304,19 @@ private fun ClaimSheet(ticket: ClaimTicket, onDismiss: () -> Unit) {
 
   ModalSheet(onDismiss, dismissible = !busy) {
     Column(
-      Modifier.fillMaxWidth().weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(horizontal = Space.xxl),
+      Modifier.fillMaxWidth()
+        .weight(1f, fill = false)
+        .verticalScroll(rememberScrollState())
+        .padding(horizontal = Space.xxl),
       horizontalAlignment = Alignment.CenterHorizontally,
     ) {
       Spacer(Modifier.height(Space.m))
       RewardPass(Modifier.size(width = 112.dp, height = 70.dp))
       Spacer(Modifier.height(Space.l))
       Text(
-        stringResource(if (done != null) Res.string.state_reward_claimed else Res.string.action_claim),
+        stringResource(
+          if (done != null) Res.string.state_reward_claimed else Res.string.action_claim
+        ),
         style = Theme.type.title1,
         textAlign = TextAlign.Center,
       )

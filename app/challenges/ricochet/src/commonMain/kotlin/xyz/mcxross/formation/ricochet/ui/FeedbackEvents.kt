@@ -13,21 +13,31 @@ internal class FeedbackEvents(initial: RicochetState) {
     val events = state.impacts.filter { it.id > seen && now - it.at in -50L..350L }
     seen = maxOf(seen, state.impacts.lastOrNull()?.id ?: 0)
     val currentBeat = state.rally to (now - state.serveAt).coerceAtLeast(0) / BEAT_MS
-    val newBeat = beat?.let { it.first == currentBeat.first && currentBeat.second > it.second } == true
+    val newBeat =
+      beat?.let { it.first == currentBeat.first && currentBeat.second > it.second } == true
     if (beat?.first != currentBeat.first || newBeat) beat = currentBeat
-    if (state.finishedAt != null || now < state.startAt || now >= state.endsAt || now - state.at !in -50L..300L) return null
+    if (
+      state.finishedAt != null ||
+        now < state.startAt ||
+        now >= state.endsAt ||
+        now - state.at !in -50L..300L
+    )
+      return null
     val ownReturn = events.lastOrNull { it.kind == ImpactKind.Paddle && it.side == side }
-    val cue = when {
-      events.any { it.kind == ImpactKind.Miss } -> GameCue.Miss
-      now < state.serveAt -> null
-      events.any { it.kind == ImpactKind.Pierce } -> GameCue.Pierce
-      events.any { it.kind == ImpactKind.Charge } -> GameCue.Charge
-      events.any { it.kind == ImpactKind.Target } -> GameCue.Target
-      ownReturn?.grazed == true -> GameCue.CloseCall
-      ownReturn != null -> if (state.momentum.factor >= 1.35) GameCue.FastReturn else GameCue.Return
-      newBeat && state.misses == 2 && (lastCueAt?.let { now - it >= 450 } != false) -> GameCue.Danger
-      else -> null
-    }
+    val cue =
+      when {
+        events.any { it.kind == ImpactKind.Miss } -> GameCue.Miss
+        now < state.serveAt -> null
+        events.any { it.kind == ImpactKind.Pierce } -> GameCue.Pierce
+        events.any { it.kind == ImpactKind.Charge } -> GameCue.Charge
+        events.any { it.kind == ImpactKind.Target } -> GameCue.Target
+        ownReturn?.grazed == true -> GameCue.CloseCall
+        ownReturn != null ->
+          if (state.momentum.factor >= 1.35) GameCue.FastReturn else GameCue.Return
+        newBeat && state.misses == 2 && (lastCueAt?.let { now - it >= 450 } != false) ->
+          GameCue.Danger
+        else -> null
+      }
     if (cue != null) lastCueAt = now
     return cue
   }
@@ -38,8 +48,14 @@ internal class FeedbackEvents(initial: RicochetState) {
 }
 
 internal fun dangerPulse(state: RicochetState, now: Long): Float {
-  if (state.misses != 2 || state.finishedAt != null || now < state.serveAt || now >= state.endsAt ||
-    now - state.at !in -50L..300L) return 0f
+  if (
+    state.misses != 2 ||
+      state.finishedAt != null ||
+      now < state.serveAt ||
+      now >= state.endsAt ||
+      now - state.at !in -50L..300L
+  )
+    return 0f
   val phase = (now - state.serveAt) % FeedbackEvents.BEAT_MS
   return when {
     phase < 120 -> 1f - phase / 120f

@@ -39,17 +39,26 @@ internal constructor(
   private val onCompletion: (SessionSnapshot) -> Unit = {},
   sensorHub: xyz.mcxross.formation.sensors.SensorHub? = null,
   allowSimulatedSensors: Boolean = false,
-  screen: xyz.mcxross.formation.platform.ScreenPort = xyz.mcxross.formation.platform.ScreenPort.Unsupported,
+  screen: xyz.mcxross.formation.platform.ScreenPort =
+    xyz.mcxross.formation.platform.ScreenPort.Unsupported,
 ) {
   val sensors = sensorHub?.let {
-    xyz.mcxross.formation.state.sensors.SessionSensors(client, it, screen, scope, allowSimulatedSensors)
+    xyz.mcxross.formation.state.sensors.SessionSensors(
+      client,
+      it,
+      screen,
+      scope,
+      allowSimulatedSensors,
+    )
   }
   val isHost: Boolean
     get() = host != null
 
   val snapshot: StateFlow<SessionSnapshot?> = client.snapshot
   val status: StateFlow<FormationClient.Status> = client.status
-  val advertising = advertiser?.status ?: kotlinx.coroutines.flow.flowOf(xyz.mcxross.formation.link.DiscoveryStatus.Searching)
+  val advertising =
+    advertiser?.status
+      ?: kotlinx.coroutines.flow.flowOf(xyz.mcxross.formation.link.DiscoveryStatus.Searching)
 
   val challenge: Challenge<*, *>?
     get() = snapshot.value?.formation?.opportunity?.challenge?.let { ChallengeCatalog[it] }

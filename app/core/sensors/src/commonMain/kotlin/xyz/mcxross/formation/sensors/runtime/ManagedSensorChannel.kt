@@ -23,17 +23,28 @@ internal class ManagedSensorChannel<T>(
   private val now: () -> Long,
   private val decode: (List<Float>) -> T,
 ) : SensorChannel<T> {
-  override val availability = backend.catalog.map { it.getValue(kind).availability }
-    .distinctUntilChanged().stateIn(scope, SharingStarted.Eagerly, backend.catalog.value.getValue(kind).availability)
+  override val availability =
+    backend.catalog
+      .map { it.getValue(kind).availability }
+      .distinctUntilChanged()
+      .stateIn(scope, SharingStarted.Eagerly, backend.catalog.value.getValue(kind).availability)
+
   private sealed interface Command {
     class Attach<T>(val consumer: Channel<SensorUpdate<T>>, val request: SamplingRequest) : Command
+
     class Detach<T>(val consumer: Channel<SensorUpdate<T>>) : Command
+
     class Foreground(val active: Boolean) : Command
+
     data object Refresh : Command
+
     data object Retry : Command
+
     data object Tick : Command
   }
+
   private data class Packet(val generation: Long, val update: BackendUpdate)
+
   private val commands = Channel<Command>(Channel.UNLIMITED)
   private val readings = Channel<Packet>(64)
   @Volatile private var overflow = false
@@ -58,7 +69,9 @@ internal class ManagedSensorChannel<T>(
           consumer.trySend(update)
         }
       }
-      fun broadcast(update: SensorUpdate<T>) { consumers.keys.forEach { deliver(it, update) } }
+      fun broadcast(update: SensorUpdate<T>) {
+        consumers.keys.forEach { deliver(it, update) }
+      }
       fun transition(next: Acquisition) {
         state = next
         broadcast(SensorUpdate.State(next))
@@ -80,27 +93,36 @@ internal class ManagedSensorChannel<T>(
         val nextPeriod = consumers.values.minOfOrNull { it.periodUs }
         if (consumers.isEmpty() || !foreground || !supported) {
           stop()
-          transition(when {
-            consumers.isEmpty() -> Acquisition.Idle
-            !foreground -> Acquisition.Suspended
-            else -> Acquisition.Failed(FailureReason.UNAVAILABLE)
-          })
+          transition(
+            when {
+              consumers.isEmpty() -> Acquisition.Idle
+              !foreground -> Acquisition.Suspended
+              else -> Acquisition.Failed(FailureReason.UNAVAILABLE)
+            }
+          )
         } else if (force || nextPeriod != period) {
           stop()
           period = nextPeriod
           lastReceived = now()
           transition(Acquisition.Starting)
           val current = generation
-          registration = try {
-            backend.register(kind, SamplingRequest(nextPeriod!!)) { update ->
-              if (!readings.trySend(Packet(current, update)).isSuccess) overflow = true
+          registration =
+            try {
+              backend.register(kind, SamplingRequest(nextPeriod!!)) { update ->
+                if (!readings.trySend(Packet(current, update)).isSuccess) overflow = true
+              }
+            } catch (_: Exception) {
+              period = null
+              transition(Acquisition.Failed(FailureReason.REGISTRATION))
+              null
             }
-          } catch (_: Exception) {
-            period = null
-            transition(Acquisition.Failed(FailureReason.REGISTRATION))
-            null
-          }
-          if (registration != null) watchdog = launch { while (true) { delay(250); commands.send(Command.Tick) } }
+          if (registration != null)
+            watchdog = launch {
+              while (true) {
+                delay(250)
+                commands.send(Command.Tick)
+              }
+            }
         }
       }
       val inventory = launch { backend.catalog.collect { commands.send(Command.Refresh) } }
@@ -109,38 +131,73 @@ internal class ManagedSensorChannel<T>(
           commands.onReceive { command ->
             when (command) {
               is Command.Attach<*> -> {
-                @Suppress("UNCHECKED_CAST") val consumer = command.consumer as Channel<SensorUpdate<T>>
+                @Suppress("UNCHECKED_CAST")
+                val consumer = command.consumer as Channel<SensorUpdate<T>>
                 consumers[consumer] = command.request
                 deliver(consumer, SensorUpdate.State(state))
                 reconcile()
                 latest?.let { deliver(consumer, it) }
               }
-              is Command.Detach<*> -> { consumers.remove(command.consumer); reconcile() }
-              is Command.Foreground -> { foreground = command.active; reconcile() }
+              is Command.Detach<*> -> {
+                consumers.remove(command.consumer)
+                reconcile()
+              }
+              is Command.Foreground -> {
+                foreground = command.active
+                reconcile()
+              }
               Command.Refresh -> reconcile()
               Command.Retry -> reconcile(force = true)
-              Command.Tick -> if (registration != null &&
-                (!hasReading || backend.catalog.value.getValue(kind).continuous) && now() - lastReceived > 2_000) {
-                stop()
-                transition(Acquisition.Failed(FailureReason.NO_READINGS))
-              }
+              Command.Tick ->
+                if (
+                  registration != null &&
+                    (!hasReading || backend.catalog.value.getValue(kind).continuous) &&
+                    now() - lastReceived > 2_000
+                ) {
+                  stop()
+                  transition(Acquisition.Failed(FailureReason.NO_READINGS))
+                }
             }
           }
           readings.onReceive { packet ->
             if (packet.generation == generation) {
-              if (overflow) { overflow = false; broadcast(SensorUpdate.Gap) }
+              if (overflow) {
+                overflow = false
+                broadcast(SensorUpdate.Gap)
+              }
               when (val update = packet.update) {
-                is BackendUpdate.Failed -> { stop(); transition(Acquisition.Failed(update.reason)) }
+                is BackendUpdate.Failed -> {
+                  stop()
+                  transition(Acquisition.Failed(update.reason))
+                }
                 is BackendUpdate.Reading -> {
-                  val value = runCatching { require(update.values.all { it.isFinite() }); decode(update.values) }
-                  if (value.isFailure) { stop(); transition(Acquisition.Failed(FailureReason.INVALID_READING)) }
-                  else {
+                  val value = runCatching {
+                    require(update.values.all { it.isFinite() })
+                    decode(update.values)
+                  }
+                  if (value.isFailure) {
+                    stop()
+                    transition(Acquisition.Failed(FailureReason.INVALID_READING))
+                  } else {
                     lastReceived = now()
                     hasReading = true
-                    if (!backend.catalog.value.getValue(kind).continuous) { watchdog?.cancel(); watchdog = null }
+                    if (!backend.catalog.value.getValue(kind).continuous) {
+                      watchdog?.cancel()
+                      watchdog = null
+                    }
                     if (state != Acquisition.Active) transition(Acquisition.Active)
-                    val source = (backend.catalog.value.getValue(kind).availability as Availability.Available).source
-                    latest = SensorUpdate.Reading(SensorSample(value.getOrThrow(), update.timestampNanos, update.quality, source))
+                    val source =
+                      (backend.catalog.value.getValue(kind).availability as Availability.Available)
+                        .source
+                    latest =
+                      SensorUpdate.Reading(
+                        SensorSample(
+                          value.getOrThrow(),
+                          update.timestampNanos,
+                          update.quality,
+                          source,
+                        )
+                      )
                     broadcast(latest!!)
                   }
                 }
@@ -156,13 +213,23 @@ internal class ManagedSensorChannel<T>(
     }
   }
 
-  fun setForeground(active: Boolean) { commands.trySend(Command.Foreground(active)) }
-  fun retry() { commands.trySend(Command.Retry) }
+  fun setForeground(active: Boolean) {
+    commands.trySend(Command.Foreground(active))
+  }
+
+  fun retry() {
+    commands.trySend(Command.Retry)
+  }
 
   override fun observe(request: SamplingRequest) = callbackFlow {
     val updates = Channel<SensorUpdate<T>>(64)
     val forward = launch { for (update in updates) send(update) }
     commands.send(Command.Attach(updates, request))
-    awaitClose { commands.trySend(Command.Detach(updates)); updates.close(); forward.cancel() }
-  }.buffer(0)
+    awaitClose {
+      commands.trySend(Command.Detach(updates))
+      updates.close()
+      forward.cancel()
+    }
+  }
+    .buffer(0)
 }

@@ -11,8 +11,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
@@ -22,12 +22,12 @@ import xyz.mcxross.formation.design.components.BackHandler
 import xyz.mcxross.formation.design.components.OverlayHost
 import xyz.mcxross.formation.design.tokens.Motion
 import xyz.mcxross.formation.state.AppGraph
-import xyz.mcxross.formation.ui.nav.Screen
-import xyz.mcxross.formation.ui.screens.HomeScreen
-import xyz.mcxross.formation.ui.screens.HomePresentation
-import xyz.mcxross.formation.ui.screens.RewardsScreen
-import xyz.mcxross.formation.ui.screens.RecoveryScreen
 import xyz.mcxross.formation.state.recovery.ClaimKeyState
+import xyz.mcxross.formation.ui.nav.Screen
+import xyz.mcxross.formation.ui.screens.HomePresentation
+import xyz.mcxross.formation.ui.screens.HomeScreen
+import xyz.mcxross.formation.ui.screens.RecoveryScreen
+import xyz.mcxross.formation.ui.screens.RewardsScreen
 import xyz.mcxross.formation.ui.screens.SettingsScreen
 import xyz.mcxross.formation.ui.screens.WelcomeScreen
 import xyz.mcxross.formation.ui.session.SessionScreen

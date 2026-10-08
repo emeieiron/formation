@@ -16,14 +16,19 @@ internal class KeystoreSecrets(context: Context) : SecretStore {
   }
 
   override fun get(name: String): ByteArray? = runCatching {
-    val blob = prefs.getString(name, null)?.let { Base64.decode(it, Base64.NO_WRAP) } ?: return@runCatching null
+    val blob =
+      prefs.getString(name, null)?.let { Base64.decode(it, Base64.NO_WRAP) }
+        ?: return@runCatching null
 
     cipher.open(blob)
-  }.getOrNull()
+  }
+    .getOrNull()
 
   override fun put(name: String, value: ByteArray) {
     val sealed = cipher.seal(value)
-    check(prefs.edit().putString(name, Base64.encodeToString(sealed, Base64.NO_WRAP)).commit()) { "Could not save this phone's claim key" }
+    check(prefs.edit().putString(name, Base64.encodeToString(sealed, Base64.NO_WRAP)).commit()) {
+      "Could not save this phone's claim key"
+    }
   }
 
   override fun recoveryCopy(name: String) = backup.get(name)
@@ -31,10 +36,17 @@ internal class KeystoreSecrets(context: Context) : SecretStore {
   @Synchronized
   override fun protect(name: String, value: ByteArray): Boolean {
     val existing = backup.get(name)
-    try { if (existing?.contentEquals(value) == true) return true }
-    finally { existing?.fill(0) }
+    try {
+      if (existing?.contentEquals(value) == true) return true
+    } finally {
+      existing?.fill(0)
+    }
     backup.put(name, value)
     val saved = backup.get(name)
-    return try { saved?.contentEquals(value) == true } finally { saved?.fill(0) }
+    return try {
+      saved?.contentEquals(value) == true
+    } finally {
+      saved?.fill(0)
+    }
   }
 }

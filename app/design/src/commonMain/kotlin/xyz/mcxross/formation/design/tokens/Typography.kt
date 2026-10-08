@@ -3,8 +3,8 @@ package xyz.mcxross.formation.design.tokens
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.em
@@ -58,11 +58,12 @@ internal fun rememberTypography(): Typography {
       Font(Res.font.space_grotesk_medium, FontWeight.Medium),
       Font(Res.font.space_grotesk_bold, FontWeight.Bold),
     )
-  val condensed = FontFamily(
-    Font(Res.font.barlow_condensed_bold, FontWeight.Bold),
-    Font(Res.font.barlow_condensed_bold_italic, FontWeight.Bold, FontStyle.Italic),
-    Font(Res.font.barlow_condensed_extra_bold, FontWeight.ExtraBold),
-  )
+  val condensed =
+    FontFamily(
+      Font(Res.font.barlow_condensed_bold, FontWeight.Bold),
+      Font(Res.font.barlow_condensed_bold_italic, FontWeight.Bold, FontStyle.Italic),
+      Font(Res.font.barlow_condensed_extra_bold, FontWeight.ExtraBold),
+    )
   val inter =
     FontFamily(
       Font(Res.font.inter_text_regular, FontWeight.Normal),

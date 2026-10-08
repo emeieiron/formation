@@ -18,10 +18,10 @@ import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import xyz.mcxross.formation.design.Theme
-import xyz.mcxross.formation.design.foundation.Hairline
 import xyz.mcxross.formation.design.components.Overline
 import xyz.mcxross.formation.design.components.Spinner
 import xyz.mcxross.formation.design.components.TextButton
+import xyz.mcxross.formation.design.foundation.Hairline
 import xyz.mcxross.formation.design.foundation.Icon
 import xyz.mcxross.formation.design.foundation.Panel
 import xyz.mcxross.formation.design.foundation.Text
@@ -29,12 +29,10 @@ import xyz.mcxross.formation.design.icons.Icons
 import xyz.mcxross.formation.design.tokens.Space
 import xyz.mcxross.formation.design.tokens.Tone
 import xyz.mcxross.formation.resources.Res
+import xyz.mcxross.formation.resources.action_get
+import xyz.mcxross.formation.resources.action_host_as_test_seeker
 import xyz.mcxross.formation.resources.action_link
 import xyz.mcxross.formation.resources.action_link_wallet
-import xyz.mcxross.formation.resources.action_host_as_test_seeker
-import xyz.mcxross.formation.resources.action_get
-import xyz.mcxross.formation.resources.seeker_test_note
-import xyz.mcxross.formation.resources.seeker_test_token_get
 import xyz.mcxross.formation.resources.join_intro_body
 import xyz.mcxross.formation.resources.join_intro_overline
 import xyz.mcxross.formation.resources.join_intro_searching
@@ -46,15 +44,23 @@ import xyz.mcxross.formation.resources.seeker_rewards_none
 import xyz.mcxross.formation.resources.seeker_rewards_ready
 import xyz.mcxross.formation.resources.seeker_setup_body
 import xyz.mcxross.formation.resources.seeker_setup_title
+import xyz.mcxross.formation.resources.seeker_test_note
+import xyz.mcxross.formation.resources.seeker_test_token_get
 import xyz.mcxross.formation.resources.seeker_wallet_link
 import xyz.mcxross.formation.resources.seeker_wallet_linked
 import xyz.mcxross.formation.resources.seeker_wallet_waiting
 import xyz.mcxross.formation.state.SeekerStatus
 import xyz.mcxross.formation.ui.components.shortAddress
 
-// Shown to phones that aren't Seekers while no Formation is nearby: what they need, and how to join.
+// Shown to phones that aren't Seekers while no Formation is nearby: what they need, and how to
+// join.
 @Composable
-internal fun JoinIntro(searching: Boolean, testSeekers: Boolean, onHost: () -> Unit, modifier: Modifier = Modifier) {
+internal fun JoinIntro(
+  searching: Boolean,
+  testSeekers: Boolean,
+  onHost: () -> Unit,
+  modifier: Modifier = Modifier,
+) {
   val c = Theme.colors
   Panel(modifier.fillMaxWidth()) {
     Column(Modifier.padding(Space.l)) {
@@ -66,22 +72,36 @@ internal fun JoinIntro(searching: Boolean, testSeekers: Boolean, onHost: () -> U
       Spacer(Modifier.height(Space.s))
       Text(stringResource(Res.string.join_intro_title), style = Theme.type.title2)
       Spacer(Modifier.height(Space.xs))
-      Text(stringResource(Res.string.join_intro_body), style = Theme.type.body, color = c.contentSecondary)
+      Text(
+        stringResource(Res.string.join_intro_body),
+        style = Theme.type.body,
+        color = c.contentSecondary,
+      )
       if (searching) {
         Spacer(Modifier.height(Space.m))
         Row(verticalAlignment = Alignment.CenterVertically) {
           Spinner(14.dp, color = c.contentSecondary)
           Spacer(Modifier.width(Space.s))
-          Text(stringResource(Res.string.join_intro_searching), style = Theme.type.footnote, color = c.contentSecondary)
+          Text(
+            stringResource(Res.string.join_intro_searching),
+            style = Theme.type.footnote,
+            color = c.contentSecondary,
+          )
         }
       }
       Spacer(Modifier.height(Space.s))
-      TextButton(stringResource(if (testSeekers) Res.string.action_host_as_test_seeker else Res.string.action_link_wallet), onHost)
+      TextButton(
+        stringResource(
+          if (testSeekers) Res.string.action_host_as_test_seeker else Res.string.action_link_wallet
+        ),
+        onHost,
+      )
     }
   }
 }
 
-// What a Seeker owner still needs before hosting, and what it unlocks. Hidden once nothing is left to do.
+// What a Seeker owner still needs before hosting, and what it unlocks. Hidden once nothing is left
+// to do.
 @Composable
 internal fun SeekerSetup(
   status: SeekerStatus,
@@ -91,15 +111,23 @@ internal fun SeekerSetup(
   onLink: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
-  val linkStep = stringResource(if (testSeekers) Res.string.seeker_test_token_get else Res.string.seeker_wallet_link)
-  val linkAction = stringResource(if (testSeekers) Res.string.action_get else Res.string.action_link)
+  val linkStep =
+    stringResource(
+      if (testSeekers) Res.string.seeker_test_token_get else Res.string.seeker_wallet_link
+    )
+  val linkAction =
+    stringResource(if (testSeekers) Res.string.action_get else Res.string.action_link)
   val c = Theme.colors
   Panel(modifier.fillMaxWidth()) {
     Column(Modifier.padding(Space.l)) {
       Text(stringResource(Res.string.seeker_setup_title), style = Theme.type.title2)
       if (wallet == null) {
         Spacer(Modifier.height(Space.xs))
-        Text(stringResource(Res.string.seeker_setup_body), style = Theme.type.body, color = c.contentSecondary)
+        Text(
+          stringResource(Res.string.seeker_setup_body),
+          style = Theme.type.body,
+          color = c.contentSecondary,
+        )
         Spacer(Modifier.height(Space.m))
         SeekerAbilities()
       }
@@ -107,16 +135,32 @@ internal fun SeekerSetup(
       Hairline()
       Spacer(Modifier.height(Space.s))
       when {
-        wallet != null -> Step(Mark.DONE, stringResource(Res.string.seeker_wallet_linked, shortAddress(wallet)))
-        status == SeekerStatus.Checking -> Step(Mark.BUSY, stringResource(Res.string.seeker_wallet_waiting))
-        status is SeekerStatus.NeedsApproval -> Step(Mark.PROBLEM, linkStep, status.message, linkAction, onLink)
-        status is SeekerStatus.NoToken -> Step(Mark.PROBLEM, linkStep,
-          "${shortAddress(status.wallet)} doesn't hold a Seeker Genesis Token. Choose the wallet that came with this Seeker.",
-          linkAction, onLink)
-        else -> Step(Mark.TODO, linkStep, if (testSeekers) stringResource(Res.string.seeker_test_note) else null, linkAction, onLink)
+        wallet != null ->
+          Step(Mark.DONE, stringResource(Res.string.seeker_wallet_linked, shortAddress(wallet)))
+        status == SeekerStatus.Checking ->
+          Step(Mark.BUSY, stringResource(Res.string.seeker_wallet_waiting))
+        status is SeekerStatus.NeedsApproval ->
+          Step(Mark.PROBLEM, linkStep, status.message, linkAction, onLink)
+        status is SeekerStatus.NoToken ->
+          Step(
+            Mark.PROBLEM,
+            linkStep,
+            "${shortAddress(status.wallet)} doesn't hold a Seeker Genesis Token. Choose the wallet that came with this Seeker.",
+            linkAction,
+            onLink,
+          )
+        else ->
+          Step(
+            Mark.TODO,
+            linkStep,
+            if (testSeekers) stringResource(Res.string.seeker_test_note) else null,
+            linkAction,
+            onLink,
+          )
       }
       if (wallet != null) {
-        if (rewards > 0) Step(Mark.DONE, pluralStringResource(Res.plurals.seeker_rewards_ready, rewards, rewards))
+        if (rewards > 0)
+          Step(Mark.DONE, pluralStringResource(Res.plurals.seeker_rewards_ready, rewards, rewards))
         else Step(Mark.TODO, stringResource(Res.string.seeker_rewards_none))
       }
     }
@@ -141,10 +185,21 @@ private fun Ability(icon: ImageVector, text: String) {
   }
 }
 
-private enum class Mark { DONE, BUSY, TODO, PROBLEM }
+private enum class Mark {
+  DONE,
+  BUSY,
+  TODO,
+  PROBLEM,
+}
 
 @Composable
-private fun Step(mark: Mark, title: String, detail: String? = null, action: String? = null, onAction: (() -> Unit)? = null) {
+private fun Step(
+  mark: Mark,
+  title: String,
+  detail: String? = null,
+  action: String? = null,
+  onAction: (() -> Unit)? = null,
+) {
   val c = Theme.colors
   Row(Modifier.fillMaxWidth().padding(vertical = Space.s), verticalAlignment = Alignment.Top) {
     Box(Modifier.size(20.dp), contentAlignment = Alignment.Center) {
@@ -157,10 +212,19 @@ private fun Step(mark: Mark, title: String, detail: String? = null, action: Stri
     }
     Spacer(Modifier.width(Space.m))
     Column(Modifier.weight(1f)) {
-      Text(title, style = Theme.type.subheadStrong, color = if (mark == Mark.DONE) c.contentSecondary else c.content)
+      Text(
+        title,
+        style = Theme.type.subheadStrong,
+        color = if (mark == Mark.DONE) c.contentSecondary else c.content,
+      )
       detail?.let { Text(it, style = Theme.type.footnote, color = c.contentSecondary) }
     }
     if (action != null && onAction != null)
-      TextButton(action, onAction, Modifier.padding(start = Space.s), tone = if (mark == Mark.PROBLEM) Tone.Warning else Tone.Neutral)
+      TextButton(
+        action,
+        onAction,
+        Modifier.padding(start = Space.s),
+        tone = if (mark == Mark.PROBLEM) Tone.Warning else Tone.Neutral,
+      )
   }
 }

@@ -19,13 +19,14 @@ import xyz.mcxross.formation.design.Theme
 @Composable
 fun DiscoverySignal(modifier: Modifier = Modifier) {
   val c = Theme.colors
-  val phase = rememberInfiniteTransition(label = "discovery")
-    .animateFloat(
-      initialValue = 0f,
-      targetValue = 1f,
-      animationSpec = infiniteRepeatable(tween(1_800, easing = LinearEasing)),
-      label = "signal-travel",
-    )
+  val phase =
+    rememberInfiniteTransition(label = "discovery")
+      .animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1_800, easing = LinearEasing)),
+        label = "signal-travel",
+      )
   Canvas(modifier.size(48.dp, 24.dp).clearAndSetSemantics {}) {
     val track = size.width * 2 / 3
     val packet = 10.dp.toPx()

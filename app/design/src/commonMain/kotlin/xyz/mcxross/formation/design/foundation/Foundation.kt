@@ -9,8 +9,8 @@ import androidx.compose.foundation.IndicationNodeFactory
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.interaction.FocusInteraction
+import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -179,7 +179,10 @@ private class PressNode(private val source: InteractionSource, private val color
           else -> return@collect
         }
         launch {
-          level.animateTo(if (pressed > 0 || focused) 1f else 0f, tween(if (pressed > 0) 60 else 140))
+          level.animateTo(
+            if (pressed > 0 || focused) 1f else 0f,
+            tween(if (pressed > 0) 60 else 140),
+          )
         }
       }
     }
@@ -210,9 +213,12 @@ fun Modifier.pressable(
       spring(dampingRatio = 0.7f, stiffness = 1_300f),
       label = "press",
     )
-  val pressTravel by animateFloatAsState(
-    if (travel && pressed) 2f else 0f, tween(100), label = "press-travel",
-  )
+  val pressTravel by
+    animateFloatAsState(
+      if (travel && pressed) 2f else 0f,
+      tween(100),
+      label = "press-travel",
+    )
   (if (squeeze || travel)
       Modifier.graphicsLayer {
         translationY = pressTravel * density

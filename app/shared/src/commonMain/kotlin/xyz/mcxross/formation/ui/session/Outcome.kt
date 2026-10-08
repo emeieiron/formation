@@ -1,13 +1,12 @@
 package xyz.mcxross.formation.ui.session
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.animation.core.Animatable
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,17 +28,18 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.components.BottomActions
-import xyz.mcxross.formation.design.components.RewardPass
-import xyz.mcxross.formation.design.components.LiveryRule
 import xyz.mcxross.formation.design.components.Button
 import xyz.mcxross.formation.design.components.ButtonStyle
+import xyz.mcxross.formation.design.components.LiveryRule
 import xyz.mcxross.formation.design.components.Notice
 import xyz.mcxross.formation.design.components.ReadyDots
+import xyz.mcxross.formation.design.components.RewardPass
 import xyz.mcxross.formation.design.components.RollingNumber
 import xyz.mcxross.formation.design.components.SkrCoin
 import xyz.mcxross.formation.design.components.Spinner
@@ -100,12 +100,20 @@ internal fun Won(
         Spacer(Modifier.height(Space.xl))
         LiveryRule()
         Spacer(Modifier.height(Space.xl))
-        RewardPass(Modifier.size(width = 168.dp, height = 105.dp).graphicsLayer {
-          alpha = receipt.value
-          translationY = (1 - receipt.value) * 16.dp.toPx()
-        })
+        RewardPass(
+          Modifier.size(width = 168.dp, height = 105.dp).graphicsLayer {
+            alpha = receipt.value
+            translationY = (1 - receipt.value) * 16.dp.toPx()
+          }
+        )
         Spacer(Modifier.height(Space.xl))
-        AssemblyRoster(snapshot.players, snapshot.players.size, me, Modifier.fillMaxWidth(), compact = true)
+        AssemblyRoster(
+          snapshot.players,
+          snapshot.players.size,
+          me,
+          Modifier.fillMaxWidth(),
+          compact = true,
+        )
         Spacer(Modifier.height(Space.l))
         Text("FORMATION COMPLETE", style = Theme.type.hero, textAlign = TextAlign.Center)
         Spacer(Modifier.height(Space.xs))
@@ -150,7 +158,10 @@ internal fun Won(
               }
               stage.unlock is Unlock.Unlocked -> {
                 if (session.isHost && !(stage.unlock as Unlock.Unlocked).settled) {
-                  Notice("Some wallet payments are pending. Retry them from Home.", tone = Tone.Warning)
+                  Notice(
+                    "Some wallet payments are pending. Retry them from Home.",
+                    tone = Tone.Warning,
+                  )
                   Spacer(Modifier.height(Space.m))
                 }
                 Text("YOU EARNED", style = Theme.type.overline, color = c.reward)
@@ -167,7 +178,8 @@ internal fun Won(
                     share == null -> "Your share went straight to your Seeker's wallet."
                     share.wallet != null && me in (stage.unlock as Unlock.Unlocked).paid ->
                       "It's in your wallet, ${shortAddress(share.wallet.orEmpty())}."
-                    share.wallet != null -> "Your wallet payment is pending. Check Rewards to claim directly."
+                    share.wallet != null ->
+                      "Your wallet payment is pending. Check Rewards to claim directly."
                     walletReady -> "It's yours to claim. Check Rewards for the deadline."
                     else ->
                       "You need a Solana wallet to claim your share. Get ${suggested.name} now, or claim it later."
@@ -315,7 +327,13 @@ internal fun Lost(
       Spacer(Modifier.height(Space.x4l))
       Icon(Icons.Alert, null, tint = c.negative, size = 40.dp)
       Spacer(Modifier.height(Space.xl))
-      AssemblyRoster(snapshot.players, snapshot.players.size, me, Modifier.fillMaxWidth(), compact = true)
+      AssemblyRoster(
+        snapshot.players,
+        snapshot.players.size,
+        me,
+        Modifier.fillMaxWidth(),
+        compact = true,
+      )
       Spacer(Modifier.height(Space.xl))
       Text(
         "THE FORMATION BROKE",

@@ -10,8 +10,12 @@ import xyz.mcxross.formation.state.recovery.ClaimKeyState
 class AutomaticClaimRecoveryTest {
   private class Store : KeyValueStore {
     val values = mutableMapOf<String, String>()
+
     override fun get(key: String) = values[key]
-    override fun put(key: String, value: String?) { if (value == null) values.remove(key) else values[key] = value }
+
+    override fun put(key: String, value: String?) {
+      if (value == null) values.remove(key) else values[key] = value
+    }
   }
 
   private class Secrets : SecretStore {
@@ -19,10 +23,18 @@ class AutomaticClaimRecoveryTest {
     var backup: ByteArray? = null
     var failWrite = false
     var failProtection = false
+
     override fun contains(name: String) = primary != null || backup != null
+
     override fun get(name: String) = primary?.copyOf()
-    override fun put(name: String, value: ByteArray) { check(!failWrite) { "Disk full" }; primary = value.copyOf() }
+
+    override fun put(name: String, value: ByteArray) {
+      check(!failWrite) { "Disk full" }
+      primary = value.copyOf()
+    }
+
     override fun recoveryCopy(name: String) = backup?.copyOf()
+
     override fun protect(name: String, value: ByteArray): Boolean {
       if (failProtection) error("Protected storage unavailable")
       backup = value.copyOf()
@@ -82,7 +94,11 @@ class AutomaticClaimRecoveryTest {
   @Test
   fun aHealthyExistingKeyIsProtectedWithoutBlockingUseIfProtectionFails() {
     val store = Store()
-    val secrets = Secrets().apply { primary = Ed25519KeyPair.generate().seed; failProtection = true }
+    val secrets =
+      Secrets().apply {
+        primary = Ed25519KeyPair.generate().seed
+        failProtection = true
+      }
     val original = ClaimIdentity(store, secrets)
     assertFalse(assertIs<ClaimKeyState.Ready>(original.status.value).protectedOnDevice)
     assertNull(secrets.backup)

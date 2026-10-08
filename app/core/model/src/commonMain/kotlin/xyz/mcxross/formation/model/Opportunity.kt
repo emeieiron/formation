@@ -21,8 +21,10 @@ enum class Tier(val label: String, val players: IntRange) {
   }
 }
 
-// One budget a sponsor's contest holds for one Genesis Token: the token's holder unlocks it with any game
-// whose group fits [maxGuests] guests. [id] is the vault entry it creates, which is unique per contest,
+// One budget a sponsor's contest holds for one Genesis Token: the token's holder unlocks it with
+// any game
+// whose group fits [maxGuests] guests. [id] is the vault entry it creates, which is unique per
+// contest,
 // token and [round].
 @Serializable
 data class Budget(

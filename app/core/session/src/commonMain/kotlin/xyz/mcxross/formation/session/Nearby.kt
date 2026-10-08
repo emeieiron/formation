@@ -1,7 +1,6 @@
 package xyz.mcxross.formation.session
 
 import kotlin.coroutines.cancellation.CancellationException
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
@@ -10,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import xyz.mcxross.formation.link.HostAddress
 import xyz.mcxross.formation.link.HostFinder
@@ -47,8 +47,14 @@ class NearbyScanner(
 
   suspend fun lookup(address: HostAddress): NearbyFormation? =
     try {
-      withTimeoutOrNull(2_000) { fetch(address) }?.let { decode(it) }?.let { NearbyFormation(address, it) }
-    } catch (e: CancellationException) { throw e } catch (_: Exception) { null }
+      withTimeoutOrNull(2_000) { fetch(address) }
+        ?.let { decode(it) }
+        ?.let { NearbyFormation(address, it) }
+    } catch (e: CancellationException) {
+      throw e
+    } catch (_: Exception) {
+      null
+    }
 
   private fun decode(text: String): Beacon? = runCatching {
     json.decodeFromString(Beacon.serializer(), text)

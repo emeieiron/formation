@@ -1,15 +1,26 @@
 package xyz.mcxross.formation.state
 
 import kotlin.test.Test
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import xyz.mcxross.formation.model.*
 
 class ClaimReconciliationTest {
-  private val ticket = ClaimTicket(OpportunityId("So11111111111111111111111111111111111111112"), "11111111111111111111111111111111", ChallengeId("sync"),
-    "Host", Skr.of(60), 0, "root", emptyList(), 1, "unlock")
+  private val ticket =
+    ClaimTicket(
+      OpportunityId("So11111111111111111111111111111111111111112"),
+      "11111111111111111111111111111111",
+      ChallengeId("sync"),
+      "Host",
+      Skr.of(60),
+      0,
+      "root",
+      emptyList(),
+      1,
+      "unlock",
+    )
   private val chain = ClaimChainState(true, 100, "root", 1, ticket.amount.units, false, 1_000)
 
   @Test
@@ -27,7 +38,9 @@ class ClaimReconciliationTest {
 
   @Test
   fun anotherRosterOrAmountCannotMakeASavedProofClaimable() {
-    assertFailsWith<IllegalArgumentException> { reconcileClaim(ticket, chain.copy(root = "other"), 1) }
+    assertFailsWith<IllegalArgumentException> {
+      reconcileClaim(ticket, chain.copy(root = "other"), 1)
+    }
     assertFailsWith<IllegalArgumentException> { reconcileClaim(ticket, chain.copy(share = 1), 1) }
   }
 }

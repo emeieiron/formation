@@ -18,12 +18,19 @@ fun packTransactions(
   if (unlock != null) batches += mutableListOf(unlock) to mutableListOf()
   for ((share, ix) in payouts) {
     val last = batches.lastOrNull()
-    if (last != null && transaction(payer, blockhash, *(last.first + ix).toTypedArray()).serialize().size <= 1_232) {
+    if (
+      last != null &&
+        transaction(payer, blockhash, *(last.first + ix).toTypedArray()).serialize().size <= 1_232
+    ) {
       last.first += ix
       last.second += share
     } else batches += mutableListOf(ix) to mutableListOf(share)
   }
   return batches.mapIndexed { i, (ixs, shares) ->
-    PayoutBatch(transaction(payer, blockhash, *ixs.toTypedArray()), shares, unlock != null && i == 0)
+    PayoutBatch(
+      transaction(payer, blockhash, *ixs.toTypedArray()),
+      shares,
+      unlock != null && i == 0,
+    )
   }
 }

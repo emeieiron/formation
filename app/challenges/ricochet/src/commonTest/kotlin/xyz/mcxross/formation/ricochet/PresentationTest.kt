@@ -5,15 +5,17 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import xyz.mcxross.formation.model.Difficulty
 import xyz.mcxross.formation.model.PlayerId
-import xyz.mcxross.formation.session.ChallengeSetup
 import xyz.mcxross.formation.ricochet.ui.PaddleControl
 import xyz.mcxross.formation.ricochet.ui.presentedPulse
+import xyz.mcxross.formation.session.ChallengeSetup
 
 class PresentationTest {
   private val me = PlayerId("left")
-  private val state = RicochetGame(ChallengeSetup(listOf(me, PlayerId("right")), me, Difficulty.EASY, 7, 0)).state
+  private val state =
+    RicochetGame(ChallengeSetup(listOf(me, PlayerId("right")), me, Difficulty.EASY, 7, 0)).state
 
-  @Test fun predictionStopsAtTheCapAndNeverMutatesAuthoritativeState() {
+  @Test
+  fun predictionStopsAtTheCapAndNeverMutatesAuthoritativeState() {
     val frame = state.copy(at = 2_000, serveAt = 1_200, pulse = Pulse(0.90, 0.45, 0.62, 0.0))
     val projected = presentedPulse(frame, 2_100)
     assertTrue(projected.x > 0.90)
@@ -22,7 +24,8 @@ class PresentationTest {
     assertEquals(frame.pulse, presentedPulse(frame.copy(finishedAt = 2_000), 2_100))
   }
 
-  @Test fun unacknowledgedTouchSurvivesOldFramesAndReleaseSendsTheLatestPosition() {
+  @Test
+  fun unacknowledgedTouchSurvivesOldFramesAndReleaseSendsTheLatestPosition() {
     val control = PaddleControl(state.paddle(me), state.rally)
     val sent = mutableListOf<MovePaddle>()
     control.move(0.4, state, 100, true, sent::add)

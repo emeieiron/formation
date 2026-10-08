@@ -20,30 +20,43 @@ import xyz.mcxross.formation.session.ScreenRequirement
 
 object Mosaic : Challenge<MosaicState, Pinch>() {
   override val formatVersion = 1
-  override val info = ChallengeInfo(
-    id = ChallengeId("mosaic"), code = 8, title = "Mosaic",
-    tagline = "Every phone holds a piece of the mark.",
-    summary = "Lay the phones in three rows to rebuild the Solana mark, then pinch across every seam before time runs out.",
-    steps = listOf(
-      Step(Icons.Phone, "Each phone holds one piece of the Solana mark."),
-      Step(Icons.Tiles, "Lay the phones in three rows until the bars line up."),
-      Step(Icons.Pinch, "Pinch across every seam to seal it before time runs out. Three wrong pairs end the attempt."),
-    ),
-    icon = Icons.Tiles, light = 0, senses = listOf(Sense.Touch, Sense.Voice),
-    players = 6..9, groupSizes = Layouts.groupSizes,
-  )
+  override val info =
+    ChallengeInfo(
+      id = ChallengeId("mosaic"),
+      code = 8,
+      title = "Mosaic",
+      tagline = "Every phone holds a piece of the mark.",
+      summary =
+        "Lay the phones in three rows to rebuild the Solana mark, then pinch across every seam before time runs out.",
+      steps =
+        listOf(
+          Step(Icons.Phone, "Each phone holds one piece of the Solana mark."),
+          Step(Icons.Tiles, "Lay the phones in three rows until the bars line up."),
+          Step(
+            Icons.Pinch,
+            "Pinch across every seam to seal it before time runs out. Three wrong pairs end the attempt.",
+          ),
+        ),
+      icon = Icons.Tiles,
+      light = 0,
+      senses = listOf(Sense.Touch, Sense.Voice),
+      players = 6..9,
+      groupSizes = Layouts.groupSizes,
+    )
   override val stateSerializer = MosaicState.serializer()
   override val inputSerializer = Pinch.serializer()
   override val fullScreen = true
   override val introduction: @Composable () -> Unit = { PinchIntroduction() }
   override val cover: @Composable () -> Unit = { MosaicCover() }
 
-  override fun screenRequirement(players: Int) = ScreenRequirement(Layouts.MIN_SHORT_MM, Layouts.MIN_LONG_MM)
+  override fun screenRequirement(players: Int) =
+    ScreenRequirement(Layouts.MIN_SHORT_MM, Layouts.MIN_LONG_MM)
 
   override fun newGame(setup: ChallengeSetup): ChallengeGame<MosaicState, Pinch> = MosaicGame(setup)
 
   override fun goal(players: Int, difficulty: Difficulty): String {
-    val seams = runCatching { Layouts.grid(players).seams().size }.getOrNull() ?: return "Rebuild the mark"
+    val seams =
+      runCatching { Layouts.grid(players).seams().size }.getOrNull() ?: return "Rebuild the mark"
     return "$seams seams · ${MosaicState.MAX_MISSES} wrong pairs · ${Pacing(difficulty).limitMs(seams) / 1_000} seconds"
   }
 

@@ -28,19 +28,30 @@ class OreProgramTest {
 
   @Test
   fun instructionsMatchTheDeploymentHarness() = runTest {
-    assertInstruction("deploy", program.deploy(authority, authority, 4uL, 1_000_000uL, setOf(0, 16, 24)))
+    assertInstruction(
+      "deploy",
+      program.deploy(authority, authority, 4uL, 1_000_000uL, setOf(0, 16, 24)),
+    )
     assertInstruction("checkpoint", program.checkpoint(authority, authority, 3uL))
     assertInstruction("claimOre", program.claimOre(authority))
     val claim = program.claimSol(authority)
     assertContentEquals(byteArrayOf(3), claim.data)
     assertEquals(
-      listOf(authority, program.board(), program.miner(authority),
-        SolanaPublicKey.from("11111111111111111111111111111111"), program.programId),
+      listOf(
+        authority,
+        program.board(),
+        program.miner(authority),
+        SolanaPublicKey.from("11111111111111111111111111111111"),
+        program.programId,
+      ),
       claim.accounts.map { it.publicKey },
     )
     assertEquals(listOf(true, false, false, false, false), claim.accounts.map { it.isSigner })
     assertEquals(listOf(true, true, true, false, false), claim.accounts.map { it.isWritable })
-    assertContentEquals(byteArrayOf(4, -60, 9, 0, 0, 0, 0, 0, 0), program.claimOre(authority, 2500).data)
+    assertContentEquals(
+      byteArrayOf(4, -60, 9, 0, 0, 0, 0, 0, 0),
+      program.claimOre(authority, 2500).data,
+    )
   }
 
   @Test
@@ -60,7 +71,9 @@ class OreProgramTest {
   @Test
   fun invalidDeploymentsAndClaimsFailBeforeSigning() = runTest {
     for (squares in listOf(emptySet(), setOf(-1), setOf(25))) {
-      assertFailsWith<IllegalArgumentException> { program.deploy(authority, authority, 4uL, 1uL, squares) }
+      assertFailsWith<IllegalArgumentException> {
+        program.deploy(authority, authority, 4uL, 1uL, squares)
+      }
     }
     assertFailsWith<IllegalArgumentException> {
       program.deploy(authority, authority, 4uL, 0uL, setOf(0))
@@ -74,16 +87,30 @@ class OreProgramTest {
   }
 
   private fun assertInstruction(name: String, instruction: TransactionInstruction) {
-    val expected = Json.parseToJsonElement(oreFixtures).jsonObject.getValue("instructions")
-      .jsonObject.getValue(name).jsonObject
+    val expected =
+      Json.parseToJsonElement(oreFixtures)
+        .jsonObject
+        .getValue("instructions")
+        .jsonObject
+        .getValue(name)
+        .jsonObject
     assertEquals(program.programId, instruction.programId)
     assertContentEquals(
       expected.getValue("data").jsonArray.map { it.jsonPrimitive.int.toByte() }.toByteArray(),
       instruction.data,
     )
     val accounts = expected.getValue("accounts").jsonArray.map { it.jsonArray }
-    assertEquals(accounts.map { it[0].jsonPrimitive.content }, instruction.accounts.map { it.publicKey.base58() })
-    assertEquals(accounts.map { it[1].jsonPrimitive.boolean }, instruction.accounts.map { it.isSigner })
-    assertEquals(accounts.map { it[2].jsonPrimitive.boolean }, instruction.accounts.map { it.isWritable })
+    assertEquals(
+      accounts.map { it[0].jsonPrimitive.content },
+      instruction.accounts.map { it.publicKey.base58() },
+    )
+    assertEquals(
+      accounts.map { it[1].jsonPrimitive.boolean },
+      instruction.accounts.map { it.isSigner },
+    )
+    assertEquals(
+      accounts.map { it[2].jsonPrimitive.boolean },
+      instruction.accounts.map { it.isWritable },
+    )
   }
 }

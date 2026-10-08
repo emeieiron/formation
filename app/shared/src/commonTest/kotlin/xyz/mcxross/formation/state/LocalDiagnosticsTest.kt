@@ -10,14 +10,20 @@ class LocalDiagnosticsTest {
   @Test
   fun tracesStayBoundedAcrossRestartAndClearPersistedData() {
     val data = mutableMapOf<String, String>()
-    val store = object : KeyValueStore {
-      override fun get(key: String) = data[key]
-      override fun put(key: String, value: String?) { if (value == null) data.remove(key) else data[key] = value }
-    }
+    val store =
+      object : KeyValueStore {
+        override fun get(key: String) = data[key]
+
+        override fun put(key: String, value: String?) {
+          if (value == null) data.remove(key) else data[key] = value
+        }
+      }
     val trace = LocalDiagnostics(store) { 1_000 }
     val session = trace.nextSession()
     val record = trace.sink(TraceSource.CLIENT, session)
-    repeat(LocalDiagnostics.LIMIT + 10) { record(DiagnosticEvent(DiagnosticCode.CLOCK_RTT, it.toLong())) }
+    repeat(LocalDiagnostics.LIMIT + 10) {
+      record(DiagnosticEvent(DiagnosticCode.CLOCK_RTT, it.toLong()))
+    }
     assertEquals(LocalDiagnostics.LIMIT, trace.entries.value.size)
     assertEquals(11L, trace.entries.value.first().sequence)
     val reopened = LocalDiagnostics(store) { 2_000 }

@@ -4,7 +4,8 @@ import com.solana.publickey.SolanaPublicKey
 
 object SeekerGenesis {
   val TOKEN_2022 = SolanaPublicKey.from("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb")
-  // Solana Mobile's group on mainnet. Each vault's config names the group it accepts on its own network.
+  // Solana Mobile's group on mainnet. Each vault's config names the group it accepts on its own
+  // network.
   val MAINNET_GROUP = SolanaPublicKey.from("GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te")
 
   private const val TOKEN_GROUP_MEMBER = 23

@@ -64,7 +64,8 @@ class KtorLinkServer : LinkServer {
       routing {
         get(LinkDefaults.BEACON_PATH) { call.respondText(beacon(), ContentType.Application.Json) }
         webSocket(LinkDefaults.LINK_PATH) {
-          // remoteHost would reverse-resolve the address first, which stalls every join for about 30 seconds
+          // remoteHost would reverse-resolve the address first, which stalls every join for about
+          // 30 seconds
           // on a network without DNS, such as the Seeker's own hotspot.
           val peer = "${call.request.origin.remoteAddress}:${call.request.origin.remotePort}"
           onChannel(WebSocketChannel(this, peer))

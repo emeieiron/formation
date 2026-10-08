@@ -19,33 +19,90 @@ import xyz.mcxross.formation.model.*
 class CompletionRecoveryTest {
   private val keys = List(3) { Ed25519KeyPair.generate() }
   private val players = keys.mapIndexed { i, key ->
-    Player(PlayerId("p${i + 1}"), "Phone $i", i, i == 0, Base58.encode(key.publicKey), device = "device$i")
+    Player(
+      PlayerId("p${i + 1}"),
+      "Phone $i",
+      i,
+      i == 0,
+      Base58.encode(key.publicKey),
+      device = "device$i",
+    )
   }
-  private val info = FormationInfo("saved-session", "K7QX", "Phone 0", Opportunity(
-    Budget(OpportunityId("entry"), "contest", "sgt", Skr.of(600), 3, 31, Long.MAX_VALUE, "Test"), ChallengeId("tap"), 3))
+  private val info =
+    FormationInfo(
+      "saved-session",
+      "K7QX",
+      "Phone 0",
+      Opportunity(
+        Budget(
+          OpportunityId("entry"),
+          "contest",
+          "sgt",
+          Skr.of(600),
+          3,
+          31,
+          Long.MAX_VALUE,
+          "Test",
+        ),
+        ChallengeId("tap"),
+        3,
+      ),
+    )
 
   private fun partial(): SessionSnapshot {
     val result = RoundResult("Everyone tapped", endedAt = 5_000)
     val seal = Sealing.seal(info.opportunity, info.session, players, result)
     val first = players.first().id
     val signature = Base58.encode(keys.first().sign(Base64.decode(seal.message)))
-    return SessionSnapshot(info, players, Stage.Won(result,
-      seal.copy(signed = listOf(first), signatures = mapOf(first to signature)), Unlock.Waiting), 1)
+    return SessionSnapshot(
+      info,
+      players,
+      Stage.Won(
+        result,
+        seal.copy(signed = listOf(first), signatures = mapOf(first to signature)),
+        Unlock.Waiting,
+      ),
+      1,
+    )
   }
 
   @Test
   fun aPartiallySealedWinRestoresItsRosterAndCollectsOnlyMissingAcknowledgements() = runTest {
-    val saved = FormationJson.decodeFromString(SessionSnapshot.serializer(),
-      FormationJson.encodeToString(SessionSnapshot.serializer(), partial()))
+    val saved =
+      FormationJson.decodeFromString(
+        SessionSnapshot.serializer(),
+        FormationJson.encodeToString(SessionSnapshot.serializer(), partial()),
+      )
     var checkpoint = saved
-    val host = FormationHost(info, TapChallenge, backgroundScope, Clock { testScheduler.currentTime },
-      recovery = saved, checkpoint = { checkpoint = it })
+    val host =
+      FormationHost(
+        info,
+        TapChallenge,
+        backgroundScope,
+        Clock { testScheduler.currentTime },
+        recovery = saved,
+        checkpoint = { checkpoint = it },
+      )
     players.forEachIndexed { i, player ->
-      val client = FormationClient(PlayerIdentity(player.device!!, player.name, i, keys[i], wallet = if (i == 1) Base58.encode(ByteArray(32) { 9 }) else null, formats = mapOf("tap" to 1)), connect = {
-        val (phone, server) = memoryLink()
-        backgroundScope.launch { host.serve(server, local = i == 0) }
-        phone
-      }, scope = backgroundScope, clock = Clock { testScheduler.currentTime }, recovery = saved)
+      val client =
+        FormationClient(
+          PlayerIdentity(
+            player.device!!,
+            player.name,
+            i,
+            keys[i],
+            wallet = if (i == 1) Base58.encode(ByteArray(32) { 9 }) else null,
+            formats = mapOf("tap" to 1),
+          ),
+          connect = {
+            val (phone, server) = memoryLink()
+            backgroundScope.launch { host.serve(server, local = i == 0) }
+            phone
+          },
+          scope = backgroundScope,
+          clock = Clock { testScheduler.currentTime },
+          recovery = saved,
+        )
       client.start()
     }
     runCurrent()
@@ -62,14 +119,22 @@ class CompletionRecoveryTest {
     val saved = partial()
     val won = saved.stage as Stage.Won
     assertFailsWith<IllegalArgumentException> {
-      validatedCompletion(saved.copy(stage = won.copy(seal = won.seal.copy(signatures = emptyMap()))))
+      validatedCompletion(
+        saved.copy(stage = won.copy(seal = won.seal.copy(signatures = emptyMap())))
+      )
     }
   }
 
   @Test
   fun aFailedDurableWriteIsReportedWithoutKillingTheSession() = runTest {
-    val host = FormationHost(info, TapChallenge, backgroundScope, recovery = partial(),
-      checkpoint = { error("Disk full") })
+    val host =
+      FormationHost(
+        info,
+        TapChallenge,
+        backgroundScope,
+        recovery = partial(),
+        checkpoint = { error("Disk full") },
+      )
     host.unlockFailed("Offline")
     runCurrent()
     val won = assertIs<Stage.Won>(host.snapshot.value.stage)

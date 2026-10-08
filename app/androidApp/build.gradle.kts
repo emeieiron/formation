@@ -1,12 +1,19 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
-// The preferred RPC, usually a keyed provider such as Helius set in ~/.gradle/gradle.properties or by the
-// release workflow; the app falls back to the public node while it is rate limited or refusing its key.
-val publicRpcUrl = providers.gradleProperty("formation.fallbackRpcUrl").orElse("https://api.devnet.solana.com")
+// The preferred RPC, usually a keyed provider such as Helius set in ~/.gradle/gradle.properties or
+// by the
+// release workflow; the app falls back to the public node while it is rate limited or refusing its
+// key.
+val publicRpcUrl =
+  providers.gradleProperty("formation.fallbackRpcUrl").orElse("https://api.devnet.solana.com")
 val rpcUrl = providers.gradleProperty("formation.rpcUrl").orElse(publicRpcUrl)
 val cluster = providers.gradleProperty("formation.cluster").orElse("devnet")
-// Makes phones test Seekers on networks without real Genesis Tokens; a mainnet build passes an empty one.
-val faucetUrl = providers.gradleProperty("formation.faucetUrl").orElse("https://formation-faucet.em-eieiron.workers.dev")
+// Makes phones test Seekers on networks without real Genesis Tokens; a mainnet build passes an
+// empty one.
+val faucetUrl =
+  providers
+    .gradleProperty("formation.faucetUrl")
+    .orElse("https://formation-faucet.em-eieiron.workers.dev")
 
 // A distributable release is signed with the key CI passes in; without it, release builds stay
 // unsigned for local use. See .github/workflows/release-android.yml.
@@ -15,7 +22,8 @@ val releaseSigned = releaseKeystore.isPresent
 
 // Release versions come from the tag: v1.2.3 builds versionName 1.2.3 and versionCode 10203.
 val formationVersionName = providers.gradleProperty("formationVersionName").orElse("0.1.0")
-val formationVersionCode = providers.gradleProperty("formationVersionCode").map { it.toInt() }.orElse(1)
+val formationVersionCode =
+  providers.gradleProperty("formationVersionCode").map { it.toInt() }.orElse(1)
 
 plugins {
   alias(libs.plugins.androidApplication)
@@ -54,8 +62,12 @@ android {
       if (releaseSigned) {
         signingConfig = signingConfigs.getByName("release")
         // A signed build is one people install: it must reach a public cluster over HTTPS.
-        check(rpcUrl.get().startsWith("https://")) { "A signed release needs an HTTPS formation.rpcUrl, not ${rpcUrl.get()}" }
-        check(cluster.get() in setOf("devnet", "testnet", "mainnet-beta")) { "A signed release can't target ${cluster.get()}" }
+        check(rpcUrl.get().startsWith("https://")) {
+          "A signed release needs an HTTPS formation.rpcUrl, not ${rpcUrl.get()}"
+        }
+        check(cluster.get() in setOf("devnet", "testnet", "mainnet-beta")) {
+          "A signed release can't target ${cluster.get()}"
+        }
       }
       // R8 shrinks, optimises and obfuscates the release; resources nothing references go too.
       isMinifyEnabled = true

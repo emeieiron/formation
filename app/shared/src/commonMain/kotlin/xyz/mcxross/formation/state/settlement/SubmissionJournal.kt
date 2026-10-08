@@ -8,7 +8,12 @@ import xyz.mcxross.formation.platform.KeyValueStore
 import xyz.mcxross.formation.session.FormationJson
 
 @Serializable
-enum class SubmissionState { PENDING, CONFIRMED, FAILED, EXPIRED }
+enum class SubmissionState {
+  PENDING,
+  CONFIRMED,
+  FAILED,
+  EXPIRED,
+}
 
 @Serializable
 data class Submission(
@@ -23,18 +28,37 @@ data class Submission(
 )
 
 class SubmissionJournal(private val store: KeyValueStore, private val key: String) {
-  private var entries: List<Submission> = store.get(key)?.let {
-    FormationJson.decodeFromString(ListSerializer(Submission.serializer()), it)
-  } ?: emptyList()
+  private var entries: List<Submission> =
+    store.get(key)?.let {
+      FormationJson.decodeFromString(ListSerializer(Submission.serializer()), it)
+    } ?: emptyList()
 
   fun latest(operation: String): Submission? = entries.lastOrNull { it.operation == operation }
+
   fun pending(): List<Submission> = entries.filter { it.state == SubmissionState.PENDING }
 
-  fun prepare(operation: String, signed: ByteArray, validUntil: Long, recipient: String? = null): Submission {
+  fun prepare(
+    operation: String,
+    signed: ByteArray,
+    validUntil: Long,
+    recipient: String? = null,
+  ): Submission {
     val previous = latest(operation)
-    check(previous?.state != SubmissionState.PENDING) { "A transaction is still awaiting confirmation" }
-    val entry = Submission(operation, signedTransactionId(signed), Base64.encode(signed), validUntil, recipient = recipient)
-    save((entries.filterNot { it.operation == operation && it.state != SubmissionState.PENDING }) + entry)
+    check(previous?.state != SubmissionState.PENDING) {
+      "A transaction is still awaiting confirmation"
+    }
+    val entry =
+      Submission(
+        operation,
+        signedTransactionId(signed),
+        Base64.encode(signed),
+        validUntil,
+        recipient = recipient,
+      )
+    save(
+      (entries.filterNot { it.operation == operation && it.state != SubmissionState.PENDING }) +
+        entry
+    )
     return entry
   }
 
@@ -44,7 +68,10 @@ class SubmissionJournal(private val store: KeyValueStore, private val key: Strin
   }
 
   private fun save(next: List<Submission>) {
-    store.putDurable(key, FormationJson.encodeToString(ListSerializer(Submission.serializer()), next))
+    store.putDurable(
+      key,
+      FormationJson.encodeToString(ListSerializer(Submission.serializer()), next),
+    )
     entries = next
   }
 }

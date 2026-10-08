@@ -23,13 +23,16 @@ fun LiveryRule(modifier: Modifier = Modifier) {
     drawLine(c.accent, Offset.Zero, Offset(split, 0f), size.height * 2)
     val start = size.width * 0.76f
     val end = size.width * 0.93f
-    drawPath(Path().apply {
-      moveTo(start + size.height, 0f)
-      lineTo(end + size.height, 0f)
-      lineTo(end, size.height)
-      lineTo(start, size.height)
-      close()
-    }, c.content)
+    drawPath(
+      Path().apply {
+        moveTo(start + size.height, 0f)
+        lineTo(end + size.height, 0f)
+        lineTo(end, size.height)
+        lineTo(start, size.height)
+        close()
+      },
+      c.content,
+    )
   }
 }
 
@@ -39,11 +42,14 @@ fun Modifier.liveryCard(): Modifier = composed {
     drawContent()
     drawLine(c.accent, Offset.Zero, Offset(size.width, 0f), 4.dp.toPx())
     val corner = 24.dp.toPx()
-    drawPath(Path().apply {
-      moveTo(size.width - corner, 0f)
-      lineTo(size.width, 0f)
-      lineTo(size.width, corner)
-      close()
-    }, c.content)
+    drawPath(
+      Path().apply {
+        moveTo(size.width - corner, 0f)
+        lineTo(size.width, 0f)
+        lineTo(size.width, corner)
+        close()
+      },
+      c.content,
+    )
   }
 }

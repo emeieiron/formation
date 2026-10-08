@@ -6,8 +6,8 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
-import xyz.mcxross.formation.sensors.api.SensorKind
 import kotlinx.coroutines.test.runTest
+import xyz.mcxross.formation.sensors.api.SensorKind
 
 class GesturesTest {
   @Test
@@ -31,7 +31,14 @@ class GesturesTest {
   @Test
   fun tiltFollowsTheRightEdge() {
     val radians = kotlin.math.PI.toFloat() / 6f
-    val tilt = Tilt.of(Vec3(kotlin.math.sin(radians) * STANDARD_GRAVITY, 0f, kotlin.math.cos(radians) * STANDARD_GRAVITY))
+    val tilt =
+      Tilt.of(
+        Vec3(
+          kotlin.math.sin(radians) * STANDARD_GRAVITY,
+          0f,
+          kotlin.math.cos(radians) * STANDARD_GRAVITY,
+        )
+      )
     assertEquals(30f, tilt.roll, 0.01f)
     assertEquals(0f, Tilt.of(Pose.FACE_UP.gravity()).roll, 0.01f)
   }
@@ -85,6 +92,7 @@ class GesturesTest {
     runCurrent()
     assertEquals(null, sense.pose.value)
   }
+
   @OptIn(ExperimentalCoroutinesApi::class)
   @Test
   fun shakeHistoryCannotCrossAnAcquisitionInterruption() = runTest {
@@ -96,9 +104,21 @@ class GesturesTest {
     backgroundScope.launch { sense.gestures.collect { gestures += it } }
     runCurrent()
     repeat(2) { index ->
-      backend.emit(SensorKind.LINEAR_ACCELERATION, 13f, 0f, 0f, timestampNanos = index * 140_000_000L)
+      backend.emit(
+        SensorKind.LINEAR_ACCELERATION,
+        13f,
+        0f,
+        0f,
+        timestampNanos = index * 140_000_000L,
+      )
       runCurrent()
-      backend.emit(SensorKind.LINEAR_ACCELERATION, 0f, 0f, 0f, timestampNanos = index * 140_000_000L + 40_000_000)
+      backend.emit(
+        SensorKind.LINEAR_ACCELERATION,
+        0f,
+        0f,
+        0f,
+        timestampNanos = index * 140_000_000L + 40_000_000,
+      )
       runCurrent()
     }
     hub.setForeground(false)
@@ -109,5 +129,4 @@ class GesturesTest {
     runCurrent()
     assertTrue(gestures.isEmpty())
   }
-
 }

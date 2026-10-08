@@ -16,7 +16,8 @@ internal sealed interface Segment {
   data class Cubic(val first: Vec, val second: Vec, override val to: Vec) : Segment
 }
 
-// One closed contour of SVG path data. Supports the commands the logomark uses: M, L, H, V, C and Z.
+// One closed contour of SVG path data. Supports the commands the logomark uses: M, L, H, V, C and
+// Z.
 internal class PathData(val start: Vec, val segments: List<Segment>) {
   fun flatten(steps: Int = 12): List<Vec> {
     val points = mutableListOf(start)
@@ -24,11 +25,16 @@ internal class PathData(val start: Vec, val segments: List<Segment>) {
     for (segment in segments) {
       when (segment) {
         is Segment.Line -> points += segment.to
-        is Segment.Cubic -> for (step in 1..steps) {
-          val t = step.toDouble() / steps
-          val u = 1 - t
-          points += from * (u * u * u) + segment.first * (3 * u * u * t) + segment.second * (3 * u * t * t) + segment.to * (t * t * t)
-        }
+        is Segment.Cubic ->
+          for (step in 1..steps) {
+            val t = step.toDouble() / steps
+            val u = 1 - t
+            points +=
+              from * (u * u * u) +
+                segment.first * (3 * u * u * t) +
+                segment.second * (3 * u * t * t) +
+                segment.to * (t * t * t)
+          }
       }
       from = segment.to
     }
@@ -58,9 +64,18 @@ internal class PathData(val start: Vec, val segments: List<Segment>) {
             // Coordinates after a move continue as lines.
             command = if (relative) 'l' else 'L'
           }
-          'L' -> { at = point(relative); segments += Segment.Line(at) }
-          'H' -> { at = Vec(number() + if (relative) at.x else 0.0, at.y); segments += Segment.Line(at) }
-          'V' -> { at = Vec(at.x, number() + if (relative) at.y else 0.0); segments += Segment.Line(at) }
+          'L' -> {
+            at = point(relative)
+            segments += Segment.Line(at)
+          }
+          'H' -> {
+            at = Vec(number() + if (relative) at.x else 0.0, at.y)
+            segments += Segment.Line(at)
+          }
+          'V' -> {
+            at = Vec(at.x, number() + if (relative) at.y else 0.0)
+            segments += Segment.Line(at)
+          }
           'C' -> {
             val first = point(relative)
             val second = point(relative)

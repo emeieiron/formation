@@ -472,5 +472,4 @@ object Icons {
       }
     }
   }
-
 }

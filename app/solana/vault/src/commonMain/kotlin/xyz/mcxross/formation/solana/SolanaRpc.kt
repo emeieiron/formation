@@ -5,8 +5,8 @@ import io.ktor.client.HttpClient
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
-import io.ktor.http.HttpStatusCode
 import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -38,7 +38,8 @@ import kotlinx.serialization.json.putJsonObject
 import xyz.mcxross.formation.crypto.Base58
 import xyz.mcxross.formation.crypto.Base64
 
-// [url] is the preferred endpoint, such as a keyed provider; [fallback] takes over while it is rate limited,
+// [url] is the preferred endpoint, such as a keyed provider; [fallback] takes over while it is rate
+// limited,
 // out of quota, refusing its key or unreachable, and the preferred one is retried after [cooldown].
 class SolanaRpc(
   private val http: HttpClient,
@@ -68,10 +69,12 @@ class SolanaRpc(
       .jsonObject
       .getValue("value")
       .jsonObject
-      .let { value -> Blockhash(
-        value.getValue("blockhash").jsonPrimitive.content,
-        value.getValue("lastValidBlockHeight").jsonPrimitive.long,
-      ) }
+      .let { value ->
+        Blockhash(
+          value.getValue("blockhash").jsonPrimitive.content,
+          value.getValue("lastValidBlockHeight").jsonPrimitive.long,
+        )
+      }
 
   suspend fun blockHeight(): Long =
     call("getBlockHeight", buildJsonArray { add(options()) }).jsonPrimitive.long
@@ -79,8 +82,7 @@ class SolanaRpc(
   suspend fun genesisHash(): String =
     call("getGenesisHash", buildJsonArray {}).jsonPrimitive.content
 
-  suspend fun slot(): Long =
-    call("getSlot", buildJsonArray { add(options()) }).jsonPrimitive.long
+  suspend fun slot(): Long = call("getSlot", buildJsonArray { add(options()) }).jsonPrimitive.long
 
   suspend fun chainTimeMillis(): Long? {
     val slot = slot()
@@ -212,14 +214,22 @@ class SolanaRpc(
       put("method", method)
       put("params", params)
     }
-    // Android cuts an app's connections while another app, such as the wallet, is in front, so the first call
+    // Android cuts an app's connections while another app, such as the wallet, is in front, so the
+    // first call
     // after coming back can fail before reaching any node.
-    val response = ask(body) ?: run {
-      delay(retryAfter)
+    val response =
       ask(body)
-    }
-    val json = response?.json
-      ?: throw RpcException(-1, if (response == null) "No connection to Solana" else "The Solana node sent something unexpected")
+        ?: run {
+          delay(retryAfter)
+          ask(body)
+        }
+    val json =
+      response?.json
+        ?: throw RpcException(
+          -1,
+          if (response == null) "No connection to Solana"
+          else "The Solana node sent something unexpected",
+        )
     json["error"]
       ?.takeUnless { it is JsonNull }
       ?.jsonObject
@@ -236,14 +246,24 @@ class SolanaRpc(
   }
 
   private class Reply(val status: HttpStatusCode, val json: JsonObject?) {
-    // A keyed provider says no to every request this way while its quota is spent or its key is revoked.
+    // A keyed provider says no to every request this way while its quota is spent or its key is
+    // revoked.
     fun refused(): Boolean {
-      if (status == HttpStatusCode.TooManyRequests || status == HttpStatusCode.Unauthorized ||
-        status == HttpStatusCode.Forbidden || status.value >= 500 || json == null) return true
+      if (
+        status == HttpStatusCode.TooManyRequests ||
+          status == HttpStatusCode.Unauthorized ||
+          status == HttpStatusCode.Forbidden ||
+          status.value >= 500 ||
+          json == null
+      )
+        return true
       val error = json["error"] as? JsonObject ?: return false
       val code = error["code"]?.jsonPrimitive?.intOrNull
       val message = error["message"]?.jsonPrimitive?.contentOrNull.orEmpty().lowercase()
-      return code == -32429 || code == 429 || code == 401 || code == 403 ||
+      return code == -32429 ||
+        code == 429 ||
+        code == 401 ||
+        code == 403 ||
         listOf("rate limit", "api key", "credits", "quota", "unauthorized").any { it in message }
     }
   }
@@ -267,10 +287,17 @@ class SolanaRpc(
     withContext(Dispatchers.Default) {
       withTimeoutOrNull(callTimeout) {
         runCatching {
-          val response = http.post(endpoint) { setBody(TextContent(body.toString(), ContentType.Application.Json)) }
+          val response =
+            http.post(endpoint) {
+              setBody(TextContent(body.toString(), ContentType.Application.Json))
+            }
           val text = response.bodyAsText()
-          Reply(response.status, runCatching { Json.parseToJsonElement(text).jsonObject }.getOrNull())
-        }.getOrNull()
+          Reply(
+            response.status,
+            runCatching { Json.parseToJsonElement(text).jsonObject }.getOrNull(),
+          )
+        }
+          .getOrNull()
       }
     }
 

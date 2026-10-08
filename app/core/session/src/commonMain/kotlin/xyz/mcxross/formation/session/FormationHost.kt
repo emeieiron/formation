@@ -38,15 +38,23 @@ class FormationHost(
 ) {
   private val info = formation
   private val screenRequirement = rules.screenRequirement(info.opportunity.players)
-  private val seats = recovery?.players?.map { p ->
-    Seat(p.id, p.device ?: p.claimKey, p.name, p.light, p.seeker, p.claimKey, p.wallet, null)
-  }?.toMutableList() ?: mutableListOf()
-  private var stage: Stage = recovery?.let { saved ->
-    require(saved.formation == info) { "The saved session belongs to another Formation" }
-    validatedCompletion(saved).let { if (it.unlock is Unlock.Unlocking) it.copy(unlock = Unlock.Waiting) else it }
-  } ?: Stage.Lobby
+  private val seats =
+    recovery
+      ?.players
+      ?.map { p ->
+        Seat(p.id, p.device ?: p.claimKey, p.name, p.light, p.seeker, p.claimKey, p.wallet, null)
+      }
+      ?.toMutableList() ?: mutableListOf()
+  private var stage: Stage =
+    recovery?.let { saved ->
+      require(saved.formation == info) { "The saved session belongs to another Formation" }
+      validatedCompletion(saved).let {
+        if (it.unlock is Unlock.Unlocking) it.copy(unlock = Unlock.Waiting) else it
+      }
+    } ?: Stage.Lobby
   private var round = recovery?.round ?: 0
-  private var nextSeat = (seats.maxOfOrNull { it.id.value.removePrefix("p").toIntOrNull() ?: 0 } ?: 0) + 1
+  private var nextSeat =
+    (seats.maxOfOrNull { it.id.value.removePrefix("p").toIntOrNull() ?: 0 } ?: 0) + 1
   private var game: HostedGame<*, *>? = null
   private var frameSeq = 0L
   private var lastState: String? = null
@@ -57,7 +65,8 @@ class FormationHost(
   private var reportedSeals = -1
   private var sealingAt = 0L
 
-  private val _snapshot = MutableStateFlow(SessionSnapshot(info, seats.map { it.toPlayer() }, stage, round))
+  private val _snapshot =
+    MutableStateFlow(SessionSnapshot(info, seats.map { it.toPlayer() }, stage, round))
   val snapshot: StateFlow<SessionSnapshot> = _snapshot.asStateFlow()
 
   private val events = Channel<Event>(Channel.UNLIMITED)
@@ -74,9 +83,11 @@ class FormationHost(
   // Only the Seeker's own in-process link ([local]) can take the Seeker's seat.
   suspend fun serve(channel: LinkChannel, local: Boolean = false) {
     val conn = HostConnection(channel, local, admissionChallenge(info, rules), host?.proof, json)
-    conn.run(received = { events.send(Event.Received(conn, it)) },
+    conn.run(
+      received = { events.send(Event.Received(conn, it)) },
       closed = { events.trySend(Event.Closed(conn)) },
-      timedOut = { command { if (seatOf(conn) == null) reject(conn, Rejection.IDENTITY) } })
+      timedOut = { command { if (seatOf(conn) == null) reject(conn, Rejection.IDENTITY) } },
+    )
   }
 
   // Safe to call from any thread.
@@ -103,7 +114,12 @@ class FormationHost(
   }
 
   fun begin() = command {
-    if (stage == Stage.Lobby && seats.size >= info.opportunity.players && seats.all { it.conn != null }) toBriefing()
+    if (
+      stage == Stage.Lobby &&
+        seats.size >= info.opportunity.players &&
+        seats.all { it.conn != null }
+    )
+      toBriefing()
   }
 
   fun startNow() = command { if (stage is Stage.Briefing) startRound() }
@@ -129,10 +145,14 @@ class FormationHost(
 
   fun unlocking() = updateUnlock { Unlock.Unlocking }
 
-  fun unlocked(receipt: String, explorerUrl: String?, paid: List<PlayerId> = emptyList(), settled: Boolean = true) =
-    updateUnlock {
-      Unlock.Unlocked(receipt, clock.now(), explorerUrl, paid, settled)
-    }
+  fun unlocked(
+    receipt: String,
+    explorerUrl: String?,
+    paid: List<PlayerId> = emptyList(),
+    settled: Boolean = true,
+  ) = updateUnlock {
+    Unlock.Unlocked(receipt, clock.now(), explorerUrl, paid, settled)
+  }
 
   fun unlockFailed(message: String) = updateUnlock { Unlock.Failed(message) }
 
@@ -177,7 +197,21 @@ class FormationHost(
     var screen: ScreenProfile? = null,
   ) {
     fun toPlayer() =
-      Player(id, name, light, seeker, claimKey, wallet, conn != null, ready, latencyMs, device, clockReady, availableInputs, sensorReady)
+      Player(
+        id,
+        name,
+        light,
+        seeker,
+        claimKey,
+        wallet,
+        conn != null,
+        ready,
+        latencyMs,
+        device,
+        clockReady,
+        availableInputs,
+        sensorReady,
+      )
   }
 
   private fun command(run: () -> Unit) {
@@ -200,7 +234,8 @@ class FormationHost(
     if (message is ToHost.Ping) {
       conn.send(encode(ToPlayer.Pong(message.sent, clock.now())))
       val seat = seatOf(conn) ?: return
-      val synced = message.synced && message.rtt != null && message.rtt in 0..ClockSync.MAX_RTT_MS.toInt()
+      val synced =
+        message.synced && message.rtt != null && message.rtt in 0..ClockSync.MAX_RTT_MS.toInt()
       if (seat.clockReady != synced) latencyDirty = true
       seat.clockReady = synced
       if (synced) seat.syncReportedAt = clock.now()
@@ -220,20 +255,25 @@ class FormationHost(
       is ToHost.Wallet -> wallet(seat, message.address)
       is ToHost.Profile -> profile(seat, message)
       ToHost.Leave -> left(seat)
-      is ToHost.Hello, is ToHost.Ping -> Unit
+      is ToHost.Hello,
+      is ToHost.Ping -> Unit
     }
   }
 
   private fun hello(conn: HostConnection, hello: ToHost.Hello) {
     if (stage is Stage.Closed) return reject(conn, Rejection.CLOSED)
-    admissionRejection(conn.challenge, hello)?.let { return reject(conn, it) }
+    admissionRejection(conn.challenge, hello)?.let {
+      return reject(conn, it)
+    }
     if (seatOf(conn) != null) return reject(conn, Rejection.DUPLICATE)
     conn.presence = hello.presence
 
     val returning = seats.firstOrNull { it.device == hello.device || it.claimKey == hello.claimKey }
     if (returning != null) {
-      if (returning.seeker != conn.local || returning.claimKey != hello.claimKey) return reject(conn, Rejection.DUPLICATE)
-      if (returning.conn != null && returning.conn !== conn) return reject(conn, Rejection.DUPLICATE)
+      if (returning.seeker != conn.local || returning.claimKey != hello.claimKey)
+        return reject(conn, Rejection.DUPLICATE)
+      if (returning.conn != null && returning.conn !== conn)
+        return reject(conn, Rejection.DUPLICATE)
       returning.capabilities = hello.capabilities
       returning.availableInputs = emptySet()
       returning.screen = null
@@ -242,7 +282,11 @@ class FormationHost(
       val interruptedPlay = stage is Stage.Playing && returning.disconnectedAt != null
       returning.disconnectedAt = null
       returning.clockReady = false
-      if (interruptedPlay) finish(RoundResult("The connection was interrupted. Try again.", null, emptyList(), clock.now()), won = false)
+      if (interruptedPlay)
+        finish(
+          RoundResult("The connection was interrupted. Try again.", null, emptyList(), clock.now()),
+          won = false,
+        )
       if (stage !is Stage.Won) returning.wallet = validWallet(hello.wallet)
       welcome(conn, returning)
       return
@@ -323,19 +367,35 @@ class FormationHost(
   }
 
   private fun sensors(seat: Seat, message: ToHost.Sensors) {
-    if (message.round != round || stage is Stage.Won || stage is Stage.Lost || stage is Stage.Closed) return
+    if (
+      message.round != round || stage is Stage.Won || stage is Stage.Lost || stage is Stage.Closed
+    )
+      return
     // A phone that can measure its screen still has to report a measurement this game accepts.
     val screen = message.screen?.takeIf { screenRequirement?.accepts(it) == true }
-    val available = message.available.intersect(seat.capabilities)
-      .filterTo(mutableSetOf()) { it != ScreenRequirement.CAPABILITY || screen != null }
+    val available =
+      message.available.intersect(seat.capabilities).filterTo(mutableSetOf()) {
+        it != ScreenRequirement.CAPABILITY || screen != null
+      }
     val sensorReady = available.containsAll(rules.requiredCapabilities(info.opportunity.players))
     if (stage !is Stage.Playing) seat.screen = screen
     if (seat.availableInputs == available && seat.sensorReady == sensorReady) return
     seat.availableInputs = available
     seat.sensorReady = sensorReady
     if (!sensorReady) seat.ready = false
-    if (stage is Stage.Playing && game?.activeCapabilities(seat.id, seats.size)?.all { it in available } == false) {
-      finish(RoundResult("A phone's input stopped. Restore it and try again.", null, emptyList(), clock.now()), won = false)
+    if (
+      stage is Stage.Playing &&
+        game?.activeCapabilities(seat.id, seats.size)?.all { it in available } == false
+    ) {
+      finish(
+        RoundResult(
+          "A phone's input stopped. Restore it and try again.",
+          null,
+          emptyList(),
+          clock.now(),
+        ),
+        won = false,
+      )
     } else publish()
   }
 
@@ -357,9 +417,14 @@ class FormationHost(
     publish()
   }
 
-  private fun readyToPlay() = seats.size == info.opportunity.players && seats.all {
-    it.conn != null && it.sensorReady && it.clockReady && clock.now() - it.syncReportedAt <= ClockSync.MAX_AGE_MS
-  }
+  private fun readyToPlay() =
+    seats.size == info.opportunity.players &&
+      seats.all {
+        it.conn != null &&
+          it.sensorReady &&
+          it.clockReady &&
+          clock.now() - it.syncReportedAt <= ClockSync.MAX_AGE_MS
+      }
 
   private fun startRound() {
     if (!readyToPlay()) return
@@ -374,7 +439,8 @@ class FormationHost(
         seed = random.nextLong(),
         startAt = goAt,
         capabilities = seats.associate { it.id to it.availableInputs.toSet() },
-        screens = if (screenRequirement == null) emptyMap()
+        screens =
+          if (screenRequirement == null) emptyMap()
           else seats.mapNotNull { seat -> seat.screen?.let { seat.id to it } }.toMap(),
       )
     game = HostedGame.start(rules, setup, json)
@@ -399,22 +465,44 @@ class FormationHost(
 
   private fun tick() {
     val now = clock.now()
-    seats.filter { it.clockReady && now - it.syncReportedAt > ClockSync.MAX_AGE_MS }.forEach {
-      it.clockReady = false
-      observe(DiagnosticEvent(DiagnosticCode.CLOCK_STALE))
-      latencyDirty = true
-    }
+    seats
+      .filter { it.clockReady && now - it.syncReportedAt > ClockSync.MAX_AGE_MS }
+      .forEach {
+        it.clockReady = false
+        observe(DiagnosticEvent(DiagnosticCode.CLOCK_STALE))
+        latencyDirty = true
+      }
     when (val s = stage) {
       is Stage.Briefing -> if (now >= s.until && readyToPlay()) startRound()
       is Stage.Playing -> {
-        val stopped = seats.any { seat -> game?.activeCapabilities(seat.id, seats.size)?.all { it in seat.availableInputs } == false }
+        val stopped = seats.any { seat ->
+          game?.activeCapabilities(seat.id, seats.size)?.all { it in seat.availableInputs } == false
+        }
         if (stopped) {
-          finish(RoundResult("A phone's input stopped. Restore it and try again.", null, emptyList(), now), won = false)
+          finish(
+            RoundResult(
+              "A phone's input stopped. Restore it and try again.",
+              null,
+              emptyList(),
+              now,
+            ),
+            won = false,
+          )
           return
         }
-        val missing = seats.firstOrNull { it.conn == null && now - (it.disconnectedAt ?: now) >= timing.disconnectGraceMs }
+        val missing = seats.firstOrNull {
+          it.conn == null && now - (it.disconnectedAt ?: now) >= timing.disconnectGraceMs
+        }
         if (missing != null) {
-          finish(RoundResult("The connection was interrupted. Reconnect and try again.", null, emptyList(), now), won = false)
+          finish(
+            RoundResult(
+              "The connection was interrupted. Reconnect and try again.",
+              null,
+              emptyList(),
+              now,
+            ),
+            won = false,
+          )
           return
         }
         // Freeze inputs and ticking while a participant is reconnecting. Restart if grace expires.
@@ -459,7 +547,14 @@ class FormationHost(
     val won = stage as? Stage.Won ?: return
     if (message.round != round || seat.id in won.seal.signed) return
     if (!Sealing.verify(won.seal, seat.toPlayer(), message.signature)) return
-    stage = won.copy(seal = won.seal.copy(signed = won.seal.signed + seat.id, signatures = won.seal.signatures + (seat.id to message.signature)))
+    stage =
+      won.copy(
+        seal =
+          won.seal.copy(
+            signed = won.seal.signed + seat.id,
+            signatures = won.seal.signatures + (seat.id to message.signature),
+          )
+      )
     publish()
   }
 
@@ -487,8 +582,11 @@ class FormationHost(
     var snapshot = SessionSnapshot(info, seats.map { it.toPlayer() }, stage, round)
     if (snapshot.stage is Stage.Won) {
       val won = snapshot.stage
-      val problem = runCatching { checkpoint(snapshot.copy(stage = won.copy(storageProblem = null))) }
-        .exceptionOrNull()?.let { "This win could not be saved. Keep this session open and free some storage." }
+      val problem = runCatching {
+        checkpoint(snapshot.copy(stage = won.copy(storageProblem = null)))
+      }
+        .exceptionOrNull()
+        ?.let { "This win could not be saved. Keep this session open and free some storage." }
       if (problem != null) observe(DiagnosticEvent(DiagnosticCode.STORAGE_FAILED))
       stage = won.copy(storageProblem = problem)
       snapshot = snapshot.copy(stage = stage)
@@ -500,9 +598,12 @@ class FormationHost(
       reportedStage = code
     }
     val count = (snapshot.stage as? Stage.Won)?.seal?.signed?.size
-    if (count != null && count != reportedSeals) { observe(DiagnosticEvent(DiagnosticCode.SEAL_PROGRESS, count.toLong()))
-      if ((snapshot.stage as? Stage.Won)?.seal?.complete == true) observe(DiagnosticEvent(DiagnosticCode.SEAL_DURATION, clock.now() - sealingAt))
-      reportedSeals = count }
+    if (count != null && count != reportedSeals) {
+      observe(DiagnosticEvent(DiagnosticCode.SEAL_PROGRESS, count.toLong()))
+      if ((snapshot.stage as? Stage.Won)?.seal?.complete == true)
+        observe(DiagnosticEvent(DiagnosticCode.SEAL_DURATION, clock.now() - sealingAt))
+      reportedSeals = count
+    }
     _snapshot.value = snapshot
     broadcast(signed(ToPlayer.Session(snapshot)))
   }
@@ -514,11 +615,10 @@ class FormationHost(
   private fun signed(message: ToPlayer): String {
     val key = host?.sessionKey ?: return encode(message)
     val text = encode(message)
-    return encode(ToPlayer.Signed(text, Base58.encode(key.sign(HostChecks.update(info.session, text)))))
+    return encode(
+      ToPlayer.Signed(text, Base58.encode(key.sign(HostChecks.update(info.session, text))))
+    )
   }
-
-
-
 
   companion object {
     // Size of the design system's palette of player lights.

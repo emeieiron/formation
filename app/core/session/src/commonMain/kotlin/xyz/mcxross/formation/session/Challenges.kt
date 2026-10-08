@@ -7,12 +7,19 @@ import xyz.mcxross.formation.model.Difficulty
 import xyz.mcxross.formation.model.PlayerId
 
 interface ChallengeRules<S : Any, I : Any> {
-  val formatVersion: Int get() = 1
+  val formatVersion: Int
+    get() = 1
+
   fun requiredCapabilities(players: Int): Set<String> = emptySet()
+
   fun optionalCapabilities(players: Int): Set<String> = emptySet()
-  fun activeCapabilities(state: S, player: PlayerId, players: Int): Set<String> = requiredCapabilities(players)
+
+  fun activeCapabilities(state: S, player: PlayerId, players: Int): Set<String> =
+    requiredCapabilities(players)
+
   // Games drawn at physical scale need every phone's measured screen before the round starts.
   fun screenRequirement(players: Int): ScreenRequirement? = null
+
   val id: ChallengeId
   val stateSerializer: KSerializer<S>
   val inputSerializer: KSerializer<I>

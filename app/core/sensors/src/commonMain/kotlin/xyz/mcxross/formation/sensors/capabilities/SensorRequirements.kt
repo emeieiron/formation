@@ -21,6 +21,7 @@ data class CapabilityIssue(val requirement: SensorRequirement, val availability:
 
 sealed interface Assessment {
   data object Ready : Assessment
+
   data class Blocked(val issues: List<CapabilityIssue>) : Assessment
 }
 
@@ -28,17 +29,23 @@ class CapabilityCatalog(val inputs: Map<InputCapability, Availability>) {
   fun assess(requirements: Collection<SensorRequirement>): Assessment {
     val issues = requirements.mapNotNull { requirement ->
       val availability = inputs.getValue(requirement.capability)
-      val accepted = availability is Availability.Available && when (availability.source) {
-        SensorSource.PLATFORM -> true
-        SensorSource.ESTIMATED -> requirement.allowEstimated
-        SensorSource.SIMULATED -> requirement.allowSimulated
-      }
+      val accepted =
+        availability is Availability.Available &&
+          when (availability.source) {
+            SensorSource.PLATFORM -> true
+            SensorSource.ESTIMATED -> requirement.allowEstimated
+            SensorSource.SIMULATED -> requirement.allowSimulated
+          }
       if (accepted) null else CapabilityIssue(requirement, availability)
     }
     return if (issues.isEmpty()) Assessment.Ready else Assessment.Blocked(issues)
   }
 
-  fun supported(allowSimulated: Boolean = false): Set<String> = inputs.keys.filter {
-    assess(listOf(SensorRequirement(it, allowSimulated = allowSimulated))) == Assessment.Ready
-  }.map { it.id }.toSet()
+  fun supported(allowSimulated: Boolean = false): Set<String> =
+    inputs.keys
+      .filter {
+        assess(listOf(SensorRequirement(it, allowSimulated = allowSimulated))) == Assessment.Ready
+      }
+      .map { it.id }
+      .toSet()
 }

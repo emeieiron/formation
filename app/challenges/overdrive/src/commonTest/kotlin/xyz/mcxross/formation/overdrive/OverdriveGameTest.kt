@@ -14,6 +14,7 @@ import xyz.mcxross.formation.session.Stat
 
 class OverdriveGameTest {
   private val players = listOf(PlayerId("a"), PlayerId("b"))
+
   private fun game(seed: Long = 41, difficulty: Difficulty = Difficulty.NORMAL) =
     OverdriveGame(ChallengeSetup(players, players.first(), difficulty, seed, 1_000))
 
@@ -29,7 +30,8 @@ class OverdriveGameTest {
       val wave = game.state.wave
       if (wave in failed) {
         val dial = game.state.dials.first()
-        if (dial.facing() == dial.clue) game.input(dial.player, Rotate(wave, dial.turns + 1), game.state.waveAt)
+        if (dial.facing() == dial.clue)
+          game.input(dial.player, Rotate(wave, dial.turns + 1), game.state.waveAt)
       } else players.forEach { align(game, it) }
       game.tick(game.state.dials.maxOf { it.catchAt } + OverdriveGame.LATE_INPUT_MS)
       game.tick(game.state.nextWaveAt)
@@ -63,7 +65,11 @@ class OverdriveGameTest {
     assertEquals("The formation missed a wave.", lost.reason)
     assertEquals(listOf(Stat("Waves", "1/12")), lost.stats)
     val terminal = game.state
-    game.input(players.first(), Rotate(game.state.wave, game.state.dials.first().turns + 1), game.state.nextWaveAt)
+    game.input(
+      players.first(),
+      Rotate(game.state.wave, game.state.dials.first().turns + 1),
+      game.state.nextWaveAt,
+    )
     game.tick(Long.MAX_VALUE)
     assertEquals(terminal, game.state)
   }
@@ -108,7 +114,11 @@ class OverdriveGameTest {
     val game = game()
     val deadline = game.state.dial(player).catchAt
     while (game.state.dial(player).facing() != game.state.dial(player).clue) {
-      game.input(player, Rotate(1, game.state.dial(player).turns + 1, at = deadline - 5), deadline + OverdriveGame.LATE_INPUT_MS - 1)
+      game.input(
+        player,
+        Rotate(1, game.state.dial(player).turns + 1, at = deadline - 5),
+        deadline + OverdriveGame.LATE_INPUT_MS - 1,
+      )
     }
     assertEquals(Catch.Pending, game.state.dial(player).result)
     game.tick(deadline + OverdriveGame.LATE_INPUT_MS)
@@ -118,12 +128,13 @@ class OverdriveGameTest {
   @Test
   fun tapsArrivingAfterTheLateWindowOrTouchedAfterTheDeadlineAreRejected() {
     val player = players.first()
-    listOf(-5L to OverdriveGame.LATE_INPUT_MS, 5L to 20L, -5_000L to OverdriveGame.LATE_INPUT_MS).forEach { (touched, arrived) ->
-      val game = game()
-      val deadline = game.state.dial(player).catchAt
-      game.input(player, Rotate(1, 1, at = deadline + touched), deadline + arrived)
-      assertEquals(0, game.state.dial(player).turns)
-    }
+    listOf(-5L to OverdriveGame.LATE_INPUT_MS, 5L to 20L, -5_000L to OverdriveGame.LATE_INPUT_MS)
+      .forEach { (touched, arrived) ->
+        val game = game()
+        val deadline = game.state.dial(player).catchAt
+        game.input(player, Rotate(1, 1, at = deadline + touched), deadline + arrived)
+        assertEquals(0, game.state.dial(player).turns)
+      }
   }
 
   @Test

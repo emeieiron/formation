@@ -10,12 +10,22 @@ import xyz.mcxross.formation.session.GameStatus
 
 class MosaicGameTest {
   private val game = MosaicGame(setup())
-  private val state get() = game.state
+  private val state
+    get() = game.state
+
   private fun at(position: Int) = state.positions[position]
+
   private val go = START + 1_000
 
   // 3 x 2 landscape: position 0 is top left, 1 top right, 2 middle left and so on.
-  private fun seal(first: Int, edge: Edge, second: Int, now: Long, along: Double = 30.0, offset: Double = 0.0) {
+  private fun seal(
+    first: Int,
+    edge: Edge,
+    second: Int,
+    now: Long,
+    along: Double = 30.0,
+    offset: Double = 0.0,
+  ) {
     game.input(at(first), pinch(now, edge, along, now), now)
     game.input(at(second), pinch(now, edge.opposite, along + offset, now), now)
   }
@@ -81,7 +91,11 @@ class MosaicGameTest {
   @Test
   fun aReleaseStampCannotReachBackPastTheLateWindow() {
     game.input(at(0), pinch(go, Edge.Right, 30.0, go), go)
-    game.input(at(1), pinch(go + 1, Edge.Left, 30.0, go), go + MosaicGame.LATE_MS + MosaicGame.PAIR_MS + 50)
+    game.input(
+      at(1),
+      pinch(go + 1, Edge.Left, 30.0, go),
+      go + MosaicGame.LATE_MS + MosaicGame.PAIR_MS + 50,
+    )
     assertEquals(emptyList(), state.sealed)
   }
 

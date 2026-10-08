@@ -11,14 +11,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.Image
-import org.jetbrains.compose.resources.painterResource
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.ColorFilter
-import xyz.mcxross.formation.design.resources.Res
-import xyz.mcxross.formation.design.resources.apex_player_plate
-import xyz.mcxross.formation.design.resources.apex_reward_pass
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -36,7 +30,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -52,10 +48,14 @@ import androidx.compose.ui.unit.sp
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
+import org.jetbrains.compose.resources.painterResource
 import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.foundation.Icon
 import xyz.mcxross.formation.design.foundation.Text
 import xyz.mcxross.formation.design.icons.Icons
+import xyz.mcxross.formation.design.resources.Res
+import xyz.mcxross.formation.design.resources.apex_player_plate
+import xyz.mcxross.formation.design.resources.apex_reward_pass
 import xyz.mcxross.formation.design.tokens.Light
 import xyz.mcxross.formation.design.tokens.Motion
 import xyz.mcxross.formation.design.tokens.Shapes
@@ -85,11 +85,13 @@ fun PlayerLight(
     else 0.8f
   Box(
     modifier.size(size).clearAndSetSemantics {
-      contentDescription = listOfNotNull(
-        name.takeIf { it.isNotBlank() },
-        if (seeker) "Seeker" else null,
-        if (dimmed) "Disconnected" else null,
-      ).joinToString(", ")
+      contentDescription =
+        listOfNotNull(
+            name.takeIf { it.isNotBlank() },
+            if (seeker) "Seeker" else null,
+            if (dimmed) "Disconnected" else null,
+          )
+          .joinToString(", ")
     },
     contentAlignment = Alignment.Center,
   ) {
@@ -100,13 +102,14 @@ fun PlayerLight(
       alpha = if (dimmed) 0.35f else 1f,
       colorFilter = ColorFilter.tint(light.color, BlendMode.Modulate),
     )
-    if (pulse) Canvas(Modifier.size(size)) {
-      drawRoundRect(
-        light.color.copy(alpha = glow),
-        cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx()),
-        style = Stroke(2.dp.toPx()),
-      )
-    }
+    if (pulse)
+      Canvas(Modifier.size(size)) {
+        drawRoundRect(
+          light.color.copy(alpha = glow),
+          cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx()),
+          style = Stroke(2.dp.toPx()),
+        )
+      }
     if (name.isNotBlank()) {
       Text(
         initial(name),
@@ -274,11 +277,13 @@ fun Tag(
   val accent = color ?: if (tone == Tone.Neutral) c.contentSecondary else c.tone(tone)
   val (background, content) =
     when (style) {
-      TagStyle.Solid -> accent to when (tone) {
-        Tone.Negative -> c.highlight
-        Tone.Reward -> c.onReward
-        else -> c.onAccent
-      }
+      TagStyle.Solid ->
+        accent to
+          when (tone) {
+            Tone.Negative -> c.highlight
+            Tone.Reward -> c.onReward
+            else -> c.onAccent
+          }
       TagStyle.Subtle ->
         (if (tone == Tone.Neutral && color == null) c.surfaceHigher
         else accent.copy(alpha = 0.15f)) to

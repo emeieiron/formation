@@ -36,8 +36,13 @@ internal fun OverdriveStage(scope: StageScope<OverdriveState, Rotate>) {
   val tenths by remember {
     derivedStateOf {
       val current = scope.state
-      val decided = current.clears == OverdriveState.REQUIRED_WAVES || current.lastWave?.cleared == false
-      val at = minOf(maxOf(now.value, current.startAt), current.lastWave?.at?.takeIf { decided } ?: Long.MAX_VALUE)
+      val decided =
+        current.clears == OverdriveState.REQUIRED_WAVES || current.lastWave?.cleared == false
+      val at =
+        minOf(
+          maxOf(now.value, current.startAt),
+          current.lastWave?.at?.takeIf { decided } ?: Long.MAX_VALUE,
+        )
       val left = (current.endsAt - at).coerceAtLeast(0)
       (if (left > URGENT_TENTHS * 100L) (left + 999) / 1_000 * 10 else (left + 99) / 100).toInt()
     }
@@ -48,7 +53,8 @@ internal fun OverdriveStage(scope: StageScope<OverdriveState, Rotate>) {
 
   // A catch and the wave it completes can land in one frame; feel the wave, not both.
   OnChange(Progress(state.wave, dial.result, state.lastWave?.wave)) { old, new ->
-    val outcome = scope.state.lastWave?.takeIf { new.resolved == new.wave && old.resolved != new.resolved }
+    val outcome =
+      scope.state.lastWave?.takeIf { new.resolved == new.wave && old.resolved != new.resolved }
     val mine = old.wave == new.wave && old.mine != new.mine
     when {
       outcome?.cleared == true -> scope.haptics.success()
@@ -73,45 +79,67 @@ internal fun OverdriveStage(scope: StageScope<OverdriveState, Rotate>) {
     }
   }
   OnChange((tenths + 9) / 10) { _, seconds ->
-    if (seconds in 1..HEARTBEAT_SECONDS && ending == null && scope.clock.hostNow() - fx.feltAt > 300) {
+    if (
+      seconds in 1..HEARTBEAT_SECONDS && ending == null && scope.clock.hostNow() - fx.feltAt > 300
+    ) {
       scope.haptics.heartbeat()
     }
   }
 
-  Column(Modifier.fillMaxSize()
-    .graphicsLayer { translationX = fx.quake.value.dp.toPx() }
-    .drawWithContent {
-      drawContent()
-      if (fx.alarm.value > 0f) drawRect(colors.negative.copy(alpha = 0.24f * fx.alarm.value))
-    }
-    .navigationBarsPadding().padding(horizontal = 20.dp)
-    .padding(top = 12.dp, bottom = 20.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+  Column(
+    Modifier.fillMaxSize()
+      .graphicsLayer { translationX = fx.quake.value.dp.toPx() }
+      .drawWithContent {
+        drawContent()
+        if (fx.alarm.value > 0f) drawRect(colors.negative.copy(alpha = 0.24f * fx.alarm.value))
+      }
+      .navigationBarsPadding()
+      .padding(horizontal = 20.dp)
+      .padding(top = 12.dp, bottom = 20.dp),
+    verticalArrangement = Arrangement.spacedBy(20.dp),
+  ) {
     OverdriveHud(state, tenths)
     PartnerClue(player, partner, state.wave, state.preview, now)
-    DialField(dial, state.wave, turns, now, fx, onRotate = {
-      val time = scope.clock.hostNow()
-      if (time >= state.waveAt && time < dial.catchAt && dial.result == Catch.Pending) {
-        predicted = maxOf(dial.turns, predicted) + 1
-        scope.send(Rotate(state.wave, predicted, time))
-        scope.haptics.tick()
-      }
-    }, modifier = Modifier.fillMaxWidth().weight(1f))
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally)) {
+    DialField(
+      dial,
+      state.wave,
+      turns,
+      now,
+      fx,
+      onRotate = {
+        val time = scope.clock.hostNow()
+        if (time >= state.waveAt && time < dial.catchAt && dial.result == Catch.Pending) {
+          predicted = maxOf(dial.turns, predicted) + 1
+          scope.send(Rotate(state.wave, predicted, time))
+          scope.haptics.tick()
+        }
+      },
+      modifier = Modifier.fillMaxWidth().weight(1f),
+    )
+    Row(
+      Modifier.fillMaxWidth(),
+      horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
+    ) {
       Icon(Icons.Tap, "Tap the playfield", tint = colors.contentSecondary, size = 28.dp)
       Icon(Icons.Refresh, "Rotate clockwise", tint = colors.contentSecondary, size = 28.dp)
     }
   }
 }
 
-private enum class Ending { Won, Broken, Timeout }
+private enum class Ending {
+  Won,
+  Broken,
+  Timeout,
+}
 
 // A catch that lands on the buzzer resolves just after it, so wait briefly before calling time.
-private fun ending(state: OverdriveState, now: Long): Ending? = when {
-  state.clears == OverdriveState.REQUIRED_WAVES -> Ending.Won
-  state.lastWave?.cleared == false -> Ending.Broken
-  now >= state.endsAt + 250 -> Ending.Timeout
-  else -> null
-}
+private fun ending(state: OverdriveState, now: Long): Ending? =
+  when {
+    state.clears == OverdriveState.REQUIRED_WAVES -> Ending.Won
+    state.lastWave?.cleared == false -> Ending.Broken
+    now >= state.endsAt + 250 -> Ending.Timeout
+    else -> null
+  }
 
 private data class Progress(val wave: Int, val mine: Catch, val resolved: Int?)
 

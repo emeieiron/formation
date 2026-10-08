@@ -11,12 +11,17 @@ import xyz.mcxross.formation.solana.transaction
 class WalletApprovalTest {
   private val payer = SolanaPublicKey(ByteArray(32) { 1 })
 
-  // Each blockhash is valid until 150 blocks after the height it was fetched at; the wallet spends [approval] blocks.
+  // Each blockhash is valid until 150 blocks after the height it was fetched at; the wallet spends
+  // [approval] blocks.
   private class Chain(val approvals: MutableList<Long>) {
     var height = 1_000L
     val fetched = mutableListOf<String>()
-    suspend fun latest() = SolanaRpc.Blockhash("hash${fetched.size}", height + 150).also { fetched += it.value }
+
+    suspend fun latest() =
+      SolanaRpc.Blockhash("hash${fetched.size}", height + 150).also { fetched += it.value }
+
     suspend fun height() = height
+
     suspend fun sign(txs: List<com.solana.transaction.Transaction>): List<ByteArray> {
       height += approvals.removeFirst()
       return txs.map { ByteArray(64) }
@@ -48,7 +53,10 @@ class WalletApprovalTest {
   fun aWalletThatIsAlwaysTooSlowGetsAClearAnswer() = runTest {
     val chain = Chain(mutableListOf(200, 200, 200))
     val e = assertFailsWith<IllegalStateException> { approve(chain) }
-    assertEquals("The wallet took too long to approve. Try again and approve right away.", e.message)
+    assertEquals(
+      "The wallet took too long to approve. Try again and approve right away.",
+      e.message,
+    )
     assertEquals(3, chain.fetched.size)
   }
 }

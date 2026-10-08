@@ -23,25 +23,19 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
-import xyz.mcxross.formation.resources.Res
-import xyz.mcxross.formation.resources.label_name
-import xyz.mcxross.formation.resources.label_profile
-import xyz.mcxross.formation.resources.label_sound
-import xyz.mcxross.formation.resources.label_sound_effects
 import xyz.mcxross.formation.design.Theme
-import xyz.mcxross.formation.design.components.LiveryRule
 import xyz.mcxross.formation.design.components.Button
-import xyz.mcxross.formation.design.components.Notice
-import xyz.mcxross.formation.design.tokens.Tone
-import xyz.mcxross.formation.design.components.TextButton
 import xyz.mcxross.formation.design.components.ButtonSize
 import xyz.mcxross.formation.design.components.ButtonStyle
+import xyz.mcxross.formation.design.components.LiveryRule
 import xyz.mcxross.formation.design.components.LocalToaster
 import xyz.mcxross.formation.design.components.NavigationBarSpacer
+import xyz.mcxross.formation.design.components.Notice
 import xyz.mcxross.formation.design.components.Page
 import xyz.mcxross.formation.design.components.PlayerLight
 import xyz.mcxross.formation.design.components.SectionHeader
 import xyz.mcxross.formation.design.components.SettingRow
+import xyz.mcxross.formation.design.components.TextButton
 import xyz.mcxross.formation.design.components.TextField
 import xyz.mcxross.formation.design.components.Toggle
 import xyz.mcxross.formation.design.components.TopBar
@@ -51,7 +45,13 @@ import xyz.mcxross.formation.design.foundation.Text
 import xyz.mcxross.formation.design.icons.Icons
 import xyz.mcxross.formation.design.tokens.Sizes
 import xyz.mcxross.formation.design.tokens.Space
+import xyz.mcxross.formation.design.tokens.Tone
 import xyz.mcxross.formation.link.EmulatorBridge
+import xyz.mcxross.formation.resources.Res
+import xyz.mcxross.formation.resources.label_name
+import xyz.mcxross.formation.resources.label_profile
+import xyz.mcxross.formation.resources.label_sound
+import xyz.mcxross.formation.resources.label_sound_effects
 import xyz.mcxross.formation.state.HardwareCheck
 import xyz.mcxross.formation.state.KEY_DEV_SEEKER_HARDWARE
 import xyz.mcxross.formation.state.Profile
@@ -104,7 +104,12 @@ fun SettingsScreen() {
         )
       }
       Column(Modifier.padding(horizontal = Space.gutter)) {
-        TextField(name, { name = it }, label = stringResource(Res.string.label_name), maxLength = 20)
+        TextField(
+          name,
+          { name = it },
+          label = stringResource(Res.string.label_name),
+          maxLength = 20,
+        )
         Spacer(Modifier.height(Space.l))
         LightPicker(
           light,
@@ -146,10 +151,14 @@ fun SettingsScreen() {
               },
             detail =
               when {
-                s?.test == true -> "This phone's test wallet ${shortAddress(s.wallet)} holds test Genesis Token ${shortAddress(s.sgt)}, so it hosts on ${graph.platform.config.cluster}."
-                s != null -> "${shortAddress(s.wallet)} holds Genesis Token ${shortAddress(s.sgt)}. This phone hosts for it."
-                graph.seeker.testSeekers -> "Hosting takes a Genesis Token. On ${graph.platform.config.cluster} this phone can get a test one."
-                graph.platform.device.seeker -> "Link the wallet that holds its Genesis Token to host Formations."
+                s?.test == true ->
+                  "This phone's test wallet ${shortAddress(s.wallet)} holds test Genesis Token ${shortAddress(s.sgt)}, so it hosts on ${graph.platform.config.cluster}."
+                s != null ->
+                  "${shortAddress(s.wallet)} holds Genesis Token ${shortAddress(s.sgt)}. This phone hosts for it."
+                graph.seeker.testSeekers ->
+                  "Hosting takes a Genesis Token. On ${graph.platform.config.cluster} this phone can get a test one."
+                graph.platform.device.seeker ->
+                  "Link the wallet that holds its Genesis Token to host Formations."
                 else -> "This phone joins Formations that Seeker owners start."
               },
             icon = Icons.Seeker,
@@ -158,25 +167,60 @@ fun SettingsScreen() {
           Row(Modifier.padding(Space.l), horizontalArrangement = Arrangement.spacedBy(Space.m)) {
             when {
               s != null -> {
-                Button("Check again", { scope.launch { graph.seeker.autoVerify() } }, style = ButtonStyle.Secondary,
-                  size = ButtonSize.Medium, fillWidth = false, loading = status == SeekerStatus.Checking)
-                Button("Unlink", { graph.seeker.forget() }, style = ButtonStyle.Ghost, size = ButtonSize.Medium, fillWidth = false)
+                Button(
+                  "Check again",
+                  { scope.launch { graph.seeker.autoVerify() } },
+                  style = ButtonStyle.Secondary,
+                  size = ButtonSize.Medium,
+                  fillWidth = false,
+                  loading = status == SeekerStatus.Checking,
+                )
+                Button(
+                  "Unlink",
+                  { graph.seeker.forget() },
+                  style = ButtonStyle.Ghost,
+                  size = ButtonSize.Medium,
+                  fillWidth = false,
+                )
               }
               graph.seeker.testSeekers ->
                 Column(verticalArrangement = Arrangement.spacedBy(Space.s)) {
-                  Button("Become a test Seeker", { scope.launch { graph.seeker.becomeTestSeeker() } }, style = ButtonStyle.Reward,
-                    size = ButtonSize.Medium, loading = status == SeekerStatus.Checking, leadingIcon = Icons.Seeker)
-                  // A wallet app that already holds a test token hosts through the same path a Seed Vault Wallet will.
-                  TextButton("Link a wallet that holds a test token instead", { scope.launch { graph.seeker.link() } })
+                  Button(
+                    "Become a test Seeker",
+                    { scope.launch { graph.seeker.becomeTestSeeker() } },
+                    style = ButtonStyle.Reward,
+                    size = ButtonSize.Medium,
+                    loading = status == SeekerStatus.Checking,
+                    leadingIcon = Icons.Seeker,
+                  )
+                  // A wallet app that already holds a test token hosts through the same path a Seed
+                  // Vault Wallet will.
+                  TextButton(
+                    "Link a wallet that holds a test token instead",
+                    { scope.launch { graph.seeker.link() } },
+                  )
                 }
               graph.platform.device.seeker ->
-                Button("Link this Seeker", { scope.launch { graph.seeker.link() } }, style = ButtonStyle.Reward,
-                  size = ButtonSize.Medium, loading = status == SeekerStatus.Checking)
-              else -> TextButton("Have a Seeker? Link its wallet", { scope.launch { graph.seeker.link() } })
+                Button(
+                  "Link this Seeker",
+                  { scope.launch { graph.seeker.link() } },
+                  style = ButtonStyle.Reward,
+                  size = ButtonSize.Medium,
+                  loading = status == SeekerStatus.Checking,
+                )
+              else ->
+                TextButton(
+                  "Have a Seeker? Link its wallet",
+                  { scope.launch { graph.seeker.link() } },
+                )
             }
           }
           (status as? SeekerStatus.NeedsApproval)?.let {
-            Notice(it.message, Modifier.padding(start = Space.l, end = Space.l, bottom = Space.l), tone = Tone.Warning)
+            Notice(
+              it.message,
+              Modifier.padding(start = Space.l, end = Space.l, bottom = Space.l),
+              tone = Tone.Warning,
+            )
           }
         }
       }
@@ -190,11 +234,26 @@ fun SettingsScreen() {
             icon = Icons.Coin,
           )
           Hairline()
-          SettingRow("Reward recovery", detail = if ((claimState as? xyz.mcxross.formation.state.recovery.ClaimKeyState.Ready)?.protectedOnDevice == true)
-            "Automatic protection on this phone" else "Recovery options", icon = Icons.Lock, trailing = {
-            Button("Open", { graph.navigator.push(Screen.Recovery) }, style = ButtonStyle.Secondary,
-              size = ButtonSize.Small, fillWidth = false)
-          })
+          SettingRow(
+            "Reward recovery",
+            detail =
+              if (
+                (claimState as? xyz.mcxross.formation.state.recovery.ClaimKeyState.Ready)
+                  ?.protectedOnDevice == true
+              )
+                "Automatic protection on this phone"
+              else "Recovery options",
+            icon = Icons.Lock,
+            trailing = {
+              Button(
+                "Open",
+                { graph.navigator.push(Screen.Recovery) },
+                style = ButtonStyle.Secondary,
+                size = ButtonSize.Small,
+                fillWidth = false,
+              )
+            },
+          )
           Hairline()
           SettingRow(
             "Your rewards",
@@ -219,36 +278,52 @@ fun SettingsScreen() {
         Panel(Modifier.fillMaxWidth().padding(horizontal = Space.gutter)) {
           Column {
             SettingRow(
-              title = when (hardware) {
-                HardwareCheck.Proven -> "Seeker hardware attested"
-                HardwareCheck.Checking -> "Checking this phone…"
-                is HardwareCheck.Failed -> "Seeker hardware not attested"
-                HardwareCheck.Unknown -> "Seeker hardware attestation"
-              },
-              detail = when (val check = hardware) {
-                HardwareCheck.Proven -> "Secure hardware shows a Seeker with a locked bootloader running this app."
-                is HardwareCheck.Failed -> check.message
-                else -> "For a future Seeker present badge. Hosting never depends on it."
-              },
+              title =
+                when (hardware) {
+                  HardwareCheck.Proven -> "Seeker hardware attested"
+                  HardwareCheck.Checking -> "Checking this phone…"
+                  is HardwareCheck.Failed -> "Seeker hardware not attested"
+                  HardwareCheck.Unknown -> "Seeker hardware attestation"
+                },
+              detail =
+                when (val check = hardware) {
+                  HardwareCheck.Proven ->
+                    "Secure hardware shows a Seeker with a locked bootloader running this app."
+                  is HardwareCheck.Failed -> check.message
+                  else -> "For a future Seeker present badge. Hosting never depends on it."
+                },
               icon = Icons.Lock,
               trailing = {
-                Button("Check", { scope.launch { graph.hardware.proveThisPhone() } }, style = ButtonStyle.Secondary,
-                  size = ButtonSize.Small, fillWidth = false, loading = hardware == HardwareCheck.Checking)
+                Button(
+                  "Check",
+                  { scope.launch { graph.hardware.proveThisPhone() } },
+                  style = ButtonStyle.Secondary,
+                  size = ButtonSize.Small,
+                  fillWidth = false,
+                  loading = hardware == HardwareCheck.Checking,
+                )
               },
             )
             Hairline()
-            var seekerHardware by remember { mutableStateOf(graph.platform.store.get(KEY_DEV_SEEKER_HARDWARE) == "true") }
+            var seekerHardware by remember {
+              mutableStateOf(graph.platform.store.get(KEY_DEV_SEEKER_HARDWARE) == "true")
+            }
             SettingRow(
               "Act as Seeker hardware",
-              detail = "Shows a Seeker's onboarding on this phone." +
-                if (seekerHardware != graph.platform.device.seeker) " Restart Formation to apply." else "",
+              detail =
+                "Shows a Seeker's onboarding on this phone." +
+                  if (seekerHardware != graph.platform.device.seeker) " Restart Formation to apply."
+                  else "",
               icon = Icons.Phone,
               trailing = {
-                Toggle(seekerHardware, { on ->
-                  seekerHardware = on
-                  graph.platform.store.put(KEY_DEV_SEEKER_HARDWARE, if (on) "true" else null)
-                  toaster.show("Restart Formation to apply")
-                })
+                Toggle(
+                  seekerHardware,
+                  { on ->
+                    seekerHardware = on
+                    graph.platform.store.put(KEY_DEV_SEEKER_HARDWARE, if (on) "true" else null)
+                    toaster.show("Restart Formation to apply")
+                  },
+                )
               },
             )
             Hairline()

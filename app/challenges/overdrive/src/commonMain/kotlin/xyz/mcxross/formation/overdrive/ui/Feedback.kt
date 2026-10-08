@@ -36,7 +36,8 @@ internal class StageFx(private val scope: CoroutineScope) {
       punch.animateTo(0f, spring(dampingRatio = 0.35f, stiffness = 500f))
     }
     fade(flash, 280)
-    if (hit.isSpecified) particles.burst(hit, listOf(color, Color.White), count = 22, speed = 1_100f)
+    if (hit.isSpecified)
+      particles.burst(hit, listOf(color, Color.White), count = 22, speed = 1_100f)
   }
 
   fun missed() = shake(wobble, 320f)
@@ -44,7 +45,8 @@ internal class StageFx(private val scope: CoroutineScope) {
   fun failed() = fade(alarm, 450)
 
   fun won(colors: List<Color>) {
-    if (core.isSpecified) particles.burst(core, colors + Color.White, count = 64, speed = 1_800f, gravity = 600f)
+    if (core.isSpecified)
+      particles.burst(core, colors + Color.White, count = 64, speed = 1_800f, gravity = 600f)
     fade(flash, 600)
   }
 
@@ -64,7 +66,11 @@ internal class StageFx(private val scope: CoroutineScope) {
   private fun shake(target: Animatable<Float, AnimationVector1D>, velocity: Float) {
     scope.launch {
       target.snapTo(0f)
-      target.animateTo(0f, spring(dampingRatio = 0.2f, stiffness = 1_600f), initialVelocity = velocity)
+      target.animateTo(
+        0f,
+        spring(dampingRatio = 0.2f, stiffness = 1_600f),
+        initialVelocity = velocity,
+      )
     }
   }
 }

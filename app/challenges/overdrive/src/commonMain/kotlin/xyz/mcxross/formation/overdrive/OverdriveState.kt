@@ -12,7 +12,11 @@ enum class Symbol(val label: String) {
 }
 
 @Serializable
-enum class Catch { Pending, Caught, Missed }
+enum class Catch {
+  Pending,
+  Caught,
+  Missed,
+}
 
 @Serializable
 data class Dial(
@@ -32,8 +36,7 @@ data class Dial(
   }
 }
 
-@Serializable
-data class WaveResult(val wave: Int, val at: Long, val cleared: Boolean)
+@Serializable data class WaveResult(val wave: Int, val at: Long, val cleared: Boolean)
 
 @Serializable
 data class OverdriveState(
@@ -48,6 +51,7 @@ data class OverdriveState(
   val lastWave: WaveResult? = null,
 ) {
   fun dial(player: PlayerId): Dial = dials.first { it.player == player }
+
   fun partner(player: PlayerId): Dial = dials.first { it.player != player }
 
   companion object {
@@ -55,5 +59,4 @@ data class OverdriveState(
   }
 }
 
-@Serializable
-data class Rotate(val wave: Int, val turn: Int, val at: Long = Long.MAX_VALUE)
+@Serializable data class Rotate(val wave: Int, val turn: Int, val at: Long = Long.MAX_VALUE)

@@ -61,16 +61,23 @@ class IdlContractTest {
   @Test
   fun discriminatorsMatch() {
     assertContentEquals(named("instructions", "unlock").discriminator(), FormationVault.UNLOCK)
-    assertContentEquals(named("instructions", "unlock_drawn").discriminator(), FormationVault.UNLOCK_DRAWN)
+    assertContentEquals(
+      named("instructions", "unlock_drawn").discriminator(),
+      FormationVault.UNLOCK_DRAWN,
+    )
     assertContentEquals(named("instructions", "register").discriminator(), FormationVault.REGISTER)
     assertContentEquals(named("instructions", "claim").discriminator(), FormationVault.CLAIM)
-    assertContentEquals(named("instructions", "mint_test_token").discriminator(), FormationVault.MINT_TEST_TOKEN)
+    assertContentEquals(
+      named("instructions", "mint_test_token").discriminator(),
+      FormationVault.MINT_TEST_TOKEN,
+    )
     assertContentEquals(named("accounts", "Config").discriminator(), VaultConfig.DISCRIMINATOR)
     assertContentEquals(named("accounts", "Contest").discriminator(), VaultContest.DISCRIMINATOR)
     assertContentEquals(named("accounts", "Entry").discriminator(), VaultEntry.DISCRIMINATOR)
   }
 
-  private suspend fun instructions(): List<Triple<String, TransactionInstruction, Map<String, Any>>> {
+  private suspend fun instructions():
+    List<Triple<String, TransactionInstruction, Map<String, Any>>> {
     val holder = FormationVault.Holder(a, b, c)
     val root = ByteArray(32) { 9 }
     val result = ByteArray(32) { 10 }
@@ -98,13 +105,28 @@ class IdlContractTest {
   @Test
   fun accountListsMatchTheIdl() = runTest {
     for ((name, ix, _) in instructions()) {
-      val expected = named("instructions", name).getValue("accounts").jsonArray.map { it.jsonObject }
-      assertEquals(expected.map { it.getValue("name").jsonPrimitive.content }.size, ix.accounts.size, name)
+      val expected =
+        named("instructions", name).getValue("accounts").jsonArray.map { it.jsonObject }
+      assertEquals(
+        expected.map { it.getValue("name").jsonPrimitive.content }.size,
+        ix.accounts.size,
+        name,
+      )
       expected.zip(ix.accounts).forEach { (spec, meta) ->
         val label = "$name.${spec.getValue("name").jsonPrimitive.content}"
-        assertEquals(spec["signer"]?.jsonPrimitive?.content == "true", meta.isSigner, "$label signer")
-        assertEquals(spec["writable"]?.jsonPrimitive?.content == "true", meta.isWritable, "$label writable")
-        spec["address"]?.let { assertEquals(it.jsonPrimitive.content, meta.publicKey.base58(), "$label address") }
+        assertEquals(
+          spec["signer"]?.jsonPrimitive?.content == "true",
+          meta.isSigner,
+          "$label signer",
+        )
+        assertEquals(
+          spec["writable"]?.jsonPrimitive?.content == "true",
+          meta.isWritable,
+          "$label writable",
+        )
+        spec["address"]?.let {
+          assertEquals(it.jsonPrimitive.content, meta.publicKey.base58(), "$label address")
+        }
       }
     }
   }
@@ -159,18 +181,49 @@ class IdlContractTest {
         "bump" to 254,
       )
     val contest = VaultContest.decode(c, layout("Contest", sample))
-    assertEquals(listOf(a, b, c, a, b), listOf(contest.sponsor, contest.mint, contest.vault, contest.sgtGroup, contest.vrfProgram))
+    assertEquals(
+      listOf(a, b, c, a, b),
+      listOf(contest.sponsor, contest.mint, contest.vault, contest.sgtGroup, contest.vrfProgram),
+    )
     assertEquals(7uL, contest.nonce)
     assertEquals(ContestMode.DRAW, contest.mode)
     assertEquals(2_500, contest.drawBps)
     assertEquals(null, contest.only)
-    assertEquals(listOf(3_000_000_000uL, 2_000_000_000uL, 300_000_000uL), listOf(contest.pool, contest.unallocated, contest.budget))
+    assertEquals(
+      listOf(3_000_000_000uL, 2_000_000_000uL, 300_000_000uL),
+      listOf(contest.pool, contest.unallocated, contest.budget),
+    )
     assertEquals(listOf(1, 27), listOf(contest.winsPerSgt, contest.maxGuests))
-    assertEquals(VaultSettings(false, 3, 3, 10_000_000uL, 10, 3, 2, 64, 2_592_000, 3_600, 7_776_000, 3_600, 2_592_000, 3_600, true), contest.settings)
-    assertEquals(listOf(1_700_000_000L, 1_700_086_400L, 1_700_172_800L), listOf(contest.createdAtSeconds, contest.enterUntilSeconds, contest.playUntilSeconds))
+    assertEquals(
+      VaultSettings(
+        false,
+        3,
+        3,
+        10_000_000uL,
+        10,
+        3,
+        2,
+        64,
+        2_592_000,
+        3_600,
+        7_776_000,
+        3_600,
+        2_592_000,
+        3_600,
+        true,
+      ),
+      contest.settings,
+    )
+    assertEquals(
+      listOf(1_700_000_000L, 1_700_086_400L, 1_700_172_800L),
+      listOf(contest.createdAtSeconds, contest.enterUntilSeconds, contest.playUntilSeconds),
+    )
     assertEquals(listOf(40L, 10L, 3L), listOf(contest.entered, contest.selected, contest.unlocks))
     assertContentEquals(ByteArray(32) { 4 }, contest.drawSeed)
-    assertEquals(listOf(1_700_090_000L, 1L), listOf(contest.drawRequestedAtSeconds, contest.drawAttempts.toLong()))
+    assertEquals(
+      listOf(1_700_090_000L, 1L),
+      listOf(contest.drawRequestedAtSeconds, contest.drawAttempts.toLong()),
+    )
     assertContentEquals(ByteArray(32) { 5 }, contest.randomness)
     assertEquals(true, contest.drawn)
     assertEquals("Night Sky", contest.title)
@@ -200,24 +253,47 @@ class IdlContractTest {
         "bump" to 253,
       )
     val data = layout("Entry", sample)
-    assertContentEquals(b.bytes, data.copyOfRange(VaultEntry.SGT_OFFSET, VaultEntry.SGT_OFFSET + 32))
+    assertContentEquals(
+      b.bytes,
+      data.copyOfRange(VaultEntry.SGT_OFFSET, VaultEntry.SGT_OFFSET + 32),
+    )
     val entry = VaultEntry.decode(c, data)
     assertEquals(listOf(a, b, c, a), listOf(entry.contest, entry.sgt, entry.payer, entry.owner))
-    assertEquals(listOf(2L, 41L, 4L), listOf(entry.round.toLong(), entry.index, entry.rosterSize.toLong()))
+    assertEquals(
+      listOf(2L, 41L, 4L),
+      listOf(entry.round.toLong(), entry.index, entry.rosterSize.toLong()),
+    )
     assertEquals(EntryState.UNLOCKED, entry.state)
-    assertEquals(listOf(300_000_000uL, 42_857_142uL, 128_571_432uL), listOf(entry.budget, entry.guestShare, entry.ownerPaid))
+    assertEquals(
+      listOf(300_000_000uL, 42_857_142uL, 128_571_432uL),
+      listOf(entry.budget, entry.guestShare, entry.ownerPaid),
+    )
     assertEquals(listOf(true, false, true), (0..2).map(entry::hasClaimed))
     assertContentEquals(ByteArray(32) { 11 }, entry.rosterRoot)
     assertContentEquals(ByteArray(32) { 12 }, entry.result)
-    assertEquals(listOf(1_750_000_000L, 1_760_000_000L), listOf(entry.unlockedAtSeconds, entry.closesAtSeconds))
+    assertEquals(
+      listOf(1_750_000_000L, 1_760_000_000L),
+      listOf(entry.unlockedAtSeconds, entry.closesAtSeconds),
+    )
     assertEquals(253, entry.bump)
   }
 
   @Test
   fun configLayoutMatchesTheIdl() {
-    val sample = mapOf("admin" to a, "mint" to b, "sgt_group" to c, "vrf_program" to a, "settings" to settings, "bump" to 7)
+    val sample =
+      mapOf(
+        "admin" to a,
+        "mint" to b,
+        "sgt_group" to c,
+        "vrf_program" to a,
+        "settings" to settings,
+        "bump" to 7,
+      )
     val config = VaultConfig.decode(layout("Config", sample))
-    assertEquals(listOf(a, b, c, a), listOf(config.admin, config.mint, config.sgtGroup, config.vrfProgram))
+    assertEquals(
+      listOf(a, b, c, a),
+      listOf(config.admin, config.mint, config.sgtGroup, config.vrfProgram),
+    )
     assertEquals(3, config.settings.ownerWeight)
     assertEquals(7, config.bump)
   }
@@ -226,11 +302,15 @@ class IdlContractTest {
   fun errorsMatchTheIdl() {
     val expected =
       idl.getValue("errors").jsonArray.map {
-        it.jsonObject.getValue("code").jsonPrimitive.int to it.jsonObject.getValue("name").jsonPrimitive.content
+        it.jsonObject.getValue("code").jsonPrimitive.int to
+          it.jsonObject.getValue("name").jsonPrimitive.content
       }
     val actual =
       VaultError.entries.map {
-        it.code to it.name.split('_').joinToString("") { part -> part.lowercase().replaceFirstChar(Char::uppercase) }
+        it.code to
+          it.name.split('_').joinToString("") { part ->
+            part.lowercase().replaceFirstChar(Char::uppercase)
+          }
       }
     assertEquals(expected, actual)
   }
@@ -242,9 +322,10 @@ class IdlContractTest {
   }
 
   private fun encodeStruct(type: String, value: Map<*, *>, out: BorshWriter) {
-    val fields = named("types", type).getValue("type").jsonObject.getValue("fields").jsonArray.map {
-      it.jsonObject.getValue("name").jsonPrimitive.content to it.jsonObject.getValue("type")
-    }
+    val fields =
+      named("types", type).getValue("type").jsonObject.getValue("fields").jsonArray.map {
+        it.jsonObject.getValue("name").jsonPrimitive.content to it.jsonObject.getValue("type")
+      }
     assertEquals(fields.map { it.first }.toSet(), value.keys, type)
     fields.forEach { (field, fieldType) -> encode(fieldType, value[field]!!, out) }
   }
@@ -277,7 +358,9 @@ class IdlContractTest {
       }
       "defined" in o -> {
         val name = o.getValue("defined").jsonObject.getValue("name").jsonPrimitive.content
-        when (named("types", name).getValue("type").jsonObject.getValue("kind").jsonPrimitive.content) {
+        when (
+          named("types", name).getValue("type").jsonObject.getValue("kind").jsonPrimitive.content
+        ) {
           "struct" -> encodeStruct(name, value as Map<*, *>, out)
           else -> out.u8(value as Int)
         }

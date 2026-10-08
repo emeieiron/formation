@@ -24,8 +24,8 @@ import xyz.mcxross.formation.link.NsdHostFinder
 import xyz.mcxross.formation.link.linkHttpClient
 import xyz.mcxross.formation.sensors.AndroidHaptics
 import xyz.mcxross.formation.sensors.AndroidSensorBackend
-import xyz.mcxross.formation.wallet.MwaWallet
 import xyz.mcxross.formation.state.KEY_DEV_SEEKER_HARDWARE
+import xyz.mcxross.formation.wallet.MwaWallet
 
 interface ActivityBridge {
   val walletSender: ActivityResultSender
@@ -44,8 +44,12 @@ class AndroidPlatform(private val context: Context) : PlatformServices {
       developer = BuildConfig.DEBUG,
       rpcUrl = BuildConfig.SOLANA_RPC_URL,
       cluster = BuildConfig.SOLANA_CLUSTER,
-      fallbackRpcUrl = BuildConfig.SOLANA_FALLBACK_RPC_URL.takeUnless { it == BuildConfig.SOLANA_RPC_URL },
-      faucetUrl = BuildConfig.FAUCET_URL.takeUnless { it.isEmpty() || BuildConfig.SOLANA_CLUSTER == "mainnet-beta" },
+      fallbackRpcUrl =
+        BuildConfig.SOLANA_FALLBACK_RPC_URL.takeUnless { it == BuildConfig.SOLANA_RPC_URL },
+      faucetUrl =
+        BuildConfig.FAUCET_URL.takeUnless {
+          it.isEmpty() || BuildConfig.SOLANA_CLUSTER == "mainnet-beta"
+        },
     )
 
   override val store =
@@ -57,8 +61,11 @@ class AndroidPlatform(private val context: Context) : PlatformServices {
       override fun put(key: String, value: String?) {
         prefs.edit().apply { if (value == null) remove(key) else putString(key, value) }.apply()
       }
+
       override fun putDurable(key: String, value: String?) {
-        check(prefs.edit().apply { if (value == null) remove(key) else putString(key, value) }.commit()) {
+        check(
+          prefs.edit().apply { if (value == null) remove(key) else putString(key, value) }.commit()
+        ) {
           "Couldn't save the recovery record"
         }
       }
@@ -71,7 +78,8 @@ class AndroidPlatform(private val context: Context) : PlatformServices {
       model = "${Build.MANUFACTURER} ${Build.MODEL}",
       emulator = isEmulator(),
       seeker =
-        (Build.MODEL.equals("Seeker", ignoreCase = true) && Build.MANUFACTURER.contains("Solana", ignoreCase = true)) ||
+        (Build.MODEL.equals("Seeker", ignoreCase = true) &&
+          Build.MANUFACTURER.contains("Solana", ignoreCase = true)) ||
           (BuildConfig.DEBUG && store.get(KEY_DEV_SEEKER_HARDWARE) == "true"),
     )
 

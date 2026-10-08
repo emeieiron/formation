@@ -17,18 +17,26 @@ class FormationVault(
   suspend fun contest(sponsor: SolanaPublicKey, nonce: ULong): ProgramDerivedAddress =
     pda(CONTEST_SEED, sponsor.bytes, BorshWriter().u64(nonce).toByteArray())
 
-  suspend fun entry(contest: SolanaPublicKey, sgt: SolanaPublicKey, round: Int): ProgramDerivedAddress =
-    pda(ENTRY_SEED, contest.bytes, sgt.bytes, byteArrayOf(round.toByte()))
+  suspend fun entry(
+    contest: SolanaPublicKey,
+    sgt: SolanaPublicKey,
+    round: Int,
+  ): ProgramDerivedAddress = pda(ENTRY_SEED, contest.bytes, sgt.bytes, byteArrayOf(round.toByte()))
 
   suspend fun receipt(contest: SolanaPublicKey, claimKey: SolanaPublicKey): ProgramDerivedAddress =
     pda(RECEIPT_SEED, contest.bytes, claimKey.bytes)
 
   suspend fun testAuthority(): ProgramDerivedAddress = pda(TEST_AUTHORITY_SEED)
 
-  suspend fun testToken(wallet: SolanaPublicKey): ProgramDerivedAddress = pda(TEST_TOKEN_SEED, wallet.bytes)
+  suspend fun testToken(wallet: SolanaPublicKey): ProgramDerivedAddress =
+    pda(TEST_TOKEN_SEED, wallet.bytes)
 
   // Mints [wallet] its test Genesis Token in [group]; the faucet pays as [payer].
-  suspend fun mintTestToken(payer: SolanaPublicKey, wallet: SolanaPublicKey, group: SolanaPublicKey): TransactionInstruction {
+  suspend fun mintTestToken(
+    payer: SolanaPublicKey,
+    wallet: SolanaPublicKey,
+    group: SolanaPublicKey,
+  ): TransactionInstruction {
     val mint = testToken(wallet)
     return instruction(
       MINT_TEST_TOKEN,
@@ -59,7 +67,13 @@ class FormationVault(
     result: ByteArray,
   ): TransactionInstruction {
     val data =
-      BorshWriter().bytes(UNLOCK).u8(round).fixed(rosterRoot, 32).u8(rosterSize).fixed(result, 32).toByteArray()
+      BorshWriter()
+        .bytes(UNLOCK)
+        .u8(round)
+        .fixed(rosterRoot, 32)
+        .u8(rosterSize)
+        .fixed(result, 32)
+        .toByteArray()
     return instruction(data, *settleAccounts(holder, contest, mint, round))
   }
 
@@ -71,7 +85,13 @@ class FormationVault(
     rosterSize: Int,
     result: ByteArray,
   ): TransactionInstruction {
-    val data = BorshWriter().bytes(UNLOCK_DRAWN).fixed(rosterRoot, 32).u8(rosterSize).fixed(result, 32).toByteArray()
+    val data =
+      BorshWriter()
+        .bytes(UNLOCK_DRAWN)
+        .fixed(rosterRoot, 32)
+        .u8(rosterSize)
+        .fixed(result, 32)
+        .toByteArray()
     return instruction(data, *settleAccounts(holder, contest, mint, 0))
   }
 
@@ -120,7 +140,12 @@ class FormationVault(
     )
   }
 
-  private suspend fun settleAccounts(holder: Holder, contest: SolanaPublicKey, mint: SolanaPublicKey, round: Int) =
+  private suspend fun settleAccounts(
+    holder: Holder,
+    contest: SolanaPublicKey,
+    mint: SolanaPublicKey,
+    round: Int,
+  ) =
     arrayOf(
       signer(holder.wallet, writable = true),
       writable(contest),
@@ -147,7 +172,11 @@ class FormationVault(
     ProgramDerivedAddress.find(seeds.toList(), programId).getOrThrow()
 
   // A wallet, the Genesis Token it holds, and the token account holding it.
-  class Holder(val wallet: SolanaPublicKey, val sgt: SolanaPublicKey, val sgtAccount: SolanaPublicKey)
+  class Holder(
+    val wallet: SolanaPublicKey,
+    val sgt: SolanaPublicKey,
+    val sgtAccount: SolanaPublicKey,
+  )
 
   companion object {
     val PROGRAM_ID = SolanaPublicKey.from("8haw7C2rGLgF4dmn3kciRERtrLmRFQLX6Hg14Hg4Jvg5")

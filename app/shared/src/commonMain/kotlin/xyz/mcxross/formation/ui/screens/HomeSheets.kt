@@ -19,18 +19,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.stringResource
-import xyz.mcxross.formation.resources.Res
-import xyz.mcxross.formation.resources.action_join
-import xyz.mcxross.formation.resources.label_code
-import xyz.mcxross.formation.resources.state_found
-import xyz.mcxross.formation.resources.state_searching
+import xyz.mcxross.formation.challenge.Challenge
 import xyz.mcxross.formation.challenge.ChallengeInfo
 import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.components.Button
+import xyz.mcxross.formation.design.components.ButtonSize
 import xyz.mcxross.formation.design.components.ButtonStyle
+import xyz.mcxross.formation.design.components.Chip
 import xyz.mcxross.formation.design.components.CodeField
 import xyz.mcxross.formation.design.components.DiscoverySignal
 import xyz.mcxross.formation.design.components.ModalSheet
@@ -39,19 +36,21 @@ import xyz.mcxross.formation.design.components.SheetActions
 import xyz.mcxross.formation.design.components.SkrAmount
 import xyz.mcxross.formation.design.components.Tag
 import xyz.mcxross.formation.design.foundation.Icon
+import xyz.mcxross.formation.design.foundation.Panel
 import xyz.mcxross.formation.design.foundation.Text
 import xyz.mcxross.formation.design.icons.Icons
 import xyz.mcxross.formation.design.tokens.Space
-import xyz.mcxross.formation.challenge.Challenge
-import xyz.mcxross.formation.design.components.Chip
 import xyz.mcxross.formation.model.Budget
 import xyz.mcxross.formation.model.Difficulty
-import xyz.mcxross.formation.design.components.ButtonSize
-import xyz.mcxross.formation.design.foundation.Panel
-import xyz.mcxross.formation.state.OpenDraw
 import xyz.mcxross.formation.model.Opportunity
+import xyz.mcxross.formation.resources.Res
+import xyz.mcxross.formation.resources.action_join
+import xyz.mcxross.formation.resources.label_code
+import xyz.mcxross.formation.resources.state_found
+import xyz.mcxross.formation.resources.state_searching
 import xyz.mcxross.formation.session.NearbyFormation
 import xyz.mcxross.formation.state.ChallengeCatalog
+import xyz.mcxross.formation.state.OpenDraw
 import xyz.mcxross.formation.ui.components.ChallengeGlyph
 import xyz.mcxross.formation.ui.components.RewardSplitView
 import xyz.mcxross.formation.ui.components.TierTag
@@ -193,11 +192,17 @@ internal fun JoinCodeSheet(
       Spacer(Modifier.height(Space.l))
       when {
         code.length < 4 -> Spacer(Modifier.height(24.dp))
-        match != null -> Row(verticalAlignment = Alignment.CenterVertically) {
-          Icon(Icons.Check, stringResource(Res.string.state_found), tint = c.positive, size = 18.dp)
-          Spacer(Modifier.width(Space.s))
-          Text(match.beacon.host, style = Theme.type.subheadStrong, color = c.positive)
-        }
+        match != null ->
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+              Icons.Check,
+              stringResource(Res.string.state_found),
+              tint = c.positive,
+              size = 18.dp,
+            )
+            Spacer(Modifier.width(Space.s))
+            Text(match.beacon.host, style = Theme.type.subheadStrong, color = c.positive)
+          }
         else ->
           Row(verticalAlignment = Alignment.CenterVertically) {
             DiscoverySignal()
@@ -232,17 +237,28 @@ internal fun OpenDrawRow(draw: OpenDraw, modifier: Modifier = Modifier, onEnter:
         Text(draw.title ?: "Sponsored draw", style = Theme.type.bodyStrong)
         Row(verticalAlignment = Alignment.CenterVertically) {
           SkrAmount(draw.pool.format(0), style = Theme.type.footnote, coin = false)
-          Text(" · ${draw.bps / 100}% of entrants win · closes ${timeLeft(draw.enterUntil, xyz.mcxross.formation.state.now())}",
-            style = Theme.type.footnote, color = c.contentSecondary)
+          Text(
+            " · ${draw.bps / 100}% of entrants win · closes ${timeLeft(draw.enterUntil, xyz.mcxross.formation.state.now())}",
+            style = Theme.type.footnote,
+            color = c.contentSecondary,
+          )
         }
         Text("Sponsored by ${draw.sponsor}", style = Theme.type.caption, color = c.contentTertiary)
       }
       Spacer(Modifier.width(Space.m))
       if (draw.entered) Tag("Entered")
-      else Button("Enter", {
-        entering = true
-        onEnter()
-      }, style = ButtonStyle.Reward, size = ButtonSize.Small, fillWidth = false, loading = entering)
+      else
+        Button(
+          "Enter",
+          {
+            entering = true
+            onEnter()
+          },
+          style = ButtonStyle.Reward,
+          size = ButtonSize.Small,
+          fillWidth = false,
+          loading = entering,
+        )
     }
   }
 }

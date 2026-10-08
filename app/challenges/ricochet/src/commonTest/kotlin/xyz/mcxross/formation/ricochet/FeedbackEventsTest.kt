@@ -12,11 +12,21 @@ import xyz.mcxross.formation.session.ChallengeSetup
 
 class FeedbackEventsTest {
   private val players = listOf(PlayerId("left"), PlayerId("right"))
-  private val state = RicochetGame(ChallengeSetup(players, players.first(), Difficulty.EASY, 7, 0)).state.copy(at = 2_000)
-  private fun contact(id: Long, kind: ImpactKind, at: Long = 2_000, side: Int? = 0, grazed: Boolean = false) =
-    Impact(id, kind, at, 0.08, 0.85, side = side, grazed = grazed)
+  private val state =
+    RicochetGame(ChallengeSetup(players, players.first(), Difficulty.EASY, 7, 0))
+      .state
+      .copy(at = 2_000)
 
-  @Test fun restoredRepeatedAndDelayedImpactsStayQuiet() {
+  private fun contact(
+    id: Long,
+    kind: ImpactKind,
+    at: Long = 2_000,
+    side: Int? = 0,
+    grazed: Boolean = false,
+  ) = Impact(id, kind, at, 0.08, 0.85, side = side, grazed = grazed)
+
+  @Test
+  fun restoredRepeatedAndDelayedImpactsStayQuiet() {
     val initial = state.copy(impacts = listOf(contact(1, ImpactKind.Target)))
     val feedback = FeedbackEvents(initial)
     assertNull(feedback.next(initial, 0, 2_000))
@@ -28,19 +38,60 @@ class FeedbackEventsTest {
     assertNull(feedback.next(stale.copy(at = 3_040), 0, 3_040))
   }
 
-  @Test fun ownCloseCallsAndFastReturnsAreDistinctAndCoalescedFramesChooseOneCue() {
+  @Test
+  fun ownCloseCallsAndFastReturnsAreDistinctAndCoalescedFramesChooseOneCue() {
     val feedback = FeedbackEvents(state)
-    assertNull(feedback.next(state.copy(impacts = listOf(contact(1, ImpactKind.Paddle, side = 1))), 0, 2_000))
-    assertEquals(GameCue.CloseCall, feedback.next(state.copy(impacts = listOf(contact(2, ImpactKind.Paddle, grazed = true))), 0, 2_000))
-    assertEquals(GameCue.FastReturn, feedback.next(state.copy(momentum = Momentum(4, 0),
-      impacts = listOf(contact(3, ImpactKind.Paddle))), 0, 2_000))
-    assertEquals(GameCue.Target, feedback.next(state.copy(impacts = listOf(
-      contact(4, ImpactKind.Paddle, grazed = true), contact(5, ImpactKind.Target))), 0, 2_000))
-    assertEquals(GameCue.Miss, feedback.next(state.copy(serveAt = 3_200,
-      impacts = listOf(contact(6, ImpactKind.Target), contact(7, ImpactKind.Miss))), 0, 2_000))
+    assertNull(
+      feedback.next(state.copy(impacts = listOf(contact(1, ImpactKind.Paddle, side = 1))), 0, 2_000)
+    )
+    assertEquals(
+      GameCue.CloseCall,
+      feedback.next(
+        state.copy(impacts = listOf(contact(2, ImpactKind.Paddle, grazed = true))),
+        0,
+        2_000,
+      ),
+    )
+    assertEquals(
+      GameCue.FastReturn,
+      feedback.next(
+        state.copy(
+          momentum = Momentum(4, 0),
+          impacts = listOf(contact(3, ImpactKind.Paddle)),
+        ),
+        0,
+        2_000,
+      ),
+    )
+    assertEquals(
+      GameCue.Target,
+      feedback.next(
+        state.copy(
+          impacts =
+            listOf(
+              contact(4, ImpactKind.Paddle, grazed = true),
+              contact(5, ImpactKind.Target),
+            )
+        ),
+        0,
+        2_000,
+      ),
+    )
+    assertEquals(
+      GameCue.Miss,
+      feedback.next(
+        state.copy(
+          serveAt = 3_200,
+          impacts = listOf(contact(6, ImpactKind.Target), contact(7, ImpactKind.Miss)),
+        ),
+        0,
+        2_000,
+      ),
+    )
   }
 
-  @Test fun dangerHasABoundedCadenceAndStopsOnStaleFramesServesAndCompletion() {
+  @Test
+  fun dangerHasABoundedCadenceAndStopsOnStaleFramesServesAndCompletion() {
     val lastLife = state.copy(misses = 2)
     val feedback = FeedbackEvents(lastLife)
     assertNull(feedback.next(lastLife, 0, 2_000))
@@ -62,25 +113,55 @@ class FeedbackEventsTest {
     assertEquals(0f, dangerPulse(beat.copy(misses = 1), 3_600))
   }
 
-  @Test fun dangerDoesNotInterruptAnImpactOrPlayAnExpiredResult() {
+  @Test
+  fun dangerDoesNotInterruptAnImpactOrPlayAnExpiredResult() {
     val feedback = FeedbackEvents(state)
     feedback.next(state.copy(misses = 2, at = 3_300), 0, 3_300)
-    assertEquals(GameCue.Target, feedback.next(state.copy(misses = 2, at = 3_400,
-      impacts = listOf(contact(1, ImpactKind.Target, at = 3_400))), 0, 3_400))
+    assertEquals(
+      GameCue.Target,
+      feedback.next(
+        state.copy(
+          misses = 2,
+          at = 3_400,
+          impacts = listOf(contact(1, ImpactKind.Target, at = 3_400)),
+        ),
+        0,
+        3_400,
+      ),
+    )
     assertNull(feedback.next(state.copy(misses = 2, at = 3_600), 0, 3_600))
-    assertNull(feedback.next(state.copy(at = 60_000, impacts = listOf(contact(2, ImpactKind.Target, at = 60_000))), 0, 60_000))
-    assertNull(feedback.next(state.copy(at = 61_000, finishedAt = 61_000,
-      impacts = listOf(contact(3, ImpactKind.Target, at = 61_000))), 0, 61_000))
+    assertNull(
+      feedback.next(
+        state.copy(at = 60_000, impacts = listOf(contact(2, ImpactKind.Target, at = 60_000))),
+        0,
+        60_000,
+      )
+    )
+    assertNull(
+      feedback.next(
+        state.copy(
+          at = 61_000,
+          finishedAt = 61_000,
+          impacts = listOf(contact(3, ImpactKind.Target, at = 61_000)),
+        ),
+        0,
+        61_000,
+      )
+    )
   }
 
-  @Test fun chargeAndPierceAreSharedFreshCuesAndPierceTakesPriority() {
+  @Test
+  fun chargeAndPierceAreSharedFreshCuesAndPierceTakesPriority() {
     val left = FeedbackEvents(state)
     val right = FeedbackEvents(state)
     val charged = state.copy(impacts = listOf(contact(1, ImpactKind.Charge)))
     assertEquals(GameCue.Charge, left.next(charged, 0, 2_000))
     assertEquals(GameCue.Charge, right.next(charged, 1, 2_000))
     assertNull(left.next(charged, 0, 2_000))
-    val pierced = charged.copy(impacts = charged.impacts + contact(2, ImpactKind.Target) + contact(3, ImpactKind.Pierce))
+    val pierced =
+      charged.copy(
+        impacts = charged.impacts + contact(2, ImpactKind.Target) + contact(3, ImpactKind.Pierce)
+      )
     assertEquals(GameCue.Pierce, left.next(pierced, 0, 2_000))
     assertEquals(GameCue.Pierce, right.next(pierced, 1, 2_000))
   }

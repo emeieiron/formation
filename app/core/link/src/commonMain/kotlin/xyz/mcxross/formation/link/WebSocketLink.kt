@@ -17,7 +17,8 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 class WebSocketChannel(private val session: WebSocketSession, override val peer: String) :
   LinkChannel {
-  // Ktor fails incoming with the socket's error (e.g. EOF) when the peer vanishes; that is still a close.
+  // Ktor fails incoming with the socket's error (e.g. EOF) when the peer vanishes; that is still a
+  // close.
   override val incoming: Flow<String> = flow {
     while (true) {
       val frame = session.incoming.receiveCatching().getOrNull() ?: break

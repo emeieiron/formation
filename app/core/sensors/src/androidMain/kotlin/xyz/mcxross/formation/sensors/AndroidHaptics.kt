@@ -21,7 +21,10 @@ class AndroidHaptics(context: Context) : Haptics {
   override fun heavy() = play(predefined(VibrationEffect.EFFECT_HEAVY_CLICK) ?: oneShot(55, 255))
 
   override fun success() =
-    play(predefined(VibrationEffect.EFFECT_DOUBLE_CLICK) ?: waveform(longArrayOf(0, 20, 70, 20), intArrayOf(0, 230, 0, 230)))
+    play(
+      predefined(VibrationEffect.EFFECT_DOUBLE_CLICK)
+        ?: waveform(longArrayOf(0, 20, 70, 20), intArrayOf(0, 230, 0, 230))
+    )
 
   override fun heartbeat() = play(waveform(longArrayOf(0, 26, 110, 18), intArrayOf(0, 200, 0, 110)))
 
@@ -31,7 +34,8 @@ class AndroidHaptics(context: Context) : Haptics {
 
   private fun oneShot(ms: Long, amplitude: Int) = VibrationEffect.createOneShot(ms, amplitude)
 
-  private fun waveform(timings: LongArray, amplitudes: IntArray) = VibrationEffect.createWaveform(timings, amplitudes, -1)
+  private fun waveform(timings: LongArray, amplitudes: IntArray) =
+    VibrationEffect.createWaveform(timings, amplitudes, -1)
 
   private fun play(effect: VibrationEffect) {
     val v = vibrator ?: return

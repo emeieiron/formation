@@ -57,7 +57,10 @@ internal class BorshReader(private val data: ByteArray, discriminator: ByteArray
 
   fun u16(): Int = bytes(2).u16At(0)
 
-  fun u32(): Long = bytes(4).let { b -> (0 until 4).fold(0L) { acc, i -> acc or ((b[i].toLong() and 0xff) shl (i * 8)) } }
+  fun u32(): Long =
+    bytes(4).let { b ->
+      (0 until 4).fold(0L) { acc, i -> acc or ((b[i].toLong() and 0xff) shl (i * 8)) }
+    }
 
   fun bool(): Boolean = u8() != 0
 

@@ -42,7 +42,8 @@ class FormationClient(
   private val json: Json = FormationJson,
   private val observe: (DiagnosticEvent) -> Unit = {},
   private val recovery: SessionSnapshot? = null,
-  // Every phone but the Seeker's own checks the host; without a verifier the client trusts its link.
+  // Every phone but the Seeker's own checks the host; without a verifier the client trusts its
+  // link.
   private val verifier: HostVerifier? = null,
 ) {
   sealed interface Status {
@@ -89,7 +90,9 @@ class FormationClient(
   private var reward: Opportunity? = null
   private var presence = ""
 
-  fun checkpointCompletions(save: (SessionSnapshot) -> Unit) { completionCheckpoint = save }
+  fun checkpointCompletions(save: (SessionSnapshot) -> Unit) {
+    completionCheckpoint = save
+  }
 
   fun start() {
     if (job == null) job = scope.launch { run() }
@@ -100,7 +103,9 @@ class FormationClient(
     send(ToHost.Ready(ready))
   }
 
-  fun sensors(round: Int, available: Set<String>, screen: ScreenProfile? = null) { send(ToHost.Sensors(round, available, screen)) }
+  fun sensors(round: Int, available: Set<String>, screen: ScreenProfile? = null) {
+    send(ToHost.Sensors(round, available, screen))
+  }
 
   fun setProfile(name: String, light: Int) {
     this.name = name
@@ -134,7 +139,8 @@ class FormationClient(
   private fun end(reason: String) {
     finished = true
     observe(DiagnosticEvent(DiagnosticCode.CONNECT_ENDED))
-    if (_status.value !is Status.Rejected && _status.value !is Status.Untrusted) _status.value = Status.Ended(reason)
+    if (_status.value !is Status.Rejected && _status.value !is Status.Untrusted)
+      _status.value = Status.Ended(reason)
   }
 
   private suspend fun run() {
@@ -167,7 +173,8 @@ class FormationClient(
       } catch (e: CancellationException) {
         throw e
       } catch (_: Exception) {
-        // A link that fails rather than closes is just another drop; escaping would kill the client.
+        // A link that fails rather than closes is just another drop; escaping would kill the
+        // client.
       }
       if (_me.value != null) joinedOnce = true
       if (!finished) {
@@ -215,29 +222,56 @@ class FormationClient(
     when (message) {
       is ToPlayer.Authenticate -> {
         val session = message.challenge.session
-        if (verifier != null) verifier.problem(session, message.host)?.let { return untrusted(it) }
+        if (verifier != null)
+          verifier.problem(session, message.host)?.let {
+            return untrusted(it)
+          }
         sessionKey = message.host?.sessionKey?.let { runCatching { Base58.decode(it) }.getOrNull() }
         reward = message.host?.opportunity
         hostSession = session
         presence = Base58.encode(secureRandomBytes(32))
-        val hello = ToHost.Hello(PROTOCOL_VERSION, identity.device, name, light, identity.claimKey, wallet,
-          identity.formats, identity.capabilities, message.challenge.nonce, presence)
-        send(hello.copy(signature = Base58.encode(identity.key.sign(admissionMessage(message.challenge, hello)))))
+        val hello =
+          ToHost.Hello(
+            PROTOCOL_VERSION,
+            identity.device,
+            name,
+            light,
+            identity.claimKey,
+            wallet,
+            identity.formats,
+            identity.capabilities,
+            message.challenge.nonce,
+            presence,
+          )
+        send(
+          hello.copy(
+            signature = Base58.encode(identity.key.sign(admissionMessage(message.challenge, hello)))
+          )
+        )
       }
       is ToPlayer.Signed -> {
         val key = sessionKey
         val session = hostSession
         if (verifier != null) {
-          val valid = key != null && session != null && runCatching {
-            Ed25519.verify(Base58.decode(message.signature), HostChecks.update(session, message.message), key)
-          }.getOrDefault(false)
+          val valid =
+            key != null &&
+              session != null &&
+              runCatching {
+                  Ed25519.verify(
+                    Base58.decode(message.signature),
+                    HostChecks.update(session, message.message),
+                    key,
+                  )
+                }
+                .getOrDefault(false)
           if (!valid) return untrusted("The Seeker's updates couldn't be verified.")
         }
         val inner = decode(message.message)
         if (inner is ToPlayer.Welcome || inner is ToPlayer.Session) accept(inner)
       }
       // Only the Seeker's own link may send these unsigned.
-      is ToPlayer.Welcome, is ToPlayer.Session -> if (verifier == null) accept(message)
+      is ToPlayer.Welcome,
+      is ToPlayer.Session -> if (verifier == null) accept(message)
       else -> accept(message)
     }
   }
@@ -250,9 +284,11 @@ class FormationClient(
 
   private fun accept(message: ToPlayer) {
     when (message) {
-      is ToPlayer.Authenticate, is ToPlayer.Signed -> {}
+      is ToPlayer.Authenticate,
+      is ToPlayer.Signed -> {}
       is ToPlayer.Welcome -> {
-        if (verifier != null && message.presence != presence) return untrusted("The Seeker's welcome wasn't meant for this phone.")
+        if (verifier != null && message.presence != presence)
+          return untrusted("The Seeker's welcome wasn't meant for this phone.")
         _me.value = message.you
         _status.value = Status.Joined
         observe(DiagnosticEvent(DiagnosticCode.CONNECT_JOINED, clock.now() - connectingAt))
@@ -271,8 +307,14 @@ class FormationClient(
           val problem = runCatching { completionCheckpoint(snapshot) }.exceptionOrNull()
           if (problem != null) {
             observe(DiagnosticEvent(DiagnosticCode.STORAGE_FAILED))
-            snapshot = snapshot.copy(stage = completed.copy(
-            storageProblem = "This win could not be saved on this phone. Keep the session open and free some storage."))
+            snapshot =
+              snapshot.copy(
+                stage =
+                  completed.copy(
+                    storageProblem =
+                      "This win could not be saved on this phone. Keep the session open and free some storage."
+                  )
+              )
           }
         }
         if (snapshot.round != _snapshot.value?.round) _frame.value = null
@@ -315,8 +357,15 @@ class FormationClient(
         won.result,
       )
     val mine = snapshot.player(me) ?: return
-    if (expected.message != won.seal.message || expected.root != won.seal.root || expected.roster != won.seal.roster ||
-      expected.ownerAmount != won.seal.ownerAmount || expected.required != won.seal.required || mine.claimKey != identity.claimKey) return
+    if (
+      expected.message != won.seal.message ||
+        expected.root != won.seal.root ||
+        expected.roster != won.seal.roster ||
+        expected.ownerAmount != won.seal.ownerAmount ||
+        expected.required != won.seal.required ||
+        mine.claimKey != identity.claimKey
+    )
+      return
     val restored = recovery?.takeIf { it.formation.session == snapshot.formation.session }
     if (restored != null) {
       val savedWin = runCatching { validatedCompletion(restored) }.getOrNull() ?: return

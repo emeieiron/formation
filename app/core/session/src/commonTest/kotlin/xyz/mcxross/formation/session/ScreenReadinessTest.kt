@@ -21,35 +21,67 @@ import xyz.mcxross.formation.model.Skr
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ScreenReadinessTest {
-  private val opportunity = Opportunity(Budget(OpportunityId("entry"), "contest", "sgt", Skr.of(600), 3, 31, Long.MAX_VALUE, "Test"), ChallengeId("tap"), players = 2)
+  private val opportunity =
+    Opportunity(
+      Budget(OpportunityId("entry"), "contest", "sgt", Skr.of(600), 3, 31, Long.MAX_VALUE, "Test"),
+      ChallengeId("tap"),
+      players = 2,
+    )
   private val phone = ScreenProfile(70.0, 150.0, 16.5, ScreenInsets(1.5, 3.0, 1.5, 2.0))
   private val tiny = ScreenProfile(40.0, 70.0, 12.0)
 
   private class Rules : ChallengeRules<TapChallenge.State, TapChallenge.Tap> by TapChallenge {
     var setup: ChallengeSetup? = null
+
     override fun requiredCapabilities(players: Int) = setOf(ScreenRequirement.CAPABILITY)
-    override fun activeCapabilities(state: TapChallenge.State, player: xyz.mcxross.formation.model.PlayerId, players: Int) =
-      emptySet<String>()
-    override fun screenRequirement(players: Int) = ScreenRequirement(minShortMm = 45.0, minLongMm = 90.0)
-    override fun newGame(setup: ChallengeSetup) = TapChallenge.newGame(setup).also { this.setup = setup }
+
+    override fun activeCapabilities(
+      state: TapChallenge.State,
+      player: xyz.mcxross.formation.model.PlayerId,
+      players: Int,
+    ) = emptySet<String>()
+
+    override fun screenRequirement(players: Int) =
+      ScreenRequirement(minShortMm = 45.0, minLongMm = 90.0)
+
+    override fun newGame(setup: ChallengeSetup) =
+      TapChallenge.newGame(setup).also { this.setup = setup }
   }
 
-  private fun TestScope.host(rules: Rules) = FormationHost(
-    FormationInfo("session-1", "K7QX", "Theo", opportunity), rules, backgroundScope,
-    Clock { testScheduler.currentTime }, Random(1), HostTiming(briefingMs = 5_000, countdownMs = 1_000),
-  )
+  private fun TestScope.host(rules: Rules) =
+    FormationHost(
+      FormationInfo("session-1", "K7QX", "Theo", opportunity),
+      rules,
+      backgroundScope,
+      Clock { testScheduler.currentTime },
+      Random(1),
+      HostTiming(briefingMs = 5_000, countdownMs = 1_000),
+    )
 
-  private fun TestScope.join(host: FormationHost, name: String, seeker: Boolean, capabilities: Set<String>) =
+  private fun TestScope.join(
+    host: FormationHost,
+    name: String,
+    seeker: Boolean,
+    capabilities: Set<String>,
+  ) =
     FormationClient(
-      PlayerIdentity(name, name, 0, Ed25519KeyPair.generate(), formats = mapOf("tap" to 1), capabilities = capabilities),
-      connect = {
-        val (phone, seekerSide) = memoryLink()
-        backgroundScope.launch { host.serve(seekerSide, local = seeker) }
-        phone
-      },
-      scope = backgroundScope,
-      clock = Clock { testScheduler.currentTime },
-    ).also { it.start() }
+        PlayerIdentity(
+          name,
+          name,
+          0,
+          Ed25519KeyPair.generate(),
+          formats = mapOf("tap" to 1),
+          capabilities = capabilities,
+        ),
+        connect = {
+          val (phone, seekerSide) = memoryLink()
+          backgroundScope.launch { host.serve(seekerSide, local = seeker) }
+          phone
+        },
+        scope = backgroundScope,
+        clock = Clock { testScheduler.currentTime },
+      )
+      .also { it.start() }
 
   @Test
   fun phonesThatCannotMeasureTheirScreenAreTurnedAway() = runTest {
@@ -65,8 +97,11 @@ class ScreenReadinessTest {
   fun readinessWaitsForAnAcceptedScreenAndTheSetupKeepsIt() = runTest {
     val rules = Rules()
     val host = host(rules)
-    val phones = listOf(join(host, "Theo", true, setOf(ScreenRequirement.CAPABILITY)),
-      join(host, "Maya", false, setOf(ScreenRequirement.CAPABILITY)))
+    val phones =
+      listOf(
+        join(host, "Theo", true, setOf(ScreenRequirement.CAPABILITY)),
+        join(host, "Maya", false, setOf(ScreenRequirement.CAPABILITY)),
+      )
     runCurrent()
     host.begin()
     runCurrent()
@@ -88,7 +123,10 @@ class ScreenReadinessTest {
     runCurrent()
     assertIs<Stage.Playing>(host.snapshot.value.stage)
     val ids = host.snapshot.value.players.map { it.id }
-    assertEquals(mapOf(ids[0] to phone, ids[1] to phone.copy(pxPerMm = 18.0)), rules.setup!!.screens)
+    assertEquals(
+      mapOf(ids[0] to phone, ids[1] to phone.copy(pxPerMm = 18.0)),
+      rules.setup!!.screens,
+    )
   }
 
   @Test

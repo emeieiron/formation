@@ -30,8 +30,8 @@ import xyz.mcxross.formation.design.components.Tag
 import xyz.mcxross.formation.design.components.TagStyle
 import xyz.mcxross.formation.design.foundation.Text
 import xyz.mcxross.formation.design.icons.Icons
-import xyz.mcxross.formation.design.tokens.Space
 import xyz.mcxross.formation.design.tokens.Motion
+import xyz.mcxross.formation.design.tokens.Space
 import xyz.mcxross.formation.design.tokens.Tone
 import xyz.mcxross.formation.model.ChallengeId
 import xyz.mcxross.formation.model.RewardSplit
@@ -122,14 +122,18 @@ fun Slots(
     horizontalArrangement = Arrangement.spacedBy(5.dp),
   ) {
     repeat(minOf(total, max)) { i ->
-      val fill by animateFloatAsState(if (i < filled) 1f else 0f,
-        if (animate) Motion.standard(280) else tween(0), label = "slot-$i")
+      val fill by
+        animateFloatAsState(
+          if (i < filled) 1f else 0f,
+          if (animate) Motion.standard(280) else tween(0),
+          label = "slot-$i",
+        )
       Box(Modifier.size(10.dp)) {
         Canvas(Modifier.size(10.dp)) {
           drawCircle(
-              c.contentTertiary,
-              style = androidx.compose.ui.graphics.drawscope.Stroke(1.2.dp.toPx()),
-            )
+            c.contentTertiary,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(1.2.dp.toPx()),
+          )
           if (fill > 0f) drawCircle(color.copy(alpha = fill), radius = size.minDimension / 2 * fill)
         }
       }

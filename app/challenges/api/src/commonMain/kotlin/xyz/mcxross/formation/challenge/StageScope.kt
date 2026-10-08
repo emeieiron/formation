@@ -27,11 +27,16 @@ interface StageScope<S : Any, I : Any> {
   val round: Int
   val clock: ClockSync
   val motion: MotionSense
-  val sensors: SensorHub get() = motion.sensors
+  val sensors: SensorHub
+    get() = motion.sensors
+
   val haptics: Haptics
-  val audio: StageAudio get() = StageAudio.None
+  val audio: StageAudio
+    get() = StageAudio.None
+
   // This phone's measured screen, for games with a screen requirement.
-  val screen: ScreenProfile? get() = null
+  val screen: ScreenProfile?
+    get() = null
 
   fun send(input: I)
 

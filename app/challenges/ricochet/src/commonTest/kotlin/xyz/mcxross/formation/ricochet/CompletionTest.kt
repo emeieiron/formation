@@ -13,14 +13,18 @@ import xyz.mcxross.formation.session.GameStatus
 class CompletionTest {
   private val players = listOf(PlayerId("left"), PlayerId("right"))
 
-  @Test fun completesSeededRoundsThroughOrdinaryCommandsOnEveryDifficulty() {
+  @Test
+  fun completesSeededRoundsThroughOrdinaryCommandsOnEveryDifficulty() {
     for (difficulty in Difficulty.entries) for (seed in 0L..7L) {
-      assertIs<GameStatus.Won>(Ricochet.playOut(ChallengeSetup(players, players.first(), difficulty, seed, 0)),
-        "$difficulty seed $seed")
+      assertIs<GameStatus.Won>(
+        Ricochet.playOut(ChallengeSetup(players, players.first(), difficulty, seed, 0)),
+        "$difficulty seed $seed",
+      )
     }
   }
 
-  @Test fun deadlineEndsAnUnfinishedRallyAndRejectsFurtherPlay() {
+  @Test
+  fun deadlineEndsAnUnfinishedRallyAndRejectsFurtherPlay() {
     val game = RicochetGame(ChallengeSetup(players, players.first(), Difficulty.EASY, 7, 0))
     for (now in 0L..59_000L step 40) {
       game.tick(now)

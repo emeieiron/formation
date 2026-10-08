@@ -21,17 +21,30 @@ import xyz.mcxross.formation.ricochet.Momentum
 internal fun MomentumReadout(momentum: Momentum) {
   val colors = Theme.colors
   val percent = (momentum.factor * 100).roundToInt()
-  Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically,
-    modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = "Pulse speed $percent percent" }) {
+  Row(
+    horizontalArrangement = Arrangement.spacedBy(8.dp),
+    verticalAlignment = Alignment.CenterVertically,
+    modifier =
+      Modifier.semantics(mergeDescendants = true) {
+        contentDescription = "Pulse speed $percent percent"
+      },
+  ) {
     Canvas(Modifier.size(48.dp, 12.dp)) {
       val cell = size.width / 6
       repeat(6) { index ->
-        drawLine(if (index < momentum.exchanges) colors.accent else colors.lineStrong,
+        drawLine(
+          if (index < momentum.exchanges) colors.accent else colors.lineStrong,
           Offset(cell * index + cell * 0.2f, size.height * 0.8f),
-          Offset(cell * index + cell * 0.7f, size.height * 0.2f), 2.dp.toPx(), StrokeCap.Round)
+          Offset(cell * index + cell * 0.7f, size.height * 0.2f),
+          2.dp.toPx(),
+          StrokeCap.Round,
+        )
       }
     }
-    Text("${percent / 100}.${(percent % 100).toString().padStart(2, '0')}×", style = Theme.type.overline,
-      color = if (percent > 100) colors.content else colors.contentTertiary)
+    Text(
+      "${percent / 100}.${(percent % 100).toString().padStart(2, '0')}×",
+      style = Theme.type.overline,
+      color = if (percent > 100) colors.content else colors.contentTertiary,
+    )
   }
 }

@@ -13,22 +13,33 @@ internal object ReturnGuide {
     val ahead = state.targets.filter { (it.x - landing.x) * (if (landing.side == 0) 1 else -1) > 0 }
     val otherHalf = ahead.filter { it.x.toInt() != landing.side }.ifEmpty { ahead }
     val angles = otherHalf.flatMap { target ->
-      listOf(target.y, 2 * Arena.RADIUS - target.y, 2 * (Arena.HEIGHT - Arena.RADIUS) - target.y).map { y ->
-        atan2(y - landing.y, abs(target.x - landing.x))
-      }
+      listOf(target.y, 2 * Arena.RADIUS - target.y, 2 * (Arena.HEIGHT - Arena.RADIUS) - target.y)
+        .map { y ->
+          atan2(y - landing.y, abs(target.x - landing.x))
+        }
     }
     val feasible = angles.filter { abs(it) <= Arena.MAX_ANGLE }
-    val angle = (feasible.ifEmpty { angles }.minByOrNull { abs(it) } ?: 0.0).coerceIn(-Arena.MAX_ANGLE, Arena.MAX_ANGLE)
-    return Arena.paddleY(landing.y - angle / Arena.MAX_ANGLE * state.paddleHeight / 2, state.paddleHeight)
+    val angle =
+      (feasible.ifEmpty { angles }.minByOrNull { abs(it) } ?: 0.0).coerceIn(
+        -Arena.MAX_ANGLE,
+        Arena.MAX_ANGLE,
+      )
+    return Arena.paddleY(
+      landing.y - angle / Arena.MAX_ANGLE * state.paddleHeight / 2,
+      state.paddleHeight,
+    )
   }
 
-  // Trace only the published arena to the next outer paddle, including intervening walls and targets.
+  // Trace only the published arena to the next outer paddle, including intervening walls and
+  // targets.
   fun landing(state: RicochetState): Landing? {
     var pulse = state.pulse
     var targets = state.targets
     var charge = state.charge
     repeat(24) {
-      val hit = Physics.next(pulse, targets, state.paddles, state.paddleHeight, catchAll = true) ?: return null
+      val hit =
+        Physics.next(pulse, targets, state.paddles, state.paddleHeight, catchAll = true)
+          ?: return null
       pulse = Physics.travel(pulse, hit.time)
       if (hit.kind == ImpactKind.Paddle) return Landing(hit.side!!, pulse.x, pulse.y)
       if (hit.kind == ImpactKind.Miss) return null

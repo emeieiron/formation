@@ -10,7 +10,8 @@ import xyz.mcxross.formation.mosaic.MosaicState
 import xyz.mcxross.formation.mosaic.Pinch
 import xyz.mcxross.formation.mosaic.SeamOutcome
 
-// A wrong pair costs everyone, so every phone hears it; seals and alignment hints stay with the two phones
+// A wrong pair costs everyone, so every phone hears it; seals and alignment hints stay with the two
+// phones
 // involved, which keeps a large group from drowning in cues.
 @Composable
 internal fun MosaicFeedback(scope: StageScope<MosaicState, Pinch>) {
@@ -40,7 +41,9 @@ internal fun MosaicFeedback(scope: StageScope<MosaicState, Pinch>) {
         }
       }
       val now = scope.clock.hostNow()
-      if (state.finishedAt == null && state.endsAt - now in 1..DANGER_MS && now - beatAt >= BEAT_MS) {
+      if (
+        state.finishedAt == null && state.endsAt - now in 1..DANGER_MS && now - beatAt >= BEAT_MS
+      ) {
         beatAt = now
         scope.audio.play(GameCue.Danger)
         scope.haptics.heartbeat()

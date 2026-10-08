@@ -56,7 +56,12 @@ sealed interface Stage {
 
   @Serializable
   @SerialName("won")
-  data class Won(val result: RoundResult, val seal: Seal, val unlock: Unlock, val storageProblem: String? = null) : Stage
+  data class Won(
+    val result: RoundResult,
+    val seal: Seal,
+    val unlock: Unlock,
+    val storageProblem: String? = null,
+  ) : Stage
 
   @Serializable @SerialName("lost") data class Lost(val result: RoundResult) : Stage
 
@@ -152,13 +157,19 @@ sealed interface ToHost {
 
   @Serializable @SerialName("profile") data class Profile(val name: String, val light: Int) : ToHost
 
-  @Serializable @SerialName("ping") data class Ping(val sent: Long, val rtt: Int? = null, val synced: Boolean = false) : ToHost
+  @Serializable
+  @SerialName("ping")
+  data class Ping(val sent: Long, val rtt: Int? = null, val synced: Boolean = false) : ToHost
 
   @Serializable @SerialName("ready") data class Ready(val ready: Boolean) : ToHost
 
   @Serializable
   @SerialName("sensors")
-  data class Sensors(val round: Int, val available: Set<String>, val screen: ScreenProfile? = null) : ToHost
+  data class Sensors(
+    val round: Int,
+    val available: Set<String>,
+    val screen: ScreenProfile? = null,
+  ) : ToHost
 
   @Serializable @SerialName("play") data class Play(val round: Int, val input: JsonElement) : ToHost
 
@@ -175,10 +186,14 @@ sealed interface ToPlayer {
   @SerialName("authenticate")
   data class Authenticate(val challenge: AdmissionChallenge, val host: HostProof? = null) : ToPlayer
 
-  @Serializable @SerialName("welcome") data class Welcome(val you: PlayerId, val presence: String = "") : ToPlayer
+  @Serializable
+  @SerialName("welcome")
+  data class Welcome(val you: PlayerId, val presence: String = "") : ToPlayer
 
   // Another ToPlayer message, exactly as the Seeker signed it with its session key.
-  @Serializable @SerialName("signed") data class Signed(val message: String, val signature: String) : ToPlayer
+  @Serializable
+  @SerialName("signed")
+  data class Signed(val message: String, val signature: String) : ToPlayer
 
   @Serializable @SerialName("pong") data class Pong(val sent: Long, val host: Long) : ToPlayer
 

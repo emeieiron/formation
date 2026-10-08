@@ -32,7 +32,10 @@ class OreAccountsTest {
     assertEquals(150uL, config.protocol.roundSlots)
     assertEquals(5uL, config.protocol.intermissionSlots)
     assertEquals(OreDeployment.Devnet.entropyProgramId, config.protocol.entropyProgramId)
-    assertEquals("6CVbEiJUsrgZ6jK8MHHS6bTSaDx39HN1RaJqVX6Qv35V", config.protocol.entropyVar.base58())
+    assertEquals(
+      "6CVbEiJUsrgZ6jK8MHHS6bTSaDx39HN1RaJqVX6Qv35V",
+      config.protocol.entropyVar.base58(),
+    )
 
     val miner = OreMiner.decode(data("miner"))
     val m = fixtures.getValue("miner").jsonObject
@@ -59,8 +62,10 @@ class OreAccountsTest {
     assertEquals(r.squares("deployed"), round.deployed)
     assertEquals(r.squares("mass"), round.mass)
     assertEquals(r.squares("count"), round.count)
-    assertEquals(r.getValue("entropy").jsonPrimitive.content,
-      round.entropy.joinToString("") { it.toUByte().toString(16).padStart(2, '0') })
+    assertEquals(
+      r.getValue("entropy").jsonPrimitive.content,
+      round.entropy.joinToString("") { it.toUByte().toString(16).padStart(2, '0') },
+    )
     assertEquals(r.u64("expires_at"), round.expiresAt)
     assertEquals(r.u64("motherlode"), round.motherlode)
     assertEquals(r.getValue("rent_payer").jsonPrimitive.content, round.rentPayer.base58())
@@ -79,10 +84,14 @@ class OreAccountsTest {
 
   @Test
   fun rejectsIncorrectAccountLayouts() {
-    val decoders: List<Pair<String, (ByteArray) -> Any>> = listOf(
-      "board" to OreBoard::decode, "config" to OreConfig::decode, "miner" to OreMiner::decode,
-      "round" to OreRound::decode, "treasury" to OreTreasury::decode,
-    )
+    val decoders: List<Pair<String, (ByteArray) -> Any>> =
+      listOf(
+        "board" to OreBoard::decode,
+        "config" to OreConfig::decode,
+        "miner" to OreMiner::decode,
+        "round" to OreRound::decode,
+        "treasury" to OreTreasury::decode,
+      )
     for ((name, decode) in decoders) {
       val valid = data(name)
       assertFailsWith<IllegalArgumentException> { decode(valid.copyOf(valid.size - 1)) }
@@ -104,8 +113,18 @@ class OreAccountsTest {
     assertEquals(OreNumeric(ULong.MAX_VALUE, -1), OreTreasury.decode(treasury).minerRewardsFactor)
   }
 
-  private fun data(name: String): ByteArray = Base64.decode(fixtures.getValue("accounts")
-    .jsonObject.getValue(name).jsonObject.getValue("data").jsonArray[0].jsonPrimitive.content)
+  private fun data(name: String): ByteArray =
+    Base64.decode(
+      fixtures
+        .getValue("accounts")
+        .jsonObject
+        .getValue(name)
+        .jsonObject
+        .getValue("data")
+        .jsonArray[0]
+        .jsonPrimitive
+        .content
+    )
 
   private fun JsonObject.u64(name: String): ULong = getValue(name).jsonPrimitive.content.toULong()
 

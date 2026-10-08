@@ -3,8 +3,10 @@ package xyz.mcxross.formation.crypto
 class DerException(message: String) : Exception(message)
 
 // The DER subset that X.509 certificates and key attestation records use. Certificates arrive from
-// other phones, so every read is bounds-checked against its parent and indefinite lengths are refused.
-internal class Der private constructor(
+// other phones, so every read is bounds-checked against its parent and indefinite lengths are
+// refused.
+internal class Der
+private constructor(
   private val source: ByteArray,
   val tagClass: Int,
   val constructed: Boolean,
@@ -13,10 +15,14 @@ internal class Der private constructor(
   val contentStart: Int,
   val end: Int,
 ) {
-  val encoded: ByteArray get() = source.copyOfRange(start, end)
-  val content: ByteArray get() = source.copyOfRange(contentStart, end)
+  val encoded: ByteArray
+    get() = source.copyOfRange(start, end)
+
+  val content: ByteArray
+    get() = source.copyOfRange(contentStart, end)
 
   fun isUniversal(tag: Int) = tagClass == UNIVERSAL && this.tag == tag
+
   fun isContext(tag: Int) = tagClass == CONTEXT && this.tag == tag
 
   fun children(): List<Der> {
@@ -42,7 +48,8 @@ internal class Der private constructor(
 
   fun bitString(): ByteArray {
     val bytes = expect(BIT_STRING).content
-    if (bytes.isEmpty() || bytes[0].toInt() != 0) throw DerException("Expected a whole-byte bit string")
+    if (bytes.isEmpty() || bytes[0].toInt() != 0)
+      throw DerException("Expected a whole-byte bit string")
     return bytes.copyOfRange(1, bytes.size)
   }
 
@@ -68,7 +75,8 @@ internal class Der private constructor(
 
   fun oid(): String {
     val bytes = expect(OID).content
-    if (bytes.isEmpty() || (bytes.last().toInt() and 0x80) != 0) throw DerException("Malformed object identifier")
+    if (bytes.isEmpty() || (bytes.last().toInt() and 0x80) != 0)
+      throw DerException("Malformed object identifier")
     val parts = mutableListOf<Long>()
     var value = 0L
     var digits = 0
@@ -95,21 +103,31 @@ internal class Der private constructor(
 
   fun time(): Long {
     val text = content.decodeToString()
-    val full = when {
-      isUniversal(UTC_TIME) && text.length == 13 -> {
-        val year = text.substring(0, 2).toInt()
-        (if (year >= 50) "19" else "20") + text
+    val full =
+      when {
+        isUniversal(UTC_TIME) && text.length == 13 -> {
+          val year = text.substring(0, 2).toInt()
+          (if (year >= 50) "19" else "20") + text
+        }
+        isUniversal(GENERALIZED_TIME) && text.length == 15 -> text
+        else -> throw DerException("Unsupported time")
       }
-      isUniversal(GENERALIZED_TIME) && text.length == 15 -> text
-      else -> throw DerException("Unsupported time")
-    }
-    if (!full.endsWith("Z") || full.dropLast(1).any { it !in '0'..'9' }) throw DerException("Malformed time")
+    if (!full.endsWith("Z") || full.dropLast(1).any { it !in '0'..'9' })
+      throw DerException("Malformed time")
     fun field(from: Int, length: Int) = full.substring(from, from + length).toInt()
-    return epochMillis(field(0, 4), field(4, 2), field(6, 2), field(8, 2), field(10, 2), field(12, 2))
+    return epochMillis(
+      field(0, 4),
+      field(4, 2),
+      field(6, 2),
+      field(8, 2),
+      field(10, 2),
+      field(12, 2),
+    )
   }
 
   private fun expect(tag: Int): Der {
-    if (!isUniversal(tag)) throw DerException("Expected tag $tag, found class $tagClass tag ${this.tag}")
+    if (!isUniversal(tag))
+      throw DerException("Expected tag $tag, found class $tagClass tag ${this.tag}")
     return this
   }
 
@@ -183,8 +201,16 @@ internal inline fun <T> malformedAs(what: String, read: () -> T): T =
     throw DerException("Malformed $what")
   }
 
-// Days from the civil calendar, after Howard Hinnant's algorithm, so certificate times need no date library.
-internal fun epochMillis(year: Int, month: Int, day: Int, hour: Int, minute: Int, second: Int): Long {
+// Days from the civil calendar, after Howard Hinnant's algorithm, so certificate times need no date
+// library.
+internal fun epochMillis(
+  year: Int,
+  month: Int,
+  day: Int,
+  hour: Int,
+  minute: Int,
+  second: Int,
+): Long {
   if (month !in 1..12 || day !in 1..31 || hour !in 0..23 || minute !in 0..59 || second !in 0..60)
     throw DerException("Malformed time")
   val y = (if (month <= 2) year - 1 else year).toLong()

@@ -33,6 +33,33 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
+import xyz.mcxross.formation.design.Theme
+import xyz.mcxross.formation.design.components.BottomActions
+import xyz.mcxross.formation.design.components.Button
+import xyz.mcxross.formation.design.components.ButtonSize
+import xyz.mcxross.formation.design.components.ButtonStyle
+import xyz.mcxross.formation.design.components.IconButton
+import xyz.mcxross.formation.design.components.IconButtonStyle
+import xyz.mcxross.formation.design.components.LiveryRule
+import xyz.mcxross.formation.design.components.LocalToaster
+import xyz.mcxross.formation.design.components.ModalSheet
+import xyz.mcxross.formation.design.components.Overline
+import xyz.mcxross.formation.design.components.QrCode
+import xyz.mcxross.formation.design.components.SheetActions
+import xyz.mcxross.formation.design.components.SheetHeader
+import xyz.mcxross.formation.design.components.SkrAmount
+import xyz.mcxross.formation.design.components.Tag
+import xyz.mcxross.formation.design.components.TextField
+import xyz.mcxross.formation.design.components.TopBar
+import xyz.mcxross.formation.design.foundation.Icon
+import xyz.mcxross.formation.design.foundation.Panel
+import xyz.mcxross.formation.design.foundation.Text
+import xyz.mcxross.formation.design.foundation.pressable
+import xyz.mcxross.formation.design.icons.Icons
+import xyz.mcxross.formation.design.tokens.Shapes
+import xyz.mcxross.formation.design.tokens.Space
+import xyz.mcxross.formation.design.tokens.Tone
+import xyz.mcxross.formation.model.PlayerId
 import xyz.mcxross.formation.resources.Res
 import xyz.mcxross.formation.resources.a11y_enlarge_qr
 import xyz.mcxross.formation.resources.a11y_locked_reward
@@ -50,33 +77,6 @@ import xyz.mcxross.formation.resources.state_connect_wifi
 import xyz.mcxross.formation.resources.state_group_ready
 import xyz.mcxross.formation.resources.state_waiting
 import xyz.mcxross.formation.resources.state_waiting_host
-import xyz.mcxross.formation.design.Theme
-import xyz.mcxross.formation.design.components.BottomActions
-import xyz.mcxross.formation.design.components.LiveryRule
-import xyz.mcxross.formation.design.components.Button
-import xyz.mcxross.formation.design.components.ButtonSize
-import xyz.mcxross.formation.design.components.ButtonStyle
-import xyz.mcxross.formation.design.components.IconButton
-import xyz.mcxross.formation.design.components.IconButtonStyle
-import xyz.mcxross.formation.design.components.LocalToaster
-import xyz.mcxross.formation.design.components.ModalSheet
-import xyz.mcxross.formation.design.components.Overline
-import xyz.mcxross.formation.design.components.QrCode
-import xyz.mcxross.formation.design.components.SheetActions
-import xyz.mcxross.formation.design.components.SheetHeader
-import xyz.mcxross.formation.design.components.SkrAmount
-import xyz.mcxross.formation.design.components.TextField
-import xyz.mcxross.formation.design.components.TopBar
-import xyz.mcxross.formation.design.components.Tag
-import xyz.mcxross.formation.design.foundation.Icon
-import xyz.mcxross.formation.design.foundation.Panel
-import xyz.mcxross.formation.design.foundation.Text
-import xyz.mcxross.formation.design.foundation.pressable
-import xyz.mcxross.formation.design.icons.Icons
-import xyz.mcxross.formation.design.tokens.Shapes
-import xyz.mcxross.formation.design.tokens.Space
-import xyz.mcxross.formation.design.tokens.Tone
-import xyz.mcxross.formation.model.PlayerId
 import xyz.mcxross.formation.session.SessionSnapshot
 import xyz.mcxross.formation.state.ActiveSession
 import xyz.mcxross.formation.state.ChallengeCatalog
@@ -103,7 +103,8 @@ internal fun Lobby(
   val o = snapshot.formation.opportunity
   val info = challengeInfo(o.challenge)
   val missing = o.players - snapshot.players.size
-  val advertising by session.advertising.collectAsState(xyz.mcxross.formation.link.DiscoveryStatus.Searching)
+  val advertising by
+    session.advertising.collectAsState(xyz.mcxross.formation.link.DiscoveryStatus.Searching)
   var editing by remember { mutableStateOf(false) }
   if (editing) ProfileSheet(onDismiss = { editing = false })
   Column(Modifier.fillMaxSize()) {
@@ -130,8 +131,11 @@ internal fun Lobby(
     )
     Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
       if (session.isHost && advertising is xyz.mcxross.formation.link.DiscoveryStatus.Failed) {
-        xyz.mcxross.formation.design.components.Notice("Nearby advertising is unavailable. Invite others with this session's QR code.",
-          Modifier.padding(horizontal = Space.gutter, vertical = Space.s), tone = Tone.Warning)
+        xyz.mcxross.formation.design.components.Notice(
+          "Nearby advertising is unavailable. Invite others with this session's QR code.",
+          Modifier.padding(horizontal = Space.gutter, vertical = Space.s),
+          tone = Tone.Warning,
+        )
       }
       Row(
         Modifier.padding(horizontal = Space.gutter),
@@ -148,9 +152,19 @@ internal fun Lobby(
           )
           Spacer(Modifier.height(Space.xs))
           Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Lock, stringResource(Res.string.a11y_locked_reward), size = 14.dp, tint = c.contentSecondary)
+            Icon(
+              Icons.Lock,
+              stringResource(Res.string.a11y_locked_reward),
+              size = 14.dp,
+              tint = c.contentSecondary,
+            )
             Spacer(Modifier.width(Space.s))
-            SkrAmount(o.reward.format(0), style = Theme.type.footnote, color = c.reward, coin = false)
+            SkrAmount(
+              o.reward.format(0),
+              style = Theme.type.footnote,
+              color = c.reward,
+              coin = false,
+            )
           }
         }
       }
@@ -162,13 +176,18 @@ internal fun Lobby(
         val assembled = missing <= 0 && snapshot.players.all { it.connected }
         Row(
           Modifier.fillMaxWidth().clearAndSetSemantics {
-            contentDescription = listOfNotNull(occupancy, ready.takeIf { assembled }).joinToString(", ")
+            contentDescription =
+              listOfNotNull(occupancy, ready.takeIf { assembled }).joinToString(", ")
           },
           verticalAlignment = Alignment.CenterVertically,
         ) {
           Icon(Icons.Users, null, tint = c.accent, size = 26.dp)
           Spacer(Modifier.width(Space.m))
-          Text("${snapshot.players.size}/${o.players}", Modifier.weight(1f), style = Theme.type.numeralLarge)
+          Text(
+            "${snapshot.players.size}/${o.players}",
+            Modifier.weight(1f),
+            style = Theme.type.numeralLarge,
+          )
           if (assembled) Tag(ready, tone = Tone.Positive, icon = Icons.Check)
         }
         Spacer(Modifier.height(Space.xl))
@@ -201,7 +220,9 @@ internal fun Lobby(
           contentAlignment = Alignment.Center,
         ) {
           Text(
-            stringResource(if (missing > 0) Res.string.state_waiting else Res.string.state_waiting_host),
+            stringResource(
+              if (missing > 0) Res.string.state_waiting else Res.string.state_waiting_host
+            ),
             style = Theme.type.subheadStrong,
             color = c.contentSecondary,
             modifier = Modifier.fillMaxWidth(),
@@ -229,7 +250,11 @@ private fun JoinPanel(session: ActiveSession, snapshot: SessionSnapshot) {
           Box(
             Modifier.size(112.dp)
               .clip(Shapes.control)
-              .pressable({ bigQr = true }, shape = Shapes.control, onClickLabel = stringResource(Res.string.a11y_enlarge_qr))
+              .pressable(
+                { bigQr = true },
+                shape = Shapes.control,
+                onClickLabel = stringResource(Res.string.a11y_enlarge_qr),
+              )
               .background(Color.White)
               .padding(10.dp),
             contentAlignment = Alignment.Center,
@@ -374,7 +399,11 @@ private fun ProfileSheet(onDismiss: () -> Unit) {
   var light by remember { mutableStateOf(current.light) }
   ModalSheet(onDismiss) {
     SheetHeader(stringResource(Res.string.label_profile))
-    Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(horizontal = Space.xxl)) {
+    Column(
+      Modifier.weight(1f, fill = false)
+        .verticalScroll(rememberScrollState())
+        .padding(horizontal = Space.xxl)
+    ) {
       TextField(name, { name = it }, label = stringResource(Res.string.label_name), maxLength = 20)
       Spacer(Modifier.height(Space.l))
       LightPicker(light, onPick = { light = it })

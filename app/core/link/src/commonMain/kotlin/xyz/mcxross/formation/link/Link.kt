@@ -42,7 +42,8 @@ interface LinkServer {
 }
 
 interface Advertiser {
-  val status: Flow<DiscoveryStatus> get() = flowOf(DiscoveryStatus.Searching)
+  val status: Flow<DiscoveryStatus>
+    get() = flowOf(DiscoveryStatus.Searching)
 
   fun advertise(name: String, port: Int)
 
@@ -50,7 +51,8 @@ interface Advertiser {
 }
 
 interface HostFinder {
-  val status: Flow<DiscoveryStatus> get() = flowOf(DiscoveryStatus.Searching)
+  val status: Flow<DiscoveryStatus>
+    get() = flowOf(DiscoveryStatus.Searching)
 
   val candidates: Flow<Set<HostAddress>>
 }

@@ -18,10 +18,25 @@ internal fun DiagnosticsSettings() {
   SectionHeader("Diagnostics")
   Panel(Modifier.fillMaxWidth().padding(horizontal = Space.gutter)) {
     Column {
-      SettingRow("Local traces", detail = "${entries.size}/${xyz.mcxross.formation.state.diagnostics.LocalDiagnostics.LIMIT} events · stays on this phone", icon = Icons.Phone)
+      SettingRow(
+        "Local traces",
+        detail =
+          "${entries.size}/${xyz.mcxross.formation.state.diagnostics.LocalDiagnostics.LIMIT} events · stays on this phone",
+        icon = Icons.Phone,
+      )
       Row(Modifier.padding(Space.l), horizontalArrangement = Arrangement.spacedBy(Space.m)) {
-        Button("Export", { graph.platform.external.share(graph.diagnostics.export()) }, Modifier.weight(1f), style = ButtonStyle.Secondary)
-        Button("Clear", { graph.diagnostics.clear() }, Modifier.weight(1f), style = ButtonStyle.Ghost)
+        Button(
+          "Export",
+          { graph.platform.external.share(graph.diagnostics.export()) },
+          Modifier.weight(1f),
+          style = ButtonStyle.Secondary,
+        )
+        Button(
+          "Clear",
+          { graph.diagnostics.clear() },
+          Modifier.weight(1f),
+          style = ButtonStyle.Ghost,
+        )
       }
     }
   }

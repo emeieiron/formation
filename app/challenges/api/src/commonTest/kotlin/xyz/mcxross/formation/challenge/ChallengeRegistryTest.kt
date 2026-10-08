@@ -33,31 +33,75 @@ class ChallengeRegistryTest {
 
   @Test
   fun registrationRejectsMetadataTheSessionAndVaultCannotSupport() {
-    for (invalid in listOf(Fixture("", 6), Fixture("first", 0), Fixture("first", 65536),
-      Fixture("first", 6, version = 0), Fixture("first", 6, players = 2..33),
-      Fixture("first", 6, players = 3..2), Fixture("first", 6, players = 6..18, sizes = emptySet()),
-      Fixture("first", 6, players = 6..18, sizes = setOf(6, 24)))) {
+    for (invalid in
+      listOf(
+        Fixture("", 6),
+        Fixture("first", 0),
+        Fixture("first", 65536),
+        Fixture("first", 6, version = 0),
+        Fixture("first", 6, players = 2..33),
+        Fixture("first", 6, players = 3..2),
+        Fixture("first", 6, players = 6..18, sizes = emptySet()),
+        Fixture("first", 6, players = 6..18, sizes = setOf(6, 24)),
+      )) {
       assertFailsWith<IllegalArgumentException> { ChallengeRegistry(listOf(invalid)) }
     }
   }
 
   @Test
   fun onlyDeclaredGroupSizesMatchRewards() {
-    val registry = ChallengeRegistry(listOf(Fixture("grid", 6, players = 6..18, sizes = setOf(6, 9, 18)), Fixture("duo", 7)))
-    fun reward(game: String, players: Int) = Opportunity(
-      Budget(OpportunityId("entry"), "contest", "sgt", Skr.of(120), 3, 31, Long.MAX_VALUE, "Test"), ChallengeId(game), players)
+    val registry =
+      ChallengeRegistry(
+        listOf(Fixture("grid", 6, players = 6..18, sizes = setOf(6, 9, 18)), Fixture("duo", 7))
+      )
+    fun reward(game: String, players: Int) =
+      Opportunity(
+        Budget(
+          OpportunityId("entry"),
+          "contest",
+          "sgt",
+          Skr.of(120),
+          3,
+          31,
+          Long.MAX_VALUE,
+          "Test",
+        ),
+        ChallengeId(game),
+        players,
+      )
     assertEquals(listOf(6, 9, 18), (2..32).filter { registry.supports(reward("grid", it)) })
     assertEquals(listOf(2), (2..32).filter { registry.supports(reward("duo", it)) })
   }
 
-  private class Fixture(id: String, code: Int, version: Int = 1, players: IntRange = 2..2, sizes: Set<Int> = players.toSet()) :
-    Challenge<Unit, Unit>() {
-    override val info = ChallengeInfo(ChallengeId(id), code, "Fixture", "", "", emptyList(), Icons.Spark, 0, emptyList(), players, sizes)
+  private class Fixture(
+    id: String,
+    code: Int,
+    version: Int = 1,
+    players: IntRange = 2..2,
+    sizes: Set<Int> = players.toSet(),
+  ) : Challenge<Unit, Unit>() {
+    override val info =
+      ChallengeInfo(
+        ChallengeId(id),
+        code,
+        "Fixture",
+        "",
+        "",
+        emptyList(),
+        Icons.Spark,
+        0,
+        emptyList(),
+        players,
+        sizes,
+      )
     override val formatVersion = version
     override val stateSerializer = Unit.serializer()
     override val inputSerializer = Unit.serializer()
+
     override fun newGame(setup: ChallengeSetup) = error("Registry fixture has no game")
+
     override fun goal(players: Int, difficulty: Difficulty) = ""
+
     @Composable override fun Stage(scope: StageScope<Unit, Unit>) {}
   }
 }

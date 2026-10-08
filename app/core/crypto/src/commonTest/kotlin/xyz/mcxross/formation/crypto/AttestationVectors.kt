@@ -1,9 +1,11 @@
 package xyz.mcxross.formation.crypto
 
-// Real attestation chains from github.com/android/keyattestation/tree/main/testdata (Apache License 2.0).
+// Real attestation chains from github.com/android/keyattestation/tree/main/testdata (Apache License
+// 2.0).
 internal object AttestationVectors {
   // A Pixel 9 Pro TEE key, remotely provisioned under the RSA root.
-  val PIXEL_9_PRO_RKP = """
+  val PIXEL_9_PRO_RKP =
+    """
 -----BEGIN CERTIFICATE-----
 MIIDGzCCAsGgAwIBAgIBATAKBggqhkjOPQQDAjA5MSkwJwYDVQQDEyBmMTY1ODQ5
 ZWYwOGI0NjU4ZGQwYThhYjk1YmU1MzAwNjEMMAoGA1UEChMDVEVFMB4XDTcwMDEw
@@ -102,7 +104,8 @@ ex0SdDrx+tWUDqG8At2JHA==
   """
 
   // A StrongBox key under the 2026 EC root.
-  val PIXEL_STRONGBOX_2026 = """
+  val PIXEL_STRONGBOX_2026 =
+    """
 -----BEGIN CERTIFICATE-----
 MIICuTCCAl+gAwIBAgIBATAKBggqhkjOPQQDAjA/MRIwEAYDVQQKEwlTdHJvbmdC
 b3gxKTAnBgNVBAMTIGFiNGQ1ODRkMzI4NWI2YzUxZDIzYzE5OTIwMTc0NGMwMB4X
@@ -183,7 +186,8 @@ uR2zh/80lQyu9vAFCj6E4AXc+osmRg==
   """
 
   // A factory-provisioned Sony key whose intermediates expired before it was made.
-  val XPERIA_FACTORY = """
+  val XPERIA_FACTORY =
+    """
 -----BEGIN CERTIFICATE-----
 MIICvzCCAmagAwIBAgIBATAKBggqhkjOPQQDAjAbMRkwFwYDVQQFExAzZTdmYjZh
 MWVlNGJkNTY4MCAXDTcwMDEwMTAwMDAwMFoYDzIxMDYwMjA3MDYyODE1WjAfMR0w
@@ -272,7 +276,8 @@ wDB5y0USicV3YgYGmi+NZfhA4URSh77Yd6uuJOJENRaNVTzk
   """
 
   // A Pixel 8a with an unlocked bootloader.
-  val PIXEL_8A_UNLOCKED = """
+  val PIXEL_8A_UNLOCKED =
+    """
 -----BEGIN CERTIFICATE-----
 MIIDkTCCAzegAwIBAgIBATAKBggqhkjOPQQDAjA5MSkwJwYDVQQDEyAyOThmYzAy
 YTE1MTJlNjkyOGZhNmY4ZWYyOGM1NWNjMTEMMAoGA1UEChMDVEVFMB4XDTcwMDEw
@@ -373,7 +378,8 @@ ex0SdDrx+tWUDqG8At2JHA==
   """
 
   // A record whose deviceLocked flag isn't a valid boolean.
-  val MALFORMED_ROOT_OF_TRUST = """
+  val MALFORMED_ROOT_OF_TRUST =
+    """
 -----BEGIN CERTIFICATE-----
 MIIC8TCCApagAwIBAgIBATAKBggqhkjOPQQDAjA5MQwwCgYDVQQMDANURUUxKTAn
 BgNVBAUTIDVlZThlMTAxN2U1N2RmZTg2ZGY0OGY5NDliNDJhYmRkMB4XDTcwMDEw

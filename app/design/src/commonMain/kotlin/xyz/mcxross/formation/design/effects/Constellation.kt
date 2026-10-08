@@ -122,9 +122,10 @@ private fun ArrivingLight(member: RingMember, size: Dp) {
   LaunchedEffect(Unit) { scale.animateTo(1f, Motion.bouncy()) }
   val outline = Theme.colors.content
   Box(
-    Modifier.size(size).then(
-      if (member.me && !member.seeker) Modifier.border(1.dp, outline, Shapes.circle) else Modifier
-    ),
+    Modifier.size(size)
+      .then(
+        if (member.me && !member.seeker) Modifier.border(1.dp, outline, Shapes.circle) else Modifier
+      ),
     contentAlignment = Alignment.Center,
   ) {
     PlayerLight(

@@ -19,35 +19,63 @@ class MotionSimulator(private val scope: CoroutineScope) : SensorBackend {
   private val performed = MutableSharedFlow<Gesture>(extraBufferCapacity = 16)
   val gravity: kotlinx.coroutines.flow.StateFlow<Vec3> = held.asStateFlow()
   val gestures = performed.asSharedFlow()
-  override val catalog = MutableStateFlow(SensorKind.entries.associateWith {
-    SensorDescriptor(Availability.Available(SensorSource.SIMULATED), it != SensorKind.PROXIMITY && it != SensorKind.LIGHT)
-  })
+  override val catalog =
+    MutableStateFlow(
+      SensorKind.entries.associateWith {
+        SensorDescriptor(
+          Availability.Available(SensorSource.SIMULATED),
+          it != SensorKind.PROXIMITY && it != SensorKind.LIGHT,
+        )
+      }
+    )
 
-  override fun register(kind: SensorKind, request: SamplingRequest, receive: (BackendUpdate) -> Unit): SensorRegistration {
+  override fun register(
+    kind: SensorKind,
+    request: SamplingRequest,
+    receive: (BackendUpdate) -> Unit,
+  ): SensorRegistration {
     val job = scope.launch {
       while (true) {
         val g = held.value
-        val values = when (kind) {
-          SensorKind.ACCELERATION, SensorKind.GRAVITY -> listOf(g.x, g.y, g.z)
-          SensorKind.LINEAR_ACCELERATION, SensorKind.ANGULAR_VELOCITY -> listOf(0f, 0f, 0f)
-          SensorKind.GAME_ROTATION -> listOf(0f, 0f, 0f, 1f)
-          SensorKind.PROXIMITY -> listOf(0f)
-          SensorKind.LIGHT -> listOf(100f)
-        }
-        receive(BackendUpdate.Reading(values, origin.elapsedNow().inWholeNanoseconds, SensorQuality.USABLE))
+        val values =
+          when (kind) {
+            SensorKind.ACCELERATION,
+            SensorKind.GRAVITY -> listOf(g.x, g.y, g.z)
+            SensorKind.LINEAR_ACCELERATION,
+            SensorKind.ANGULAR_VELOCITY -> listOf(0f, 0f, 0f)
+            SensorKind.GAME_ROTATION -> listOf(0f, 0f, 0f, 1f)
+            SensorKind.PROXIMITY -> listOf(0f)
+            SensorKind.LIGHT -> listOf(100f)
+          }
+        receive(
+          BackendUpdate.Reading(
+            values,
+            origin.elapsedNow().inWholeNanoseconds,
+            SensorQuality.USABLE,
+          )
+        )
         delay((request.periodUs / 1_000L).coerceAtLeast(1))
       }
     }
     return SensorRegistration { job.cancel() }
   }
 
-  fun hold(pose: Pose) { held.value = pose.gravity() }
+  fun hold(pose: Pose) {
+    held.value = pose.gravity()
+  }
+
   fun lean(roll: Float) {
     val radians = roll.coerceIn(-89f, 89f) * PI.toFloat() / 180f
     held.value = Vec3(sin(radians) * STANDARD_GRAVITY, 0f, cos(radians) * STANDARD_GRAVITY)
   }
-  fun release() { held.value = Pose.TILTED.gravity() }
-  fun perform(gesture: Gesture) { performed.tryEmit(gesture) }
+
+  fun release() {
+    held.value = Pose.TILTED.gravity()
+  }
+
+  fun perform(gesture: Gesture) {
+    performed.tryEmit(gesture)
+  }
 }
 
 fun Pose.gravity(): Vec3 {

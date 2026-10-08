@@ -48,29 +48,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
-import xyz.mcxross.formation.resources.Res
-import xyz.mcxross.formation.resources.a11y_locked_reward
-import xyz.mcxross.formation.resources.a11y_occupancy
-import xyz.mcxross.formation.resources.action_code
-import xyz.mcxross.formation.resources.action_join
-import xyz.mcxross.formation.resources.action_scan
-import xyz.mcxross.formation.resources.action_unlock
-import xyz.mcxross.formation.resources.copy_offline_unlock
-import xyz.mcxross.formation.resources.label_nearby
-import xyz.mcxross.formation.resources.label_profile
-import xyz.mcxross.formation.resources.label_rewards
-import xyz.mcxross.formation.resources.label_your_share
-import xyz.mcxross.formation.resources.ready_reward_count
-import xyz.mcxross.formation.resources.state_full
-import xyz.mcxross.formation.resources.state_reward_unavailable
-import xyz.mcxross.formation.resources.state_saved_game_unavailable
-import xyz.mcxross.formation.resources.label_saved_result
-import xyz.mcxross.formation.resources.state_playing
 import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.components.Button
 import xyz.mcxross.formation.design.components.ButtonSize
 import xyz.mcxross.formation.design.components.ButtonStyle
-import xyz.mcxross.formation.design.components.motionEnabled
 import xyz.mcxross.formation.design.components.LiveryRule
 import xyz.mcxross.formation.design.components.LocalToaster
 import xyz.mcxross.formation.design.components.NavigationBarSpacer
@@ -81,6 +62,7 @@ import xyz.mcxross.formation.design.components.SectionHeader
 import xyz.mcxross.formation.design.components.SkrAmount
 import xyz.mcxross.formation.design.components.Tag
 import xyz.mcxross.formation.design.components.liveryCard
+import xyz.mcxross.formation.design.components.motionEnabled
 import xyz.mcxross.formation.design.effects.FormationMark
 import xyz.mcxross.formation.design.foundation.Icon
 import xyz.mcxross.formation.design.foundation.Panel
@@ -94,11 +76,29 @@ import xyz.mcxross.formation.design.tokens.Space
 import xyz.mcxross.formation.design.tokens.Tone
 import xyz.mcxross.formation.model.Budget
 import xyz.mcxross.formation.model.Skr
+import xyz.mcxross.formation.resources.Res
+import xyz.mcxross.formation.resources.a11y_locked_reward
+import xyz.mcxross.formation.resources.a11y_occupancy
+import xyz.mcxross.formation.resources.action_code
+import xyz.mcxross.formation.resources.action_join
+import xyz.mcxross.formation.resources.action_scan
+import xyz.mcxross.formation.resources.action_unlock
+import xyz.mcxross.formation.resources.copy_offline_unlock
+import xyz.mcxross.formation.resources.label_nearby
+import xyz.mcxross.formation.resources.label_profile
+import xyz.mcxross.formation.resources.label_rewards
+import xyz.mcxross.formation.resources.label_saved_result
+import xyz.mcxross.formation.resources.label_your_share
+import xyz.mcxross.formation.resources.ready_reward_count
+import xyz.mcxross.formation.resources.state_full
+import xyz.mcxross.formation.resources.state_playing
+import xyz.mcxross.formation.resources.state_reward_unavailable
+import xyz.mcxross.formation.resources.state_saved_game_unavailable
 import xyz.mcxross.formation.session.NearbyFormation
-import xyz.mcxross.formation.state.SeekerStatus
-import xyz.mcxross.formation.state.PhoneRole
-import xyz.mcxross.formation.state.Links
 import xyz.mcxross.formation.state.ChallengeCatalog
+import xyz.mcxross.formation.state.Links
+import xyz.mcxross.formation.state.PhoneRole
+import xyz.mcxross.formation.state.SeekerStatus
 import xyz.mcxross.formation.ui.LocalGraph
 import xyz.mcxross.formation.ui.components.Slots
 import xyz.mcxross.formation.ui.components.challengeInfo
@@ -115,42 +115,65 @@ fun HomeScreen(presentation: HomePresentation) {
   val seeker by graph.seeker.identity.collectAsState()
   val rewards by graph.ledger.budgets.collectAsState()
   val draws by graph.ledger.draws.collectAsState()
-  val rewardTime by produceState(xyz.mcxross.formation.state.now(), rewards) {
-    while (true) {
-      val at = xyz.mcxross.formation.state.now()
-      value = at
-      val expiry = rewards.filter { it.playUntil > at }.minOfOrNull { it.playUntil } ?: break
-      delay((expiry - at).coerceAtLeast(1))
+  val rewardTime by
+    produceState(xyz.mcxross.formation.state.now(), rewards) {
+      while (true) {
+        val at = xyz.mcxross.formation.state.now()
+        value = at
+        val expiry = rewards.filter { it.playUntil > at }.minOfOrNull { it.playUntil } ?: break
+        delay((expiry - at).coerceAtLeast(1))
+      }
     }
-  }
-  val gameRewards = ChallengeCatalog.all.associate { game ->
-    game.id to if (seeker != null) ChallengeCatalog.rewardsFor(game.id, rewards, rewardTime) else emptyList()
-  }
+  val gameRewards =
+    ChallengeCatalog.all.associate { game ->
+      game.id to
+        if (seeker != null) ChallengeCatalog.rewardsFor(game.id, rewards, rewardTime)
+        else emptyList()
+    }
   val tickets by graph.ledger.tickets.collectAsState()
   val problem by graph.ledger.problem.collectAsState()
   // Discovery starts automatically with Home; only results and failures have UI.
   var scanAttempt by remember { mutableStateOf(0) }
-  val discovery by graph.nearby.status.collectAsState(xyz.mcxross.formation.link.DiscoveryStatus.Searching)
+  val discovery by
+    graph.nearby.status.collectAsState(xyz.mcxross.formation.link.DiscoveryStatus.Searching)
   val nearby by
-    produceState(emptyList<NearbyFormation>(), scanAttempt) { graph.nearby.scan().collect { value = it } }
-  var opened by remember { mutableStateOf<Pair<xyz.mcxross.formation.challenge.Challenge<*, *>, Budget>?>(null) }
-  var gameActions by remember { mutableStateOf<xyz.mcxross.formation.challenge.Challenge<*, *>?>(null) }
+    produceState(emptyList<NearbyFormation>(), scanAttempt) {
+      graph.nearby.scan().collect { value = it }
+    }
+  var opened by remember {
+    mutableStateOf<Pair<xyz.mcxross.formation.challenge.Challenge<*, *>, Budget>?>(null)
+  }
+  var gameActions by remember {
+    mutableStateOf<xyz.mcxross.formation.challenge.Challenge<*, *>?>(null)
+  }
   val rewardUnavailable = stringResource(Res.string.state_reward_unavailable)
   var enteringCode by remember { mutableStateOf(false) }
   val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
   val moves = motionEnabled()
-  val active = lifecycle.isAtLeast(Lifecycle.State.RESUMED) && graph.navigator.current.screen == Screen.Home &&
-    opened == null && gameActions == null && !enteringCode
+  val active =
+    lifecycle.isAtLeast(Lifecycle.State.RESUMED) &&
+      graph.navigator.current.screen == Screen.Home &&
+      opened == null &&
+      gameActions == null &&
+      !enteringCode
   val listState = rememberLazyListState()
-  val visibleKeys by remember { derivedStateOf { listState.layoutInfo.visibleItemsInfo.map { it.key }.toSet() } }
+  val visibleKeys by remember {
+    derivedStateOf { listState.layoutInfo.visibleItemsInfo.map { it.key }.toSet() }
+  }
   val coverTop = with(LocalDensity.current) { (Space.l + 24.dp).roundToPx() }
   val coverBottom = with(LocalDensity.current) { (Space.l + 24.dp + 150.dp).roundToPx() }
-  val coverVisible by remember(listState, coverTop, coverBottom) { derivedStateOf {
-    val layout = listState.layoutInfo
-    layout.visibleItemsInfo.firstOrNull { it.key == "games-catalog" }?.let {
-      it.offset + coverBottom > layout.viewportStartOffset && it.offset + coverTop < layout.viewportEndOffset
-    } ?: false
-  } }
+  val coverVisible by
+    remember(listState, coverTop, coverBottom) {
+      derivedStateOf {
+        val layout = listState.layoutInfo
+        layout.visibleItemsInfo
+          .firstOrNull { it.key == "games-catalog" }
+          ?.let {
+            it.offset + coverBottom > layout.viewportStartOffset &&
+              it.offset + coverTop < layout.viewportEndOffset
+          } ?: false
+      }
+    }
   val entrance = remember { Animatable(if (!presentation.entered && moves && active) 0f else 1f) }
   LaunchedEffect(active, moves) {
     if (!presentation.entered && active) {
@@ -208,10 +231,16 @@ fun HomeScreen(presentation: HomePresentation) {
     }
 
     Spacer(Modifier.height(Space.l))
-    LiveryRule(Modifier.padding(horizontal = Space.gutter).drawWithContent {
-      clipRect(right = size.width * entrance.value) { this@drawWithContent.drawContent() }
-    })
-    LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = Space.x4l)) {
+    LiveryRule(
+      Modifier.padding(horizontal = Space.gutter).drawWithContent {
+        clipRect(right = size.width * entrance.value) { this@drawWithContent.drawContent() }
+      }
+    )
+    LazyColumn(
+      Modifier.fillMaxSize(),
+      state = listState,
+      contentPadding = PaddingValues(bottom = Space.x4l),
+    ) {
       item {
         Column(Modifier.padding(start = Space.gutter, end = Space.gutter, top = Space.l)) {
           PlayerName(profile?.name ?: "Formation")
@@ -238,22 +267,34 @@ fun HomeScreen(presentation: HomePresentation) {
       }
       items(unfinished, key = { "completion-" + it.snapshot.formation.session }) { record ->
         val resumable = ChallengeCatalog.supports(record.snapshot.formation.opportunity)
-        Notice(if (resumable) "Reconnect the group to finish saving this win." else stringResource(Res.string.state_saved_game_unavailable),
+        Notice(
+          if (resumable) "Reconnect the group to finish saving this win."
+          else stringResource(Res.string.state_saved_game_unavailable),
           Modifier.padding(horizontal = Space.gutter, vertical = Space.s),
-          title = if (resumable) "Finish saving your win" else stringResource(Res.string.label_saved_result),
-          action = if (resumable) "Resume" else null, onAction = { scope.launch { graph.resumeCompletion(record).onFailure {
-            toaster.show(it.message ?: "Couldn't resume", Tone.Warning)
-          } } })
+          title =
+            if (resumable) "Finish saving your win"
+            else stringResource(Res.string.label_saved_result),
+          action = if (resumable) "Resume" else null,
+          onAction = {
+            scope.launch {
+              graph.resumeCompletion(record).onFailure {
+                toaster.show(it.message ?: "Couldn't resume", Tone.Warning)
+              }
+            }
+          },
+        )
       }
       val me = seeker
       if (me != null && pendingWins.isNotEmpty()) {
         items(pendingWins, key = { "pending-" + it.opportunity.id.value }) { win ->
           Notice(
-            if (win.unlocked) "Some wallet payments are still pending. Retry once online." else stringResource(Res.string.copy_offline_unlock),
+            if (win.unlocked) "Some wallet payments are still pending. Retry once online."
+            else stringResource(Res.string.copy_offline_unlock),
             Modifier.padding(horizontal = Space.gutter, vertical = Space.s),
             tone = Tone.Warning,
             title = "${win.opportunity.reward.format(0)} SKR",
-            action = if (win.unlocked) "Retry payments" else stringResource(Res.string.action_unlock),
+            action =
+              if (win.unlocked) "Retry payments" else stringResource(Res.string.action_unlock),
             onAction = {
               scope.launch {
                 graph.unlockWin(win).onFailure {
@@ -264,28 +305,50 @@ fun HomeScreen(presentation: HomePresentation) {
           )
         }
       }
-      // A phone that isn't a Seeker plays by joining one, so joining comes first. A Seeker hosts, so its
+      // A phone that isn't a Seeker plays by joining one, so joining comes first. A Seeker hosts,
+      // so its
       // setup and games come first.
       fun LazyListScope.nearbySection() {
         item { SectionHeader(stringResource(Res.string.label_nearby)) }
         (discovery as? xyz.mcxross.formation.link.DiscoveryStatus.Failed)?.let { failure ->
-          item { Notice(failure.reason.message, Modifier.padding(horizontal = Space.gutter, vertical = Space.s),
-            title = "Nearby unavailable", tone = Tone.Warning, action = "Retry", onAction = { scanAttempt++ }) }
+          item {
+            Notice(
+              failure.reason.message,
+              Modifier.padding(horizontal = Space.gutter, vertical = Space.s),
+              title = "Nearby unavailable",
+              tone = Tone.Warning,
+              action = "Retry",
+              onAction = { scanAttempt++ },
+            )
+          }
         }
-        if (role == PhoneRole.PLAYER && nearby.isEmpty()) item(key = "join-intro") {
-          JoinIntro(
-            searching = discovery !is xyz.mcxross.formation.link.DiscoveryStatus.Failed,
-            testSeekers = graph.seeker.testSeekers,
-            onHost = { scope.launch { graph.seeker.becomeHost() } },
-            modifier = Modifier.padding(horizontal = Space.gutter, vertical = Space.s),
-          )
-        }
-        if (role == PhoneRole.PLAYER) linkProblem(status)?.let { (title, text) ->
-          item { Notice(text, Modifier.padding(horizontal = Space.gutter, vertical = Space.s), title = title, tone = Tone.Warning) }
-        }
+        if (role == PhoneRole.PLAYER && nearby.isEmpty())
+          item(key = "join-intro") {
+            JoinIntro(
+              searching = discovery !is xyz.mcxross.formation.link.DiscoveryStatus.Failed,
+              testSeekers = graph.seeker.testSeekers,
+              onHost = { scope.launch { graph.seeker.becomeHost() } },
+              modifier = Modifier.padding(horizontal = Space.gutter, vertical = Space.s),
+            )
+          }
+        if (role == PhoneRole.PLAYER)
+          linkProblem(status)?.let { (title, text) ->
+            item {
+              Notice(
+                text,
+                Modifier.padding(horizontal = Space.gutter, vertical = Space.s),
+                title = title,
+                tone = Tone.Warning,
+              )
+            }
+          }
         items(nearby, key = { it.beacon.session }) { formation ->
-          NearbyCard(formation, onJoin = { join(formation) }, presentation = presentation,
-            active = active && formation.beacon.session in visibleKeys)
+          NearbyCard(
+            formation,
+            onJoin = { join(formation) },
+            presentation = presentation,
+            active = active && formation.beacon.session in visibleKeys,
+          )
         }
         item {
           JoinControls(
@@ -296,49 +359,74 @@ fun HomeScreen(presentation: HomePresentation) {
         }
       }
       val hostable = gameRewards.values.sumOf { it.size }
-      fun LazyListScope.games() = gameCatalog(ChallengeCatalog.all, canHost = me != null,
-        seekerPhone = role != PhoneRole.PLAYER,
-        playable = gameRewards.filterValues { it.isNotEmpty() }.keys,
-        motionActive = active && coverVisible,
-        entrance = { entrance.value },
-        onOpen = { gameActions = it })
+      fun LazyListScope.games() =
+        gameCatalog(
+          ChallengeCatalog.all,
+          canHost = me != null,
+          seekerPhone = role != PhoneRole.PLAYER,
+          playable = gameRewards.filterValues { it.isNotEmpty() }.keys,
+          motionActive = active && coverVisible,
+          entrance = { entrance.value },
+          onOpen = { gameActions = it },
+        )
 
       if (role == PhoneRole.PLAYER) {
         nearbySection()
         games()
       } else {
-        if (me == null || hostable == 0) item(key = "seeker-setup") {
-          SeekerSetup(status, me?.wallet, hostable, graph.seeker.testSeekers,
-            onLink = { scope.launch { graph.seeker.becomeHost() } },
-            modifier = Modifier.padding(horizontal = Space.gutter, vertical = Space.s))
-        }
+        if (me == null || hostable == 0)
+          item(key = "seeker-setup") {
+            SeekerSetup(
+              status,
+              me?.wallet,
+              hostable,
+              graph.seeker.testSeekers,
+              onLink = { scope.launch { graph.seeker.becomeHost() } },
+              modifier = Modifier.padding(horizontal = Space.gutter, vertical = Space.s),
+            )
+          }
         games()
-        if (me != null) items(draws, key = { "draw-" + it.contest }) { draw ->
-          OpenDrawRow(draw, Modifier.padding(horizontal = Space.gutter, vertical = Space.s)) {
-            scope.launch {
-              graph.ledger.enter(me, draw).fold(
-                onSuccess = { toaster.show("Entered the draw", Tone.Positive) },
-                onFailure = { toaster.show(it.message ?: "Couldn't enter the draw", Tone.Negative) },
+        if (me != null)
+          items(draws, key = { "draw-" + it.contest }) { draw ->
+            OpenDrawRow(draw, Modifier.padding(horizontal = Space.gutter, vertical = Space.s)) {
+              scope.launch {
+                graph.ledger
+                  .enter(me, draw)
+                  .fold(
+                    onSuccess = { toaster.show("Entered the draw", Tone.Positive) },
+                    onFailure = {
+                      toaster.show(it.message ?: "Couldn't enter the draw", Tone.Negative)
+                    },
+                  )
+              }
+            }
+          }
+        if (me != null)
+          problem?.let {
+            item {
+              Notice(
+                it,
+                Modifier.padding(horizontal = Space.gutter, vertical = Space.s),
+                tone = Tone.Warning,
               )
             }
           }
-        }
-        if (me != null) problem?.let {
-          item {
-            Notice(it, Modifier.padding(horizontal = Space.gutter, vertical = Space.s), tone = Tone.Warning)
-          }
-        }
         nearbySection()
       }
       item {
         Spacer(Modifier.height(Space.xl))
         Row(
-          Modifier.fillMaxWidth().padding(horizontal = Space.gutter)
+          Modifier.fillMaxWidth()
+            .padding(horizontal = Space.gutter)
             .pressable({ graph.navigator.push(Screen.Rewards) }, shape = Shapes.control)
             .padding(vertical = Space.l),
           verticalAlignment = Alignment.CenterVertically,
         ) {
-          Text(stringResource(Res.string.label_rewards), Modifier.weight(1f), style = Theme.type.bodyStrong)
+          Text(
+            stringResource(Res.string.label_rewards),
+            Modifier.weight(1f),
+            style = Theme.type.bodyStrong,
+          )
           Icon(Icons.ArrowUpRight, null)
         }
       }
@@ -347,12 +435,18 @@ fun HomeScreen(presentation: HomePresentation) {
   }
 
   gameActions?.let { game ->
-    GameActionSheet(game,
+    GameActionSheet(
+      game,
       rewards = gameRewards[game.id].orEmpty(),
       onDismiss = { gameActions = null },
       onReward = { reward ->
-        val current = ChallengeCatalog.rewardsFor(game.id, graph.ledger.budgets.value, xyz.mcxross.formation.state.now())
-          .firstOrNull { it.id == reward.id }
+        val current =
+          ChallengeCatalog.rewardsFor(
+              game.id,
+              graph.ledger.budgets.value,
+              xyz.mcxross.formation.state.now(),
+            )
+            .firstOrNull { it.id == reward.id }
         if (current != null && graph.seeker.identity.value != null) {
           gameActions = null
           opened = game to current
@@ -395,7 +489,12 @@ fun HomeScreen(presentation: HomePresentation) {
 }
 
 @Composable
-private fun NearbyCard(formation: NearbyFormation, onJoin: () -> Unit, presentation: HomePresentation, active: Boolean) {
+private fun NearbyCard(
+  formation: NearbyFormation,
+  onJoin: () -> Unit,
+  presentation: HomePresentation,
+  active: Boolean,
+) {
   val c = Theme.colors
   val b = formation.beacon
   val info = challengeInfo(b.challenge)
@@ -408,17 +507,26 @@ private fun NearbyCard(formation: NearbyFormation, onJoin: () -> Unit, presentat
       arrival.animateTo(1f, Motion.emphasized(420))
     } else arrival.snapTo(1f)
   }
-  Panel(Modifier.fillMaxWidth().padding(horizontal = Space.gutter, vertical = 6.dp).graphicsLayer {
-    translationY = (1 - arrival.value) * 16.dp.toPx()
-    alpha = .4f + .6f * arrival.value
-  }.liveryCard()) {
+  Panel(
+    Modifier.fillMaxWidth()
+      .padding(horizontal = Space.gutter, vertical = 6.dp)
+      .graphicsLayer {
+        translationY = (1 - arrival.value) * 16.dp.toPx()
+        alpha = .4f + .6f * arrival.value
+      }
+      .liveryCard()
+  ) {
     Column(Modifier.padding(Space.l)) {
       Row(verticalAlignment = Alignment.CenterVertically) {
         PlayerLight(b.host, Light("Host", c.content, c.onInverse), size = 44.dp)
         Spacer(Modifier.width(Space.m))
         Column(Modifier.weight(1f)) {
           Text(b.host, style = Theme.type.title2, maxLines = 2)
-          Text(info?.title ?: b.challenge.value, style = Theme.type.footnote, color = c.contentSecondary)
+          Text(
+            info?.title ?: b.challenge.value,
+            style = Theme.type.footnote,
+            color = c.contentSecondary,
+          )
         }
         if (b.protocol != xyz.mcxross.formation.session.PROTOCOL_VERSION)
           Tag("Update needed", tone = Tone.Warning)
@@ -430,7 +538,12 @@ private fun NearbyCard(formation: NearbyFormation, onJoin: () -> Unit, presentat
             size = ButtonSize.Small,
             fillWidth = false,
           )
-        else Tag(stringResource(if (b.joined >= b.players) Res.string.state_full else Res.string.state_playing))
+        else
+          Tag(
+            stringResource(
+              if (b.joined >= b.players) Res.string.state_full else Res.string.state_playing
+            )
+          )
       }
       Spacer(Modifier.height(Space.m))
       Row(verticalAlignment = Alignment.CenterVertically) {
@@ -447,7 +560,12 @@ private fun NearbyCard(formation: NearbyFormation, onJoin: () -> Unit, presentat
       Spacer(Modifier.height(Space.m))
       Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Space.m)) {
         Column(Modifier.weight(1f)) {
-          Icon(Icons.Lock, stringResource(Res.string.a11y_locked_reward), tint = c.contentSecondary, size = 16.dp)
+          Icon(
+            Icons.Lock,
+            stringResource(Res.string.a11y_locked_reward),
+            tint = c.contentSecondary,
+            size = 16.dp,
+          )
           SkrAmount(
             b.reward.format(0),
             style = Theme.type.numeral,
@@ -456,7 +574,11 @@ private fun NearbyCard(formation: NearbyFormation, onJoin: () -> Unit, presentat
           )
         }
         Column(Modifier.weight(1f)) {
-          Text(stringResource(Res.string.label_your_share), style = Theme.type.caption, color = c.contentSecondary)
+          Text(
+            stringResource(Res.string.label_your_share),
+            style = Theme.type.caption,
+            color = c.contentSecondary,
+          )
           SkrAmount(b.helperShare.format(0), style = Theme.type.subheadStrong, coin = false)
         }
       }
@@ -465,14 +587,24 @@ private fun NearbyCard(formation: NearbyFormation, onJoin: () -> Unit, presentat
 }
 
 // A failed link from the join panel, as a title and a message.
-private fun linkProblem(status: SeekerStatus): Pair<String, String>? = when (status) {
-  is SeekerStatus.NeedsApproval -> "Not linked yet" to status.message
-  is SeekerStatus.NoToken -> "No Seeker Genesis Token" to "${shortAddress(status.wallet)} doesn't hold a Seeker Genesis Token."
-  else -> null
-}
+private fun linkProblem(status: SeekerStatus): Pair<String, String>? =
+  when (status) {
+    is SeekerStatus.NeedsApproval -> "Not linked yet" to status.message
+    is SeekerStatus.NoToken ->
+      "No Seeker Genesis Token" to
+        "${shortAddress(status.wallet)} doesn't hold a Seeker Genesis Token."
+    else -> null
+  }
 
 @Composable
-private fun RewardsBanner(total: Skr, count: Int, keys: Set<String>, presentation: HomePresentation, active: Boolean, onOpen: () -> Unit) {
+private fun RewardsBanner(
+  total: Skr,
+  count: Int,
+  keys: Set<String>,
+  presentation: HomePresentation,
+  active: Boolean,
+  onOpen: () -> Unit,
+) {
   val c = Theme.colors
   Row(
     Modifier.fillMaxWidth()
@@ -488,8 +620,11 @@ private fun RewardsBanner(total: Skr, count: Int, keys: Set<String>, presentatio
     Spacer(Modifier.width(Space.m))
     Column(Modifier.weight(1f)) {
       SkrAmount(total.format(2), color = c.reward, coin = false)
-      Text(pluralStringResource(Res.plurals.ready_reward_count, count, count),
-        style = Theme.type.footnote, color = c.contentSecondary)
+      Text(
+        pluralStringResource(Res.plurals.ready_reward_count, count, count),
+        style = Theme.type.footnote,
+        color = c.contentSecondary,
+      )
     }
     Icon(Icons.ChevronRight, null, tint = c.reward)
   }
@@ -498,16 +633,44 @@ private fun RewardsBanner(total: Skr, count: Int, keys: Set<String>, presentatio
 @Composable
 private fun JoinControls(onScan: () -> Unit, onCode: () -> Unit, modifier: Modifier = Modifier) {
   BoxWithConstraints(modifier.fillMaxWidth()) {
-    val stacked = maxWidth < 300.dp && androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.15f
-    if (stacked) Column(verticalArrangement = Arrangement.spacedBy(Space.m)) {
-      Button(stringResource(Res.string.action_scan), onScan, style = ButtonStyle.Secondary, leadingIcon = Icons.Scan)
-      Button(stringResource(Res.string.action_code), onCode, style = ButtonStyle.Secondary, leadingIcon = Icons.Keypad)
-    } else Row(horizontalArrangement = Arrangement.spacedBy(Space.m)) {
-      Button(stringResource(Res.string.action_scan), onScan, Modifier.weight(1f), style = ButtonStyle.Secondary,
-        size = ButtonSize.Medium, leadingIcon = Icons.Scan, fillWidth = true)
-      Button(stringResource(Res.string.action_code), onCode, Modifier.weight(1f), style = ButtonStyle.Secondary,
-        size = ButtonSize.Medium, leadingIcon = Icons.Keypad, fillWidth = true)
-    }
+    val stacked =
+      maxWidth < 300.dp && androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.15f
+    if (stacked)
+      Column(verticalArrangement = Arrangement.spacedBy(Space.m)) {
+        Button(
+          stringResource(Res.string.action_scan),
+          onScan,
+          style = ButtonStyle.Secondary,
+          leadingIcon = Icons.Scan,
+        )
+        Button(
+          stringResource(Res.string.action_code),
+          onCode,
+          style = ButtonStyle.Secondary,
+          leadingIcon = Icons.Keypad,
+        )
+      }
+    else
+      Row(horizontalArrangement = Arrangement.spacedBy(Space.m)) {
+        Button(
+          stringResource(Res.string.action_scan),
+          onScan,
+          Modifier.weight(1f),
+          style = ButtonStyle.Secondary,
+          size = ButtonSize.Medium,
+          leadingIcon = Icons.Scan,
+          fillWidth = true,
+        )
+        Button(
+          stringResource(Res.string.action_code),
+          onCode,
+          Modifier.weight(1f),
+          style = ButtonStyle.Secondary,
+          size = ButtonSize.Medium,
+          leadingIcon = Icons.Keypad,
+          fillWidth = true,
+        )
+      }
   }
 }
 
@@ -518,8 +681,11 @@ private fun PlayerName(name: String) {
   val edgeAllowance = with(LocalDensity.current) { 8.dp.roundToPx() }
   BoxWithConstraints(Modifier.fillMaxWidth()) {
     val nameWidth = measurer.measure(name, style = hero, softWrap = false).size.width
-    val fit = ((constraints.maxWidth - edgeAllowance).toFloat() / nameWidth.coerceAtLeast(1))
-      .coerceIn(0.1f, 1f)
+    val fit =
+      ((constraints.maxWidth - edgeAllowance).toFloat() / nameWidth.coerceAtLeast(1)).coerceIn(
+        0.1f,
+        1f,
+      )
     Text(
       name,
       style = hero.copy(fontSize = hero.fontSize * fit, lineHeight = hero.lineHeight * fit),

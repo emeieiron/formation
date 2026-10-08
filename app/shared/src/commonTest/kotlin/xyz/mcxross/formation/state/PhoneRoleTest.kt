@@ -20,6 +20,9 @@ class PhoneRoleTest {
 
   @Test
   fun aTestSeekerHostsLikeAnyOther() {
-    assertEquals(PhoneRole.HOST, phoneRole(seekerHardware = false, identity = linked.copy(test = true)))
+    assertEquals(
+      PhoneRole.HOST,
+      phoneRole(seekerHardware = false, identity = linked.copy(test = true)),
+    )
   }
 }

@@ -14,8 +14,7 @@ internal class HostedGame<S : Any, I : Any>(
 
   fun input(from: PlayerId, input: JsonElement, now: Long) {
     val decoded =
-      runCatching { json.decodeFromJsonElement(rules.inputSerializer, input) }.getOrNull()
-        ?: return
+      runCatching { json.decodeFromJsonElement(rules.inputSerializer, input) }.getOrNull() ?: return
     game.input(from, decoded, now)
   }
 
@@ -26,7 +25,8 @@ internal class HostedGame<S : Any, I : Any>(
   fun stateFor(player: PlayerId): JsonElement =
     json.encodeToJsonElement(rules.stateSerializer, game.stateFor(player))
 
-  fun activeCapabilities(player: PlayerId, players: Int) = rules.activeCapabilities(game.state, player, players)
+  fun activeCapabilities(player: PlayerId, players: Int) =
+    rules.activeCapabilities(game.state, player, players)
 
   companion object {
     fun <S : Any, I : Any> start(rules: ChallengeRules<S, I>, setup: ChallengeSetup, json: Json) =

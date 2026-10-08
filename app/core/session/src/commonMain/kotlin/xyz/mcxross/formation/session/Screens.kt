@@ -5,7 +5,12 @@ import kotlin.math.min
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class ScreenInsets(val left: Double = 0.0, val top: Double = 0.0, val right: Double = 0.0, val bottom: Double = 0.0)
+data class ScreenInsets(
+  val left: Double = 0.0,
+  val top: Double = 0.0,
+  val right: Double = 0.0,
+  val bottom: Double = 0.0,
+)
 
 // A phone's full-screen game window, held in portrait and measured in millimetres. The insets cover
 // display cutouts and rounded corners.
@@ -17,16 +22,23 @@ data class ScreenProfile(
   val insets: ScreenInsets = ScreenInsets(),
   val calibrated: Boolean = false,
 ) {
-  val usableWidthMm: Double get() = widthMm - insets.left - insets.right
-  val usableHeightMm: Double get() = heightMm - insets.top - insets.bottom
+  val usableWidthMm: Double
+    get() = widthMm - insets.left - insets.right
+
+  val usableHeightMm: Double
+    get() = heightMm - insets.top - insets.bottom
 
   // Bounds a phone or tablet can report; anything else is a misreading, not a screen.
   val plausible: Boolean
     get() {
       val edges = listOf(insets.left, insets.top, insets.right, insets.bottom)
-      return listOf(widthMm, heightMm, pxPerMm).all { it.isFinite() } && edges.all { it.isFinite() && it >= 0.0 } &&
-        pxPerMm in MIN_PX_PER_MM..MAX_PX_PER_MM && widthMm in MIN_SIDE_MM..MAX_SIDE_MM &&
-        heightMm in MIN_SIDE_MM..MAX_SIDE_MM && usableWidthMm > widthMm / 2 && usableHeightMm > heightMm / 2
+      return listOf(widthMm, heightMm, pxPerMm).all { it.isFinite() } &&
+        edges.all { it.isFinite() && it >= 0.0 } &&
+        pxPerMm in MIN_PX_PER_MM..MAX_PX_PER_MM &&
+        widthMm in MIN_SIDE_MM..MAX_SIDE_MM &&
+        heightMm in MIN_SIDE_MM..MAX_SIDE_MM &&
+        usableWidthMm > widthMm / 2 &&
+        usableHeightMm > heightMm / 2
     }
 
   companion object {

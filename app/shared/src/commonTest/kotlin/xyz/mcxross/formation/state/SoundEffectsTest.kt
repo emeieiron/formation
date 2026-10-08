@@ -8,16 +8,18 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import xyz.mcxross.formation.challenge.GameCue
 import xyz.mcxross.formation.platform.KeyValueStore
 import xyz.mcxross.formation.platform.SoundCue
 import xyz.mcxross.formation.platform.SoundPlayer
-import xyz.mcxross.formation.challenge.GameCue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SoundEffectsTest {
   private class Store : KeyValueStore {
     val values = mutableMapOf<String, String>()
+
     override fun get(key: String) = values[key]
+
     override fun put(key: String, value: String?) {
       if (value == null) values.remove(key) else values[key] = value
     }
@@ -27,12 +29,17 @@ class SoundEffectsTest {
     val played = mutableListOf<SoundCue>()
     var stops = 0
     var unavailable = false
+
     override suspend fun load(cue: SoundCue, bytes: ByteArray) {}
+
     override fun play(cue: SoundCue) {
       check(!unavailable)
       played += cue
     }
-    override fun stop() { stops++ }
+
+    override fun stop() {
+      stops++
+    }
   }
 
   @Test
@@ -63,7 +70,8 @@ class SoundEffectsTest {
   @Test
   fun aQueuedRequestDoesNotPlayAfterMute() = runTest {
     val player = Player()
-    val effects = SoundEffects(Store(), player, backgroundScope, StandardTestDispatcher(testScheduler))
+    val effects =
+      SoundEffects(Store(), player, backgroundScope, StandardTestDispatcher(testScheduler))
     effects.play(SoundCue.BEGIN)
     effects.setEnabled(false)
     runCurrent()
@@ -73,7 +81,8 @@ class SoundEffectsTest {
   @Test
   fun unavailablePlaybackDoesNotBreakLaterFeedback() = runTest {
     val player = Player()
-    val effects = SoundEffects(Store(), player, backgroundScope, StandardTestDispatcher(testScheduler))
+    val effects =
+      SoundEffects(Store(), player, backgroundScope, StandardTestDispatcher(testScheduler))
     player.unavailable = true
     effects.play(SoundCue.COMPLETE)
     runCurrent()
@@ -86,7 +95,8 @@ class SoundEffectsTest {
   @Test
   fun challengeCuesUseThePersistedMuteGate() = runTest {
     val player = Player()
-    val effects = SoundEffects(Store(), player, backgroundScope, StandardTestDispatcher(testScheduler))
+    val effects =
+      SoundEffects(Store(), player, backgroundScope, StandardTestDispatcher(testScheduler))
     val audio = ChallengeAudio(effects)
     audio.play(GameCue.CloseCall)
     runCurrent()

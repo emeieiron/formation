@@ -12,22 +12,23 @@ internal class SessionSoundEvents {
   private val completedRounds = mutableSetOf<Int>()
   private val receipts = mutableSetOf<String>()
 
-  fun next(snapshot: SessionSnapshot): SoundCue? = when (val stage = snapshot.stage) {
-    Stage.Lobby -> {
-      if (!assembled && snapshot.full && snapshot.players.all { it.connected }) {
-        assembled = true
-        SoundCue.ASSEMBLED
-      } else null
+  fun next(snapshot: SessionSnapshot): SoundCue? =
+    when (val stage = snapshot.stage) {
+      Stage.Lobby -> {
+        if (!assembled && snapshot.full && snapshot.players.all { it.connected }) {
+          assembled = true
+          SoundCue.ASSEMBLED
+        } else null
+      }
+      is Stage.Briefing -> SoundCue.BEGIN.takeIf { briefings.add(stage.until) }
+      is Stage.Won -> {
+        val unlocked = stage.unlock as? Unlock.Unlocked
+        if (unlocked != null) {
+          // A coalesced win/unlock snapshot announces only the confirmed reward.
+          completedRounds.add(snapshot.round)
+          SoundCue.REWARD.takeIf { receipts.add(unlocked.receipt) }
+        } else SoundCue.COMPLETE.takeIf { completedRounds.add(snapshot.round) }
+      }
+      else -> null
     }
-    is Stage.Briefing -> SoundCue.BEGIN.takeIf { briefings.add(stage.until) }
-    is Stage.Won -> {
-      val unlocked = stage.unlock as? Unlock.Unlocked
-      if (unlocked != null) {
-        // A coalesced win/unlock snapshot announces only the confirmed reward.
-        completedRounds.add(snapshot.round)
-        SoundCue.REWARD.takeIf { receipts.add(unlocked.receipt) }
-      } else SoundCue.COMPLETE.takeIf { completedRounds.add(snapshot.round) }
-    }
-    else -> null
-  }
 }

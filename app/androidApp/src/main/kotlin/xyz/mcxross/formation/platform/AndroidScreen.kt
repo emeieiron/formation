@@ -20,7 +20,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import xyz.mcxross.formation.session.ScreenInsets
 import xyz.mcxross.formation.session.ScreenProfile
 
-// Measures the full-screen game window in millimetres. Call [update] on the main thread whenever the
+// Measures the full-screen game window in millimetres. Call [update] on the main thread whenever
+// the
 // activity's window or configuration may have changed.
 class AndroidScreen(context: Context, private val activity: () -> Activity?) : ScreenPort {
   private val prefs = context.getSharedPreferences("formation.screen", Context.MODE_PRIVATE)
@@ -30,11 +31,14 @@ class AndroidScreen(context: Context, private val activity: () -> Activity?) : S
   override val measurement: StateFlow<ScreenMeasurement> = state.asStateFlow()
 
   override fun calibrate(pxPerMm: Double?) {
-    prefs.edit { if (pxPerMm == null) remove(KEY_CALIBRATION) else putFloat(KEY_CALIBRATION, pxPerMm.toFloat()) }
+    prefs.edit {
+      if (pxPerMm == null) remove(KEY_CALIBRATION) else putFloat(KEY_CALIBRATION, pxPerMm.toFloat())
+    }
     activity()?.let { it.runOnUiThread { update(it) } }
   }
 
-  // Counted, because a phase transition briefly composes the outgoing stage alongside the incoming one, and
+  // Counted, because a phase transition briefly composes the outgoing stage alongside the incoming
+  // one, and
   // the outgoing copy leaving must not restore the bars under the live stage.
   private var fullScreenHolds = 0
 
@@ -46,13 +50,16 @@ class AndroidScreen(context: Context, private val activity: () -> Activity?) : S
       val window = current.window
       val controller = WindowCompat.getInsetsController(window, window.decorView)
       if (held) {
-        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        controller.systemBarsBehavior =
+          WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         controller.hide(WindowInsetsCompat.Type.systemBars())
       } else controller.show(WindowInsetsCompat.Type.systemBars())
       // Neighbouring phones match more closely at a shared brightness than at each owner's setting.
-      window.attributes = window.attributes.apply {
-        screenBrightness = if (held) STAGE_BRIGHTNESS else WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
-      }
+      window.attributes =
+        window.attributes.apply {
+          screenBrightness =
+            if (held) STAGE_BRIGHTNESS else WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+        }
     }
   }
 
@@ -69,53 +76,83 @@ class AndroidScreen(context: Context, private val activity: () -> Activity?) : S
     val pxPerMm = calibrated ?: reported
     val corners = cornerInsets(activity)
     val cutout = cutoutInsets(activity)
-    val px = Rect(
-      max(corners.left, cutout.left), max(corners.top, cutout.top),
-      max(corners.right, cutout.right), max(corners.bottom, cutout.bottom),
-    )
-    val profile = ScreenProfile(
-      widthMm = bounds.width() / pxPerMm,
-      heightMm = bounds.height() / pxPerMm,
-      pxPerMm = pxPerMm,
-      insets = ScreenInsets(px.left / pxPerMm, px.top / pxPerMm, px.right / pxPerMm, px.bottom / pxPerMm),
-      calibrated = calibrated != null,
-    )
-    if (calibrated != null) return if (profile.plausible) ScreenMeasurement.Measured(profile) else ScreenMeasurement.NeedsCalibration(profile)
-    // Some devices report a placeholder density. Square pixels near the density bucket and a phone-sized
+    val px =
+      Rect(
+        max(corners.left, cutout.left),
+        max(corners.top, cutout.top),
+        max(corners.right, cutout.right),
+        max(corners.bottom, cutout.bottom),
+      )
+    val profile =
+      ScreenProfile(
+        widthMm = bounds.width() / pxPerMm,
+        heightMm = bounds.height() / pxPerMm,
+        pxPerMm = pxPerMm,
+        insets =
+          ScreenInsets(
+            px.left / pxPerMm,
+            px.top / pxPerMm,
+            px.right / pxPerMm,
+            px.bottom / pxPerMm,
+          ),
+        calibrated = calibrated != null,
+      )
+    if (calibrated != null)
+      return if (profile.plausible) ScreenMeasurement.Measured(profile)
+      else ScreenMeasurement.NeedsCalibration(profile)
+    // Some devices report a placeholder density. Square pixels near the density bucket and a
+    // phone-sized
     // or tablet-sized diagonal suggest the value is real.
     val square = abs(metrics.xdpi - metrics.ydpi) <= 0.05f * max(metrics.xdpi, metrics.ydpi)
     val nearBucket = abs(reported * MM_PER_INCH - metrics.densityDpi) <= 0.35 * metrics.densityDpi
     val inches = hypot(profile.widthMm, profile.heightMm) / MM_PER_INCH
     val trusted = square && nearBucket && inches in MIN_DIAGONAL..MAX_DIAGONAL && profile.plausible
-    return if (trusted) ScreenMeasurement.Measured(profile) else ScreenMeasurement.NeedsCalibration(profile)
+    return if (trusted) ScreenMeasurement.Measured(profile)
+    else ScreenMeasurement.NeedsCalibration(profile)
   }
 
   private fun fullBounds(activity: Activity): Rect =
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) activity.windowManager.maximumWindowMetrics.bounds
-    else DisplayMetrics().let {
-      @Suppress("DEPRECATION") activity.windowManager.defaultDisplay.getRealMetrics(it)
-      Rect(0, 0, it.widthPixels, it.heightPixels)
-    }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
+      activity.windowManager.maximumWindowMetrics.bounds
+    else
+      DisplayMetrics().let {
+        @Suppress("DEPRECATION") activity.windowManager.defaultDisplay.getRealMetrics(it)
+        Rect(0, 0, it.widthPixels, it.heightPixels)
+      }
 
   private fun cutoutInsets(activity: Activity): Rect {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return Rect()
     val cutout = activity.window.decorView.rootWindowInsets?.displayCutout ?: return Rect()
-    return Rect(cutout.safeInsetLeft, cutout.safeInsetTop, cutout.safeInsetRight, cutout.safeInsetBottom)
+    return Rect(
+      cutout.safeInsetLeft,
+      cutout.safeInsetTop,
+      cutout.safeInsetRight,
+      cutout.safeInsetBottom,
+    )
   }
 
   // A rectangle inset by r(1 - 1/sqrt 2) on both axes clears a corner of radius r.
   private fun cornerInsets(activity: Activity): Rect {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-      val fallback = (FALLBACK_CORNER_MM * activity.resources.displayMetrics.xdpi / MM_PER_INCH * CORNER_CLEARANCE).toInt()
+      val fallback =
+        (FALLBACK_CORNER_MM * activity.resources.displayMetrics.xdpi / MM_PER_INCH *
+            CORNER_CLEARANCE)
+          .toInt()
       return Rect(fallback, fallback, fallback, fallback)
     }
     val display = activity.display ?: return Rect()
-    fun clear(position: Int) = ((display.getRoundedCorner(position)?.radius ?: 0) * CORNER_CLEARANCE).toInt()
+    fun clear(position: Int) =
+      ((display.getRoundedCorner(position)?.radius ?: 0) * CORNER_CLEARANCE).toInt()
     val topLeft = clear(RoundedCorner.POSITION_TOP_LEFT)
     val topRight = clear(RoundedCorner.POSITION_TOP_RIGHT)
     val bottomRight = clear(RoundedCorner.POSITION_BOTTOM_RIGHT)
     val bottomLeft = clear(RoundedCorner.POSITION_BOTTOM_LEFT)
-    return Rect(max(topLeft, bottomLeft), max(topLeft, topRight), max(topRight, bottomRight), max(bottomLeft, bottomRight))
+    return Rect(
+      max(topLeft, bottomLeft),
+      max(topLeft, topRight),
+      max(topRight, bottomRight),
+      max(bottomLeft, bottomRight),
+    )
   }
 
   private companion object {

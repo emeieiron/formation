@@ -26,22 +26,40 @@ data class RecoveryBundle(
 }
 
 internal fun validateTickets(tickets: List<ClaimTicket>, key: Ed25519KeyPair) {
-  require(tickets.size <= 500 && tickets.map { it.opportunity to it.index }.distinct().size == tickets.size) { "Invalid reward records" }
+  require(
+    tickets.size <= 500 &&
+      tickets.map { it.opportunity to it.index }.distinct().size == tickets.size
+  ) {
+    "Invalid reward records"
+  }
   tickets.forEach { ticket ->
-    require(isKey(ticket.opportunity.value) && isKey(ticket.contest) && ticket.amount.units > 0 && ticket.host.length <= 128) {
+    require(
+      isKey(ticket.opportunity.value) &&
+        isKey(ticket.contest) &&
+        ticket.amount.units > 0 &&
+        ticket.host.length <= 128
+    ) {
       "Invalid reward record"
     }
     val root = ticket.root.hexToBytes()
     require(root.size == 32 && ticket.proof.size <= 6) { "Invalid reward proof" }
-    if (ticket.index < 0) require(ticket.index == -1 && ticket.claimed && ticket.proof.isEmpty()) { "A host reward must already be paid" }
+    if (ticket.index < 0)
+      require(ticket.index == -1 && ticket.claimed && ticket.proof.isEmpty()) {
+        "A host reward must already be paid"
+      }
     else {
       require(ticket.index in 0 until RosterTree.MAX_SIZE) { "Invalid reward position" }
       val wallet = ticket.wallet?.let(Base58::decode)
       require(wallet == null || wallet.size == 32) { "Invalid bound wallet" }
       val proof = ticket.proof.map { it.hexToBytes().also { bytes -> require(bytes.size == 32) } }
-      require(RosterTree.verify(ticket.index, key.publicKey, wallet, proof, root)) { "A reward proof does not belong to this claim key" }
+      require(RosterTree.verify(ticket.index, key.publicKey, wallet, proof, root)) {
+        "A reward proof does not belong to this claim key"
+      }
     }
   }
 }
 
-private fun isKey(value: String) = runCatching { Base58.decode(value).size == 32 }.getOrDefault(false)
+private fun isKey(value: String) = runCatching {
+  Base58.decode(value).size == 32
+}
+  .getOrDefault(false)

@@ -20,9 +20,9 @@ import org.jetbrains.compose.resources.stringResource
 import xyz.mcxross.formation.challenge.rememberHostNow
 import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.components.BottomActions
-import xyz.mcxross.formation.design.components.LiveryRule
 import xyz.mcxross.formation.design.components.Button
 import xyz.mcxross.formation.design.components.ButtonStyle
+import xyz.mcxross.formation.design.components.LiveryRule
 import xyz.mcxross.formation.design.components.Overline
 import xyz.mcxross.formation.design.components.ReadyDots
 import xyz.mcxross.formation.design.components.TextButton

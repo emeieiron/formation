@@ -10,7 +10,8 @@ import com.solana.transaction.TransactionInstruction
 import xyz.mcxross.formation.solana.associatedTokenAccount
 
 class OreProgram(val deployment: OreDeployment = OreDeployment.Devnet) {
-  val programId: SolanaPublicKey get() = deployment.programId
+  val programId: SolanaPublicKey
+    get() = deployment.programId
 
   suspend fun board(): ProgramDerivedAddress = pda("board")
 
@@ -18,17 +19,20 @@ class OreProgram(val deployment: OreDeployment = OreDeployment.Devnet) {
 
   suspend fun treasury(): ProgramDerivedAddress = pda("treasury")
 
-  suspend fun miner(authority: SolanaPublicKey): ProgramDerivedAddress = pda("miner", authority.bytes)
+  suspend fun miner(authority: SolanaPublicKey): ProgramDerivedAddress =
+    pda("miner", authority.bytes)
 
   suspend fun automation(authority: SolanaPublicKey): ProgramDerivedAddress =
     pda("automation", authority.bytes)
 
   suspend fun round(id: ULong): ProgramDerivedAddress = pda("round", id.littleEndian())
 
-  suspend fun entropyVar(): ProgramDerivedAddress = ProgramDerivedAddress.find(
-    listOf("var".encodeToByteArray(), board().bytes, 0uL.littleEndian()),
-    deployment.entropyProgramId,
-  ).getOrThrow()
+  suspend fun entropyVar(): ProgramDerivedAddress =
+    ProgramDerivedAddress.find(
+        listOf("var".encodeToByteArray(), board().bytes, 0uL.littleEndian()),
+        deployment.entropyProgramId,
+      )
+      .getOrThrow()
 
   suspend fun tokenAccount(owner: SolanaPublicKey): SolanaPublicKey =
     associatedTokenAccount(owner, deployment.mint)
@@ -46,13 +50,21 @@ class OreProgram(val deployment: OreDeployment = OreDeployment.Devnet) {
       "Deployment amount must be positive and its total must fit a u64"
     }
     val mask = squares.fold(0) { value, index -> value or (1 shl index) }
-    val data = byteArrayOf(6) + amountLamports.littleEndian() +
-      ByteArray(4) { (mask shr (it * 8)).toByte() }
+    val data =
+      byteArrayOf(6) + amountLamports.littleEndian() + ByteArray(4) { (mask shr (it * 8)).toByte() }
     return instruction(
       data,
-      signer(signer), writable(authority), writable(automation(authority)), writable(board()),
-      writable(config()), writable(miner(authority)), writable(round(roundId)), writable(treasury()),
-      readOnly(SystemProgram.PROGRAM_ID), readOnly(programId), writable(entropyVar()),
+      signer(signer),
+      writable(authority),
+      writable(automation(authority)),
+      writable(board()),
+      writable(config()),
+      writable(miner(authority)),
+      writable(round(roundId)),
+      writable(treasury()),
+      readOnly(SystemProgram.PROGRAM_ID),
+      readOnly(programId),
+      writable(entropyVar()),
       readOnly(deployment.entropyProgramId),
     )
   }
@@ -61,28 +73,45 @@ class OreProgram(val deployment: OreDeployment = OreDeployment.Devnet) {
     signer: SolanaPublicKey,
     authority: SolanaPublicKey,
     roundId: ULong,
-  ): TransactionInstruction = instruction(
-    byteArrayOf(2),
-    signer(signer), writable(authority), writable(automation(authority)), writable(board()),
-    writable(miner(authority)), writable(round(roundId)), writable(treasury()),
-    readOnly(SystemProgram.PROGRAM_ID),
-  )
+  ): TransactionInstruction =
+    instruction(
+      byteArrayOf(2),
+      signer(signer),
+      writable(authority),
+      writable(automation(authority)),
+      writable(board()),
+      writable(miner(authority)),
+      writable(round(roundId)),
+      writable(treasury()),
+      readOnly(SystemProgram.PROGRAM_ID),
+    )
 
-  suspend fun claimSol(signer: SolanaPublicKey): TransactionInstruction = instruction(
-    byteArrayOf(3),
-    signer(signer), writable(board()), writable(miner(signer)),
-    readOnly(SystemProgram.PROGRAM_ID), readOnly(programId),
-  )
+  suspend fun claimSol(signer: SolanaPublicKey): TransactionInstruction =
+    instruction(
+      byteArrayOf(3),
+      signer(signer),
+      writable(board()),
+      writable(miner(signer)),
+      readOnly(SystemProgram.PROGRAM_ID),
+      readOnly(programId),
+    )
 
   suspend fun claimOre(signer: SolanaPublicKey, basisPoints: Int = 10_000): TransactionInstruction {
     require(basisPoints in 1..10_000) { "Claim basis points must be in 1..10000" }
     val treasury = treasury()
     return instruction(
       byteArrayOf(4) + basisPoints.toULong().littleEndian(),
-      signer(signer), writable(board()), writable(miner(signer)), writable(deployment.mint),
-      writable(tokenAccount(signer)), writable(treasury), writable(tokenAccount(treasury)),
-      readOnly(SystemProgram.PROGRAM_ID), readOnly(TokenProgram.PROGRAM_ID),
-      readOnly(AssociatedTokenProgram.PROGRAM_ID), readOnly(programId),
+      signer(signer),
+      writable(board()),
+      writable(miner(signer)),
+      writable(deployment.mint),
+      writable(tokenAccount(signer)),
+      writable(treasury),
+      writable(tokenAccount(treasury)),
+      readOnly(SystemProgram.PROGRAM_ID),
+      readOnly(TokenProgram.PROGRAM_ID),
+      readOnly(AssociatedTokenProgram.PROGRAM_ID),
+      readOnly(programId),
     )
   }
 

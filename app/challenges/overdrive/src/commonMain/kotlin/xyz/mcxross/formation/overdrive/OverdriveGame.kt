@@ -11,7 +11,9 @@ internal class OverdriveGame(setup: ChallengeSetup) : ChallengeGame<OverdriveSta
   private val random = Random(setup.seed)
 
   init {
-    require(setup.players.size == 2 && setup.players.distinct().size == 2) { "Overdrive needs two distinct players" }
+    require(setup.players.size == 2 && setup.players.distinct().size == 2) {
+      "Overdrive needs two distinct players"
+    }
   }
 
   override var state: OverdriveState
@@ -21,22 +23,39 @@ internal class OverdriveGame(setup: ChallengeSetup) : ChallengeGame<OverdriveSta
     private set
 
   init {
-    val dials = setup.players.map { player ->
-      val edges = Symbol.entries.shuffled(random)
-      val clue = nextSymbol(edges.first())
-      Dial(player, edges, clue = clue, nextClue = nextSymbol(clue),
-        launchAt = setup.startAt, catchAt = setup.startAt)
-    }
-    state = OverdriveState(dials, 1, setup.startAt, setup.startAt,
-      startAt = setup.startAt, endsAt = setup.startAt + TIME_LIMIT_MS)
+    val dials =
+      setup.players.map { player ->
+        val edges = Symbol.entries.shuffled(random)
+        val clue = nextSymbol(edges.first())
+        Dial(
+          player,
+          edges,
+          clue = clue,
+          nextClue = nextSymbol(clue),
+          launchAt = setup.startAt,
+          catchAt = setup.startAt,
+        )
+      }
+    state =
+      OverdriveState(
+        dials,
+        1,
+        setup.startAt,
+        setup.startAt,
+        startAt = setup.startAt,
+        endsAt = setup.startAt + TIME_LIMIT_MS,
+      )
     schedule(1, setup.startAt, dials.map { it.clue!! }, dials.map { it.nextClue!! })
   }
 
   override fun stateFor(player: PlayerId): OverdriveState {
     require(state.dials.any { it.player == player })
-    return state.copy(dials = state.dials.map {
-      if (it.player == player) it.copy(clue = null, nextClue = null) else it
-    })
+    return state.copy(
+      dials =
+        state.dials.map {
+          if (it.player == player) it.copy(clue = null, nextClue = null) else it
+        }
+    )
   }
 
   override fun input(from: PlayerId, input: Rotate, now: Long) {
@@ -47,7 +66,10 @@ internal class OverdriveGame(setup: ChallengeSetup) : ChallengeGame<OverdriveSta
     if (status != GameStatus.Running || at < state.waveAt || input.wave != state.wave) return
     val dial = state.dial(from)
     if (dial.result != Catch.Pending || at >= dial.catchAt || input.turn != dial.turns + 1) return
-    state = state.copy(dials = state.dials.map { if (it.player == from) it.copy(turns = input.turn) else it })
+    state =
+      state.copy(
+        dials = state.dials.map { if (it.player == from) it.copy(turns = input.turn) else it }
+      )
   }
 
   override fun tick(now: Long) = advance(now)
@@ -55,33 +77,60 @@ internal class OverdriveGame(setup: ChallengeSetup) : ChallengeGame<OverdriveSta
   private fun nextSymbol(previous: Symbol) = Symbol.entries.filter { it != previous }.random(random)
 
   private fun schedule(wave: Int, at: Long, targets: List<Symbol>, next: List<Symbol>) {
-    val dials = state.dials.mapIndexed { index, dial ->
-      val launch = at + index * if (wave <= STAGGERED_WAVES) STAGGER_MS else 0
-      dial.copy(clue = targets[index], nextClue = next[index], launchAt = launch,
-        catchAt = launch + fall(state.clears), result = Catch.Pending)
-    }
-    state = state.copy(dials = dials, wave = wave, waveAt = at,
-      nextWaveAt = dials.maxOf { it.catchAt } + gap(state.clears), preview = wave > 8)
+    val dials =
+      state.dials.mapIndexed { index, dial ->
+        val launch = at + index * if (wave <= STAGGERED_WAVES) STAGGER_MS else 0
+        dial.copy(
+          clue = targets[index],
+          nextClue = next[index],
+          launchAt = launch,
+          catchAt = launch + fall(state.clears),
+          result = Catch.Pending,
+        )
+      }
+    state =
+      state.copy(
+        dials = dials,
+        wave = wave,
+        waveAt = at,
+        nextWaveAt = dials.maxOf { it.catchAt } + gap(state.clears),
+        preview = wave > 8,
+      )
   }
 
   private fun advance(now: Long) {
     if (status != GameStatus.Running || now < state.waveAt) return
     val until = minOf(now, state.endsAt)
     val settled = now - LATE_INPUT_MS
-    // Resolve scheduled catches before advancing waves, including a tick that crosses several deadlines.
-    // A catch settles once late taps for it can no longer arrive; the next wave still starts on time
+    // Resolve scheduled catches before advancing waves, including a tick that crosses several
+    // deadlines.
+    // A catch settles once late taps for it can no longer arrive; the next wave still starts on
+    // time
     // because every gap between waves outlasts that window.
     while (status == GameStatus.Running) {
-      state = state.copy(dials = state.dials.map { dial ->
-        if (dial.result == Catch.Pending && settled >= dial.catchAt && dial.catchAt <= state.endsAt) {
-          dial.copy(result = if (dial.facing() == dial.clue) Catch.Caught else Catch.Missed)
-        } else dial
-      })
+      state =
+        state.copy(
+          dials =
+            state.dials.map { dial ->
+              if (
+                dial.result == Catch.Pending &&
+                  settled >= dial.catchAt &&
+                  dial.catchAt <= state.endsAt
+              ) {
+                dial.copy(result = if (dial.facing() == dial.clue) Catch.Caught else Catch.Missed)
+              } else dial
+            }
+        )
       if (state.dials.all { it.result != Catch.Pending } && state.lastWave?.wave != state.wave) {
         val cleared = state.dials.all { it.result == Catch.Caught }
         val at = state.dials.maxOf { it.catchAt }
         val clears = state.clears + if (cleared) 1 else 0
-        state = state.copy(clears = clears, nextWaveAt = at + gap(clears), lastWave = WaveResult(state.wave, at, cleared))
+        state =
+          state.copy(
+            clears = clears,
+            nextWaveAt = at + gap(clears),
+            lastWave = WaveResult(state.wave, at, cleared),
+          )
         if (!cleared) {
           status = GameStatus.Lost("The formation missed a wave.", stats = stats())
           return
@@ -95,7 +144,8 @@ internal class OverdriveGame(setup: ChallengeSetup) : ChallengeGame<OverdriveSta
       val targets = state.dials.map { it.nextClue!! }
       schedule(state.wave + 1, state.nextWaveAt, targets, targets.map(::nextSymbol))
     }
-    if (settled >= state.endsAt) status = GameStatus.Lost("The formation ran out of time.", stats = stats())
+    if (settled >= state.endsAt)
+      status = GameStatus.Lost("The formation ran out of time.", stats = stats())
   }
 
   private fun stats(finishedAt: Long? = null): List<Stat> {
@@ -128,6 +178,7 @@ internal class OverdriveGame(setup: ChallengeSetup) : ChallengeGame<OverdriveSta
       return fall
     }
 
-    fun gap(clears: Int): Long = FIRST_GAP_MS - (FIRST_GAP_MS - LAST_GAP_MS) * clears.coerceIn(0, STEPS) / STEPS
+    fun gap(clears: Int): Long =
+      FIRST_GAP_MS - (FIRST_GAP_MS - LAST_GAP_MS) * clears.coerceIn(0, STEPS) / STEPS
   }
 }

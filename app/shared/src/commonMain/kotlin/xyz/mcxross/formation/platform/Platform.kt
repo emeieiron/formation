@@ -22,29 +22,35 @@ interface PlatformServices {
   val wallet: WalletPort
   val external: ExternalPort
   val hotspot: HotspotPort?
-  val screen: ScreenPort get() = ScreenPort.Unsupported
-  val attestation: DeviceAttestation get() = DeviceAttestation.Unsupported
+  val screen: ScreenPort
+    get() = ScreenPort.Unsupported
+
+  val attestation: DeviceAttestation
+    get() = DeviceAttestation.Unsupported
 }
 
 // Hardware key attestation: lets other phones check what this phone is and which app is asking.
 interface DeviceAttestation {
   val packageName: String
 
-  // SHA-256 digests (lowercase hex) of the certificates this app is signed with; empty when unknown.
+  // SHA-256 digests (lowercase hex) of the certificates this app is signed with; empty when
+  // unknown.
   val signers: Set<String>
 
-  // Makes a key in secure hardware and returns its attestation chain, leaf first, carrying [challenge]
+  // Makes a key in secure hardware and returns its attestation chain, leaf first, carrying
+  // [challenge]
   // and the phone's brand, manufacturer and model. Throws when the phone can't attest them.
   suspend fun attest(challenge: ByteArray): List<ByteArray>
 
   companion object {
-    val Unsupported = object : DeviceAttestation {
-      override val packageName = "xyz.mcxross.formation"
-      override val signers = emptySet<String>()
+    val Unsupported =
+      object : DeviceAttestation {
+        override val packageName = "xyz.mcxross.formation"
+        override val signers = emptySet<String>()
 
-      override suspend fun attest(challenge: ByteArray): List<ByteArray> =
-        throw UnsupportedOperationException("This phone can't attest its hardware.")
-    }
+        override suspend fun attest(challenge: ByteArray): List<ByteArray> =
+          throw UnsupportedOperationException("This phone can't attest its hardware.")
+      }
   }
 }
 
@@ -68,18 +74,21 @@ interface ScreenPort {
   // Stores pixels per millimetre measured against a card; null returns to the platform's value.
   fun calibrate(pxPerMm: Double?)
 
-  // Each true must be matched by a false; the screen leaves full screen when the last holder releases it.
+  // Each true must be matched by a false; the screen leaves full screen when the last holder
+  // releases it.
   fun fullScreen(on: Boolean)
 
   companion object {
-    val Unsupported = object : ScreenPort {
-      override val measurable = false
-      override val measurement: StateFlow<ScreenMeasurement> = MutableStateFlow(ScreenMeasurement.Unsupported)
+    val Unsupported =
+      object : ScreenPort {
+        override val measurable = false
+        override val measurement: StateFlow<ScreenMeasurement> =
+          MutableStateFlow(ScreenMeasurement.Unsupported)
 
-      override fun calibrate(pxPerMm: Double?) {}
+        override fun calibrate(pxPerMm: Double?) {}
 
-      override fun fullScreen(on: Boolean) {}
-    }
+        override fun fullScreen(on: Boolean) {}
+      }
   }
 }
 
@@ -91,7 +100,8 @@ data class AppConfig(
   val cluster: String,
   // Takes over while [rpcUrl] is rate limited, out of quota or refusing its key.
   val fallbackRpcUrl: String? = null,
-  // Where real Genesis Tokens don't exist, the faucet that makes a phone a test Seeker; null on mainnet.
+  // Where real Genesis Tokens don't exist, the faucet that makes a phone a test Seeker; null on
+  // mainnet.
   val faucetUrl: String? = null,
 )
 
@@ -108,7 +118,10 @@ interface KeyValueStore {
 
 interface SecretStore {
   fun contains(name: String): Boolean = get(name) != null
-  fun remove(name: String) { error("Secret removal is unavailable") }
+
+  fun remove(name: String) {
+    error("Secret removal is unavailable")
+  }
 
   fun get(name: String): ByteArray?
 
@@ -117,6 +130,7 @@ interface SecretStore {
   // An independently encrypted, device-bound copy. Callers must validate identity
   // before using it to repair the primary record. Unsupported platforms return null.
   fun recoveryCopy(name: String): ByteArray? = null
+
   fun protect(name: String, value: ByteArray): Boolean = false
 }
 
@@ -153,7 +167,8 @@ interface WalletPort {
 
   suspend fun connect(): WalletResult<WalletAccount>
 
-  // Connects and has the wallet sign [message] with the account it names, proving it holds that key.
+  // Connects and has the wallet sign [message] with the account it names, proving it holds that
+  // key.
   suspend fun signIn(message: ByteArray): WalletResult<SignedMessage>
 
   // Sign only: the app sends the transaction itself.
@@ -178,7 +193,8 @@ interface ExternalPort {
 data class HotspotInfo(val ssid: String, val passphrase: String?)
 
 interface HotspotPort {
-  val active: kotlinx.coroutines.flow.Flow<HotspotInfo?> get() = kotlinx.coroutines.flow.flowOf(null)
+  val active: kotlinx.coroutines.flow.Flow<HotspotInfo?>
+    get() = kotlinx.coroutines.flow.flowOf(null)
 
   fun permitted(): Boolean
 

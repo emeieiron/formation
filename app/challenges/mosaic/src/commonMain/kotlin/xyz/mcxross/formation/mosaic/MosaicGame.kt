@@ -10,17 +10,20 @@ import xyz.mcxross.formation.session.GameStatus
 import xyz.mcxross.formation.session.Stat
 
 internal class Pacing(difficulty: Difficulty) {
-  private val perSeamMs = when (difficulty) {
-    Difficulty.EASY -> 9_000L
-    Difficulty.NORMAL -> 7_000L
-    Difficulty.HARD -> 5_000L
-    Difficulty.EXTREME -> 4_000L
-  }
-  val toleranceMm = when (difficulty) {
-    Difficulty.EASY, Difficulty.NORMAL -> 8.0
-    Difficulty.HARD -> 6.0
-    Difficulty.EXTREME -> 5.0
-  }
+  private val perSeamMs =
+    when (difficulty) {
+      Difficulty.EASY -> 9_000L
+      Difficulty.NORMAL -> 7_000L
+      Difficulty.HARD -> 5_000L
+      Difficulty.EXTREME -> 4_000L
+    }
+  val toleranceMm =
+    when (difficulty) {
+      Difficulty.EASY,
+      Difficulty.NORMAL -> 8.0
+      Difficulty.HARD -> 6.0
+      Difficulty.EXTREME -> 5.0
+    }
   val labels = difficulty == Difficulty.EASY
   val unsealedMarks = difficulty == Difficulty.EASY || difficulty == Difficulty.NORMAL
 
@@ -45,31 +48,47 @@ internal class MosaicGame(setup: ChallengeSetup) : ChallengeGame<MosaicState, Pi
     private set
 
   init {
-    require(setup.players.size in Layouts.sizes && setup.players.distinct().size == setup.players.size) {
+    require(
+      setup.players.size in Layouts.sizes && setup.players.distinct().size == setup.players.size
+    ) {
       "Mosaic needs 6, 9 or 18 distinct phones"
     }
     require(setup.players.all { it in setup.screens }) { "Mosaic needs every phone's screen" }
     val grid = Layouts.grid(setup.players.size)
-    val fragment = Layouts.fragment(setup.players.map { setup.screens.getValue(it) }, grid.placement)
+    val fragment =
+      Layouts.fragment(setup.players.map { setup.screens.getValue(it) }, grid.placement)
     val pacing = Pacing(setup.difficulty)
-    state = MosaicState(
-      grid = grid, fragment = fragment, gaps = Layouts.gaps(grid.placement),
-      positions = Deal.deal(setup.players, setup.screens, grid, fragment, Random(setup.seed)),
-      toleranceMm = pacing.toleranceMm, labels = pacing.labels, unsealedMarks = pacing.unsealedMarks,
-      startAt = setup.startAt, endsAt = setup.startAt + pacing.limitMs(grid.seams().size),
-    )
+    state =
+      MosaicState(
+        grid = grid,
+        fragment = fragment,
+        gaps = Layouts.gaps(grid.placement),
+        positions = Deal.deal(setup.players, setup.screens, grid, fragment, Random(setup.seed)),
+        toleranceMm = pacing.toleranceMm,
+        labels = pacing.labels,
+        unsealedMarks = pacing.unsealedMarks,
+        startAt = setup.startAt,
+        endsAt = setup.startAt + pacing.limitMs(grid.seams().size),
+      )
   }
 
   override fun input(from: PlayerId, input: Pinch, now: Long) {
     if (from !in state.positions || status != GameStatus.Running) return
     advance(now)
     if (status != GameStatus.Running || now < state.startAt) return
-    if (input.id <= (lastPinch[from] ?: Long.MIN_VALUE) || !input.alongMm.isFinite() || abs(input.alongMm) > MAX_ALONG_MM) return
+    if (
+      input.id <= (lastPinch[from] ?: Long.MIN_VALUE) ||
+        !input.alongMm.isFinite() ||
+        abs(input.alongMm) > MAX_ALONG_MM
+    )
+      return
     if (input.upAt < input.downAt || input.upAt - input.downAt > MAX_DRAG_MS) return
     lastPinch[from] = input.id
-    // Trust the phone's release time only within the late window, so a stamp can't reach back to pair.
+    // Trust the phone's release time only within the late window, so a stamp can't reach back to
+    // pair.
     val upAt = input.upAt.coerceIn(now - LATE_MS, now)
-    if (upAt < state.startAt || state.grid.neighbour(state.position(from), input.edge) == null) return
+    if (upAt < state.startAt || state.grid.neighbour(state.position(from), input.edge) == null)
+      return
     pending += Half(from, input.edge, input.alongMm, upAt)
     resolve(now)
   }
@@ -88,18 +107,32 @@ internal class MosaicGame(setup: ChallengeSetup) : ChallengeGame<MosaicState, Pi
   private fun resolve(now: Long) {
     // A half that meets its real neighbour seals or asks for alignment at once.
     while (status == GameStatus.Running) {
-      val pair = pending.sortedBy { it.upAt }.firstNotNullOfOrNull { half ->
-        pending.filter { facing(half, it) && neighbours(half, it) }.minByOrNull { abs(it.upAt - half.upAt) }?.let { half to it }
-      } ?: break
+      val pair =
+        pending
+          .sortedBy { it.upAt }
+          .firstNotNullOfOrNull { half ->
+            pending
+              .filter { facing(half, it) && neighbours(half, it) }
+              .minByOrNull { abs(it.upAt - half.upAt) }
+              ?.let { half to it }
+          } ?: break
       pending -= pair.first
       pending -= pair.second
       seam(pair.first, pair.second, now)
     }
-    // A half with no neighbouring partner after the settle window pairs with whoever faced it: a wrong pair.
+    // A half with no neighbouring partner after the settle window pairs with whoever faced it: a
+    // wrong pair.
     while (status == GameStatus.Running) {
-      val pair = pending.filter { now - it.upAt >= SETTLE_MS }.sortedBy { it.upAt }.firstNotNullOfOrNull { half ->
-        pending.filter { facing(half, it) }.minByOrNull { abs(it.upAt - half.upAt) }?.let { half to it }
-      } ?: break
+      val pair =
+        pending
+          .filter { now - it.upAt >= SETTLE_MS }
+          .sortedBy { it.upAt }
+          .firstNotNullOfOrNull { half ->
+            pending
+              .filter { facing(half, it) }
+              .minByOrNull { abs(it.upAt - half.upAt) }
+              ?.let { half to it }
+          } ?: break
       pending -= pair.first
       pending -= pair.second
       wrong(pair.first, pair.second, now)
@@ -108,7 +141,10 @@ internal class MosaicGame(setup: ChallengeSetup) : ChallengeGame<MosaicState, Pi
   }
 
   private fun facing(half: Half, other: Half) =
-    other !== half && other.player != half.player && other.edge == half.edge.opposite && abs(other.upAt - half.upAt) <= PAIR_MS
+    other !== half &&
+      other.player != half.player &&
+      other.edge == half.edge.opposite &&
+      abs(other.upAt - half.upAt) <= PAIR_MS
 
   private fun neighbours(half: Half, other: Half) =
     state.grid.neighbour(state.position(half.player), half.edge) == state.position(other.player)
@@ -141,13 +177,18 @@ internal class MosaicGame(setup: ChallengeSetup) : ChallengeGame<MosaicState, Pi
   }
 
   private fun record(outcome: SeamOutcome, players: List<PlayerId>, seam: Int?, now: Long) {
-    state = state.copy(events = (state.events + SeamEvent(++eventId, outcome, now, players, seam)).takeLast(MAX_EVENTS))
+    state =
+      state.copy(
+        events =
+          (state.events + SeamEvent(++eventId, outcome, now, players, seam)).takeLast(MAX_EVENTS)
+      )
   }
 
-  private fun stats() = listOf(
-    Stat("Seams", "${state.sealed.size}/${state.seams.size}"),
-    Stat("Wrong pairs", "${state.misses}"),
-  )
+  private fun stats() =
+    listOf(
+      Stat("Seams", "${state.sealed.size}/${state.seams.size}"),
+      Stat("Wrong pairs", "${state.misses}"),
+    )
 
   companion object {
     // Both fingers of one pinch lift within this window.

@@ -2,15 +2,15 @@ package xyz.mcxross.formation.state
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNull
-import kotlin.test.assertFailsWith
-import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import xyz.mcxross.formation.crypto.Base58
 import xyz.mcxross.formation.crypto.Ed25519KeyPair
 import xyz.mcxross.formation.model.Budget
@@ -20,11 +20,11 @@ import xyz.mcxross.formation.model.OpportunityId
 import xyz.mcxross.formation.model.Skr
 import xyz.mcxross.formation.platform.KeyValueStore
 import xyz.mcxross.formation.platform.SecretStore
-import xyz.mcxross.formation.session.HostChecks
 import xyz.mcxross.formation.platform.SignedMessage
 import xyz.mcxross.formation.platform.WalletAccount
 import xyz.mcxross.formation.platform.WalletPort
 import xyz.mcxross.formation.platform.WalletResult
+import xyz.mcxross.formation.session.HostChecks
 
 class SeekerStateTest {
   private class Store : KeyValueStore {
@@ -38,7 +38,10 @@ class SeekerStateTest {
   }
 
   // Signs with the key behind the account it answers with, unless [signer] stands in for it.
-  private class Wallet(var answer: WalletResult<WalletAccount>, val signer: Ed25519KeyPair? = null) : WalletPort {
+  private class Wallet(
+    var answer: WalletResult<WalletAccount>,
+    val signer: Ed25519KeyPair? = null,
+  ) : WalletPort {
     var connects = 0
     var pending: CompletableDeferred<WalletResult<WalletAccount>>? = null
 
@@ -49,9 +52,10 @@ class SeekerStateTest {
       return pending?.await() ?: answer
     }
 
-    override suspend fun signIn(message: ByteArray): WalletResult<SignedMessage> = connect().map { account ->
-      SignedMessage(account.address, (signer ?: keys.getValue(account.address)).sign(message))
-    }
+    override suspend fun signIn(message: ByteArray): WalletResult<SignedMessage> =
+      connect().map { account ->
+        SignedMessage(account.address, (signer ?: keys.getValue(account.address)).sign(message))
+      }
 
     override suspend fun signAll(transactions: List<ByteArray>): WalletResult<List<ByteArray>> =
       WalletResult.NoWallet
@@ -62,9 +66,13 @@ class SeekerStateTest {
 
     override fun get(name: String) = map[name]
 
-    override fun put(name: String, value: ByteArray) { map[name] = value }
+    override fun put(name: String, value: ByteArray) {
+      map[name] = value
+    }
 
-    override fun remove(name: String) { map.remove(name) }
+    override fun remove(name: String) {
+      map.remove(name)
+    }
   }
 
   private val secrets = Secrets()
@@ -73,7 +81,8 @@ class SeekerStateTest {
   private val check = SeekerCheck { Result.success(sgts[it]) }
 
   @OptIn(ExperimentalCoroutinesApi::class)
-  @Test fun leavingAnInFlightLinkDoesNotStrandTheNextVisit() = runTest {
+  @Test
+  fun leavingAnInFlightLinkDoesNotStrandTheNextVisit() = runTest {
     val wallet = Wallet(seedVault).apply { pending = CompletableDeferred() }
     val state = SeekerState(Store(), secrets, wallet, isSeeker = true, NETWORK, check)
     val request = launch { state.link() }
@@ -157,22 +166,50 @@ class SeekerStateTest {
   fun linkingAuthorizesThisPhoneToHost() = runTest {
     val state = SeekerState(Store(), secrets, Wallet(seedVault), isSeeker = false, NETWORK, check)
     state.link()
-    val opportunity = Opportunity(Budget(OpportunityId("So11111111111111111111111111111111111111112"), "11111111111111111111111111111111", "sgt", Skr.of(600), 3, 31, Long.MAX_VALUE, "Test"), ChallengeId("tap"), 3)
+    val opportunity =
+      Opportunity(
+        Budget(
+          OpportunityId("So11111111111111111111111111111111111111112"),
+          "11111111111111111111111111111111",
+          "sgt",
+          Skr.of(600),
+          3,
+          31,
+          Long.MAX_VALUE,
+          "Test",
+        ),
+        ChallengeId("tap"),
+        3,
+      )
     // Any phone can host once its wallet authorizes it, and every guest can check that.
     val proof = state.credentials("session-1", opportunity).proof
     assertNull(HostChecks.problem(proof, "session-1", NETWORK))
 
     state.forget()
-    assertNull(secrets.get("host-key"), "an unlinked phone keeps no key that could sign for the wallet")
+    assertNull(
+      secrets.get("host-key"),
+      "an unlinked phone keeps no key that could sign for the wallet",
+    )
   }
 
   @Test
   fun aWalletMustSignForTheAddressItNames() = runTest {
     // An address that holds a Genesis Token proves nothing unless the wallet can sign for it.
-    val state = SeekerState(Store(), secrets, Wallet(seedVault, signer = Ed25519KeyPair.generate()), isSeeker = true, NETWORK, check)
+    val state =
+      SeekerState(
+        Store(),
+        secrets,
+        Wallet(seedVault, signer = Ed25519KeyPair.generate()),
+        isSeeker = true,
+        NETWORK,
+        check,
+      )
     state.link()
     assertNull(state.identity.value)
-    assertEquals(SeekerStatus.NeedsApproval("The wallet's signature doesn't match its address."), state.status.value)
+    assertEquals(
+      SeekerStatus.NeedsApproval("The wallet's signature doesn't match its address."),
+      state.status.value,
+    )
   }
 
   @Test
@@ -191,11 +228,20 @@ class SeekerStateTest {
   fun aTestSeekerIsFundedThenLinksThisPhonesOwnWallet() = runTest {
     val funded = mutableListOf<String>()
     val wallet = Wallet(seedVault)
-    val state = SeekerState(Store(), secrets, wallet, isSeeker = true, NETWORK, check, faucet = { address ->
-      funded += address.base58()
-      sgts[address.base58()] = "TestSgt"
-      Result.success(Unit)
-    })
+    val state =
+      SeekerState(
+        Store(),
+        secrets,
+        wallet,
+        isSeeker = true,
+        NETWORK,
+        check,
+        faucet = { address ->
+          funded += address.base58()
+          sgts[address.base58()] = "TestSgt"
+          Result.success(Unit)
+        },
+      )
     state.becomeHost()
     val identity = assertIs<SeekerStatus.Verified>(state.status.value).identity
     assertEquals(0, wallet.connects, "a test Seeker never opens a wallet app")
@@ -204,8 +250,24 @@ class SeekerStateTest {
     assertEquals("TestSgt", identity.sgt)
     assertEquals(true, identity.test)
     // Everything after linking is the same as for a real wallet: guests check the same proof.
-    val opportunity = Opportunity(Budget(OpportunityId("So11111111111111111111111111111111111111112"), "11111111111111111111111111111111", "sgt", Skr.of(600), 3, 31, Long.MAX_VALUE, "Test"), ChallengeId("tap"), 3)
-    assertNull(HostChecks.problem(state.credentials("session-1", opportunity).proof, "session-1", NETWORK))
+    val opportunity =
+      Opportunity(
+        Budget(
+          OpportunityId("So11111111111111111111111111111111111111112"),
+          "11111111111111111111111111111111",
+          "sgt",
+          Skr.of(600),
+          3,
+          31,
+          Long.MAX_VALUE,
+          "Test",
+        ),
+        ChallengeId("tap"),
+        3,
+      )
+    assertNull(
+      HostChecks.problem(state.credentials("session-1", opportunity).proof, "session-1", NETWORK)
+    )
 
     state.forget()
     state.becomeTestSeeker()
@@ -214,11 +276,22 @@ class SeekerStateTest {
 
   @Test
   fun aFaucetThatCantHelpIsExplained() = runTest {
-    val state = SeekerState(Store(), secrets, Wallet(seedVault), isSeeker = false, NETWORK, check,
-      faucet = { Result.failure(IllegalStateException("Too many requests today")) })
+    val state =
+      SeekerState(
+        Store(),
+        secrets,
+        Wallet(seedVault),
+        isSeeker = false,
+        NETWORK,
+        check,
+        faucet = { Result.failure(IllegalStateException("Too many requests today")) },
+      )
     state.becomeTestSeeker()
     assertNull(state.identity.value)
-    assertEquals(SeekerStatus.NeedsApproval("Couldn't get a test token: Too many requests today"), state.status.value)
+    assertEquals(
+      SeekerStatus.NeedsApproval("Couldn't get a test token: Too many requests today"),
+      state.status.value,
+    )
   }
 
   @Test
@@ -232,7 +305,10 @@ class SeekerStateTest {
   }
 
   private companion object {
-    val keys = listOf(Ed25519KeyPair.generate(), Ed25519KeyPair.generate()).associateBy { Base58.encode(it.publicKey) }
+    val keys =
+      listOf(Ed25519KeyPair.generate(), Ed25519KeyPair.generate()).associateBy {
+        Base58.encode(it.publicKey)
+      }
     val SEEKER = keys.keys.first()
     const val NETWORK = "devnet"
     val OTHER = keys.keys.last()

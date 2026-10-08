@@ -21,7 +21,23 @@ data class VaultSettings(
 ) {
   internal companion object {
     fun BorshReader.settings() =
-      VaultSettings(bool(), u8(), u16(), u64(), u16(), u8(), u8(), u8(), i64(), i64(), i64(), i64(), i64(), i64(), bool())
+      VaultSettings(
+        bool(),
+        u8(),
+        u16(),
+        u64(),
+        u16(),
+        u8(),
+        u8(),
+        u8(),
+        i64(),
+        i64(),
+        i64(),
+        i64(),
+        i64(),
+        i64(),
+        bool(),
+      )
   }
 }
 
@@ -38,7 +54,9 @@ data class VaultConfig(
 
     fun decode(data: ByteArray): VaultConfig =
       with(VaultSettings) {
-        with(BorshReader(data, DISCRIMINATOR)) { VaultConfig(key(), key(), key(), key(), settings(), u8()) }
+        with(BorshReader(data, DISCRIMINATOR)) {
+          VaultConfig(key(), key(), key(), key(), settings(), u8())
+        }
       }
   }
 }
@@ -88,7 +106,8 @@ class VaultContest(
     nowSeconds < playUntilSeconds && (mode == ContestMode.FIRST_COME || drawn)
 
   // Whether the draw picked the entry registered at [index].
-  fun selects(index: Long): Boolean = drawn && Selection.permute(randomness, entered, index) < selected
+  fun selects(index: Long): Boolean =
+    drawn && Selection.permute(randomness, entered, index) < selected
 
   companion object {
     val DISCRIMINATOR = discriminator(216, 26, 88, 18, 251, 80, 201, 96)

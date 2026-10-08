@@ -39,8 +39,8 @@ import kotlinx.coroutines.delay
 import xyz.mcxross.formation.challenge.Challenge
 import xyz.mcxross.formation.challenge.Countdown
 import xyz.mcxross.formation.challenge.PlayerView
-import xyz.mcxross.formation.challenge.StageScope
 import xyz.mcxross.formation.challenge.StageAudio
+import xyz.mcxross.formation.challenge.StageScope
 import xyz.mcxross.formation.challenge.rememberHostNow
 import xyz.mcxross.formation.design.Theme
 import xyz.mcxross.formation.design.components.Chip
@@ -56,6 +56,7 @@ import xyz.mcxross.formation.design.tokens.Shapes
 import xyz.mcxross.formation.design.tokens.Space
 import xyz.mcxross.formation.design.tokens.Tone
 import xyz.mcxross.formation.model.PlayerId
+import xyz.mcxross.formation.platform.ScreenMeasurement
 import xyz.mcxross.formation.sensors.Gesture
 import xyz.mcxross.formation.sensors.Haptics
 import xyz.mcxross.formation.sensors.MotionSense
@@ -68,7 +69,6 @@ import xyz.mcxross.formation.session.ScreenProfile
 import xyz.mcxross.formation.session.SessionSnapshot
 import xyz.mcxross.formation.session.Stage
 import xyz.mcxross.formation.session.ToPlayer
-import xyz.mcxross.formation.platform.ScreenMeasurement
 import xyz.mcxross.formation.state.ActiveSession
 import xyz.mcxross.formation.ui.LocalGraph
 
@@ -86,7 +86,8 @@ internal fun Play(
   val frame by session.client.frame.collectAsState()
   val now = rememberHostNow(session.client.sync)
   val counting by remember(stage.goAt) { derivedStateOf { now.value < stage.goAt } }
-  // The countdown is gone by go, so the go beat is felt from here; a late arrival doesn't feel a stale one.
+  // The countdown is gone by go, so the go beat is felt from here; a late arrival doesn't feel a
+  // stale one.
   LaunchedEffect(counting) {
     if (!counting && now.value - stage.goAt < GO_BEAT_MS) graph.platform.haptics.heavy()
   }
@@ -109,13 +110,14 @@ internal fun Play(
   Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
       // A full-screen stage leaves through the system back gesture instead.
-      if (!challenge.fullScreen) SessionBar(
-        challenge.info.title,
-        challenge.info.light,
-        session.client.sync.rttMs,
-        autoplay && developer,
-        onLeave,
-      )
+      if (!challenge.fullScreen)
+        SessionBar(
+          challenge.info.title,
+          challenge.info.light,
+          session.client.sync.rttMs,
+          autoplay && developer,
+          onLeave,
+        )
       Box(Modifier.weight(1f).fillMaxWidth()) {
         val current = frame
         if (current != null && current.round == snapshot.round) {

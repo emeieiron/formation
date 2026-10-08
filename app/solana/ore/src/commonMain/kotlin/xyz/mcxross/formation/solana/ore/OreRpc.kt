@@ -5,8 +5,10 @@ import io.ktor.client.HttpClient
 import xyz.mcxross.formation.solana.SolanaRpc
 
 class OreRpc(val rpc: SolanaRpc, val program: OreProgram = OreProgram()) {
-  constructor(http: HttpClient, deployment: OreDeployment = OreDeployment.Devnet) :
-    this(SolanaRpc(http, deployment.rpcUrl), OreProgram(deployment))
+  constructor(
+    http: HttpClient,
+    deployment: OreDeployment = OreDeployment.Devnet,
+  ) : this(SolanaRpc(http, deployment.rpcUrl), OreProgram(deployment))
 
   suspend fun verifyDeployment(): OreConfig {
     check(rpc.genesisHash() == program.deployment.genesisHash) { "Unexpected Solana cluster" }
@@ -29,9 +31,10 @@ class OreRpc(val rpc: SolanaRpc, val program: OreProgram = OreProgram()) {
       check(it.authority == authority) { "ORE miner authority does not match its address" }
     }
 
-  suspend fun round(id: ULong): OreRound? = read(program.round(id), OreRound::decode)?.also {
-    check(it.id == id) { "ORE round ID does not match its address" }
-  }
+  suspend fun round(id: ULong): OreRound? =
+    read(program.round(id), OreRound::decode)?.also {
+      check(it.id == id) { "ORE round ID does not match its address" }
+    }
 
   private suspend fun <T> read(key: SolanaPublicKey, decode: (ByteArray) -> T): T? {
     val account = rpc.account(key) ?: return null

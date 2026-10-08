@@ -17,12 +17,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.imageResource
 import org.jetbrains.compose.resources.painterResource
-import kotlin.math.roundToInt
 
 /** Home owns visibility; challenge modules own their presentation assets. */
 val LocalArtworkActive = compositionLocalOf { false }
@@ -57,10 +57,16 @@ fun MotionCover(still: DrawableResource, sheet: DrawableResource) {
     val scale = minOf(size.width / 320f, size.height / 188f)
     val width = (320 * scale).roundToInt()
     val height = (188 * scale).roundToInt()
-    drawImage(image,
+    drawImage(
+      image,
       srcOffset = IntOffset(index % 6 * 324 + 2, index / 6 * 192 + 2),
       srcSize = IntSize(320, 188),
-      dstOffset = IntOffset(((size.width - width) / 2).roundToInt(), ((size.height - height) / 2).roundToInt()),
-      dstSize = IntSize(width, height))
+      dstOffset =
+        IntOffset(
+          ((size.width - width) / 2).roundToInt(),
+          ((size.height - height) / 2).roundToInt(),
+        ),
+      dstSize = IntSize(width, height),
+    )
   }
 }

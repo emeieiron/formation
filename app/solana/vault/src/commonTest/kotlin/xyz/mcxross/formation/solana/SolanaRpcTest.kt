@@ -176,7 +176,8 @@ class SolanaRpcTest {
             ),
         )
       )
-    val found = assertNotNull(SgtFinder(node.rpc(), SeekerGenesis.MAINNET_GROUP).find(Mainnet.holder))
+    val found =
+      assertNotNull(SgtFinder(node.rpc(), SeekerGenesis.MAINNET_GROUP).find(Mainnet.holder))
     assertEquals(Mainnet.sgt, found.mint)
     assertEquals(Mainnet.sgtAccount, found.account)
     assertNull(SgtFinder(node.rpc(), group = SolanaPublicKey(ByteArray(32))).find(Mainnet.holder))
@@ -233,20 +234,32 @@ class SolanaRpcTest {
         .i64(1_800_000_000)
         .u8(254)
         .toByteArray()
-    assertContentEquals(sgt.bytes, bytes.copyOfRange(VaultEntry.SGT_OFFSET, VaultEntry.SGT_OFFSET + 32))
+    assertContentEquals(
+      sgt.bytes,
+      bytes.copyOfRange(VaultEntry.SGT_OFFSET, VaultEntry.SGT_OFFSET + 32),
+    )
     return bytes
   }
 
   // The preferred node is a keyed provider; the public one stands in while it refuses.
   private class Nodes(var preferred: Pair<HttpStatusCode, String>) {
     val hosts = mutableListOf<String>()
-    val http = HttpClient(MockEngine { request ->
-      hosts += request.url.host
-      val (status, body) =
-        if (request.url.host == "helius.test") preferred
-        else HttpStatusCode.OK to """"result":{"value":{"blockhash":"public","lastValidBlockHeight":1},"context":{"slot":1}}"""
-      respond("{\"jsonrpc\":\"2.0\",\"id\":1,$body}", status, headersOf(HttpHeaders.ContentType, "application/json"))
-    })
+    val http =
+      HttpClient(
+        MockEngine { request ->
+          hosts += request.url.host
+          val (status, body) =
+            if (request.url.host == "helius.test") preferred
+            else
+              HttpStatusCode.OK to
+                """"result":{"value":{"blockhash":"public","lastValidBlockHeight":1},"context":{"slot":1}}"""
+          respond(
+            "{\"jsonrpc\":\"2.0\",\"id\":1,$body}",
+            status,
+            headersOf(HttpHeaders.ContentType, "application/json"),
+          )
+        }
+      )
 
     fun rpc(cooldown: kotlin.time.Duration) =
       SolanaRpc(http, "https://helius.test", fallback = "https://public.test", cooldown = cooldown)
@@ -254,22 +267,35 @@ class SolanaRpcTest {
 
   @Test
   fun aRefusingProviderHandsOverToThePublicNodeUntilItRecovers() = runTest {
-    val ok = HttpStatusCode.OK to """"result":{"value":{"blockhash":"helius","lastValidBlockHeight":1},"context":{"slot":1}}"""
-    val nodes = Nodes(HttpStatusCode.TooManyRequests to """"error":{"code":-32429,"message":"rate limited"}""")
+    val ok =
+      HttpStatusCode.OK to
+        """"result":{"value":{"blockhash":"helius","lastValidBlockHeight":1},"context":{"slot":1}}"""
+    val nodes =
+      Nodes(
+        HttpStatusCode.TooManyRequests to """"error":{"code":-32429,"message":"rate limited"}"""
+      )
     val rpc = nodes.rpc(cooldown = 0.milliseconds)
-    nodes.preferred = HttpStatusCode.Unauthorized to """"error":{"code":401,"message":"invalid api key"}"""
+    nodes.preferred =
+      HttpStatusCode.Unauthorized to """"error":{"code":401,"message":"invalid api key"}"""
     assertEquals("public", rpc.latestBlockhash())
     assertEquals(listOf("helius.test", "public.test"), nodes.hosts)
 
     nodes.preferred = ok
     nodes.hosts.clear()
     assertEquals("helius", rpc.latestBlockhash())
-    assertEquals(listOf("helius.test"), nodes.hosts, "after the cooldown the provider is tried first again")
+    assertEquals(
+      listOf("helius.test"),
+      nodes.hosts,
+      "after the cooldown the provider is tried first again",
+    )
   }
 
   @Test
   fun duringTheCooldownTheProviderIsNotAsked() = runTest {
-    val nodes = Nodes(HttpStatusCode.TooManyRequests to """"error":{"code":-32429,"message":"rate limited"}""")
+    val nodes =
+      Nodes(
+        HttpStatusCode.TooManyRequests to """"error":{"code":-32429,"message":"rate limited"}"""
+      )
     val rpc = nodes.rpc(cooldown = kotlin.time.Duration.INFINITE)
     rpc.latestBlockhash()
     nodes.hosts.clear()
@@ -279,7 +305,10 @@ class SolanaRpcTest {
 
   @Test
   fun aTransactionErrorIsNotTheProvidersFault() = runTest {
-    val nodes = Nodes(HttpStatusCode.OK to """"error":{"code":-32002,"message":"Transaction simulation failed"}""")
+    val nodes =
+      Nodes(
+        HttpStatusCode.OK to """"error":{"code":-32002,"message":"Transaction simulation failed"}"""
+      )
     assertFailsWith<RpcException> { nodes.rpc(cooldown = 0.milliseconds).latestBlockhash() }
     assertEquals(listOf("helius.test"), nodes.hosts)
   }
@@ -287,14 +316,24 @@ class SolanaRpcTest {
   @Test
   fun aCallThatFindsNoConnectionTriesOnceMore() = runTest {
     var calls = 0
-    val http = HttpClient(MockEngine {
-      calls++
-      if (calls <= 2) error("Software caused connection abort")
-      respond("""{"jsonrpc":"2.0","id":1,"result":{"value":{"blockhash":"helius","lastValidBlockHeight":1},"context":{"slot":1}}}""",
-        HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
-    })
+    val http =
+      HttpClient(
+        MockEngine {
+          calls++
+          if (calls <= 2) error("Software caused connection abort")
+          respond(
+            """{"jsonrpc":"2.0","id":1,"result":{"value":{"blockhash":"helius","lastValidBlockHeight":1},"context":{"slot":1}}}""",
+            HttpStatusCode.OK,
+            headersOf(HttpHeaders.ContentType, "application/json"),
+          )
+        }
+      )
     val rpc = SolanaRpc(http, "https://helius.test", fallback = "https://public.test")
     assertEquals("helius", rpc.latestBlockhash())
-    assertEquals(3, calls, "both nodes failed once, then the provider answered and was not put aside")
+    assertEquals(
+      3,
+      calls,
+      "both nodes failed once, then the provider answered and was not put aside",
+    )
   }
 }

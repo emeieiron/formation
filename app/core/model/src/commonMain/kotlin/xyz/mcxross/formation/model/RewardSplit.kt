@@ -2,7 +2,8 @@ package xyz.mcxross.formation.model
 
 import kotlinx.serialization.Serializable
 
-// Same integer arithmetic as the vault program: the owner gets [ownerWeight] times each helper's share,
+// Same integer arithmetic as the vault program: the owner gets [ownerWeight] times each helper's
+// share,
 // plus the rounding dust.
 @Serializable
 data class RewardSplit(val total: Skr, val owner: Skr, val helper: Skr, val helpers: Int) {

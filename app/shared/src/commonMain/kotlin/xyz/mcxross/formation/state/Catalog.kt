@@ -10,20 +10,24 @@ import xyz.mcxross.formation.overdrive.Overdrive
 import xyz.mcxross.formation.ricochet.Ricochet
 
 object ChallengeCatalog {
-  private val registry = ChallengeRegistry(
-    challenges = listOf(Overdrive, Ricochet, Mosaic),
-    retiredIds = setOf("rally", "circuit", "sync", "formation", "rush").map(::ChallengeId).toSet(),
-    retiredCodes = (1..5).toSet(),
-  )
-  val all: List<Challenge<*, *>> get() = registry.all
-  val formats get() = registry.formats
+  private val registry =
+    ChallengeRegistry(
+      challenges = listOf(Overdrive, Ricochet, Mosaic),
+      retiredIds =
+        setOf("rally", "circuit", "sync", "formation", "rush").map(::ChallengeId).toSet(),
+      retiredCodes = (1..5).toSet(),
+    )
+  val all: List<Challenge<*, *>>
+    get() = registry.all
+
+  val formats
+    get() = registry.formats
 
   operator fun get(id: ChallengeId): Challenge<*, *>? = registry[id]
 
   fun byCode(code: Int): Challenge<*, *>? = registry.byCode(code)
 
-  fun supports(opportunity: Opportunity): Boolean =
-    registry.supports(opportunity)
+  fun supports(opportunity: Opportunity): Boolean = registry.supports(opportunity)
 
   // The group sizes of game [id] that [budget] can pay, smallest first.
   fun sizesFor(id: ChallengeId, budget: Budget): List<Int> =

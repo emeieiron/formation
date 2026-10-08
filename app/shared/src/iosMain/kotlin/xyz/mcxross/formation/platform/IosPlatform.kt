@@ -90,7 +90,8 @@ class IosPlatform : PlatformServices {
 
       override suspend fun connect(): WalletResult<WalletAccount> = WalletResult.NoWallet
 
-      override suspend fun signIn(message: ByteArray): WalletResult<SignedMessage> = WalletResult.NoWallet
+      override suspend fun signIn(message: ByteArray): WalletResult<SignedMessage> =
+        WalletResult.NoWallet
 
       override suspend fun signAll(transactions: List<ByteArray>): WalletResult<List<ByteArray>> =
         WalletResult.NoWallet

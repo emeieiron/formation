@@ -8,12 +8,14 @@ data class OreBoard(
   val endSlot: ULong,
   val productionCostEma: ULong,
 ) {
-  val waitingForDeployment: Boolean get() = endSlot == ULong.MAX_VALUE
+  val waitingForDeployment: Boolean
+    get() = endSlot == ULong.MAX_VALUE
 
   companion object {
-    fun decode(data: ByteArray): OreBoard = SteelReader(data, 105, 40).run {
-      OreBoard(u64(), u64(), u64(), u64())
-    }
+    fun decode(data: ByteArray): OreBoard =
+      SteelReader(data, 105, 40).run {
+        OreBoard(u64(), u64(), u64(), u64())
+      }
   }
 }
 
@@ -35,12 +37,13 @@ data class OreProtocolConfig(
 
 data class OreConfig(val admin: OreAdminConfig, val protocol: OreProtocolConfig) {
   companion object {
-    fun decode(data: ByteArray): OreConfig = SteelReader(data, 101, 232).run {
-      OreConfig(
-        OreAdminConfig(key(), key(), u64()),
-        OreProtocolConfig(key(), key(), u64(), u64(), u64(), key(), key()),
-      )
-    }
+    fun decode(data: ByteArray): OreConfig =
+      SteelReader(data, 101, 232).run {
+        OreConfig(
+          OreAdminConfig(key(), key(), u64()),
+          OreProtocolConfig(key(), key(), u64(), u64(), u64(), key(), key()),
+        )
+      }
   }
 }
 
@@ -64,12 +67,28 @@ data class OreMiner(
   val lifetimeRewardsSol: ULong,
 ) {
   companion object {
-    fun decode(data: ByteArray): OreMiner = SteelReader(data, 103, 752).run {
-      OreMiner(
-        key(), u64(), u64(), u64(), squares(), squares(), squares(), u64(), numeric(),
-        u64(), u64(), u64(), i64(), i64(), u64(), u64(), u64(),
-      )
-    }
+    fun decode(data: ByteArray): OreMiner =
+      SteelReader(data, 103, 752).run {
+        OreMiner(
+          key(),
+          u64(),
+          u64(),
+          u64(),
+          squares(),
+          squares(),
+          squares(),
+          u64(),
+          numeric(),
+          u64(),
+          u64(),
+          u64(),
+          i64(),
+          i64(),
+          u64(),
+          u64(),
+          u64(),
+        )
+      }
   }
 }
 
@@ -89,12 +108,24 @@ class OreRound(
   val topMiner: SolanaPublicKey,
 ) {
   companion object {
-    fun decode(data: ByteArray): OreRound = SteelReader(data, 109, 952).run {
-      OreRound(
-        u64(), squares(), squares(), squares(), bytes(32), u64(), u64(), key(), squares(),
-        u64(), u64(), u64(), key(),
-      )
-    }
+    fun decode(data: ByteArray): OreRound =
+      SteelReader(data, 109, 952).run {
+        OreRound(
+          u64(),
+          squares(),
+          squares(),
+          squares(),
+          bytes(32),
+          u64(),
+          u64(),
+          key(),
+          squares(),
+          u64(),
+          u64(),
+          u64(),
+          key(),
+        )
+      }
   }
 }
 
@@ -105,8 +136,9 @@ data class OreTreasury(
   val totalUnclaimed: ULong,
 ) {
   companion object {
-    fun decode(data: ByteArray): OreTreasury = SteelReader(data, 104, 48).run {
-      OreTreasury(u64(), numeric(), u64(), u64())
-    }
+    fun decode(data: ByteArray): OreTreasury =
+      SteelReader(data, 104, 48).run {
+        OreTreasury(u64(), numeric(), u64(), u64())
+      }
   }
 }

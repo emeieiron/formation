@@ -66,44 +66,64 @@ class MwaWallet(
   init {
     (context.applicationContext as Application).registerActivityLifecycleCallbacks(
       object : Application.ActivityLifecycleCallbacks {
-        override fun onActivityResumed(activity: Activity) { inFront.value = true }
-        override fun onActivityPaused(activity: Activity) { inFront.value = false }
+        override fun onActivityResumed(activity: Activity) {
+          inFront.value = true
+        }
+
+        override fun onActivityPaused(activity: Activity) {
+          inFront.value = false
+        }
+
         override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
+
         override fun onActivityStarted(activity: Activity) = Unit
+
         override fun onActivityStopped(activity: Activity) = Unit
+
         override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
+
         override fun onActivityDestroyed(activity: Activity) = Unit
       }
     )
   }
 
-  // A wallet can drop a request without answering, for instance when its app is reopened from the launcher, and
-  // the adapter then waits forever. A real answer arrives soon after the person is back in Formation, so a longer
+  // A wallet can drop a request without answering, for instance when its app is reopened from the
+  // launcher, and
+  // the adapter then waits forever. A real answer arrives soon after the person is back in
+  // Formation, so a longer
   // silence ends the request. The adapter's blocking wait can't be cancelled, so it is left behind.
-  private suspend fun <T> answered(request: suspend () -> TransactionResult<T>): TransactionResult<T>? {
+  private suspend fun <T> answered(
+    request: suspend () -> TransactionResult<T>
+  ): TransactionResult<T>? {
     val pending = requests.async { request() }
-    val result = try {
-      coroutineScope {
-        val abandoned = async {
-          inFront.first { !it }
-          inFront.first { it }
-          delay(ANSWER_GRACE)
+    val result =
+      try {
+        coroutineScope {
+          val abandoned = async {
+            inFront.first { !it }
+            inFront.first { it }
+            delay(ANSWER_GRACE)
+          }
+          select {
+            pending.onAwait {
+              abandoned.cancel()
+              it
+            }
+            abandoned.onAwait { null }
+          }
         }
-        select {
-          pending.onAwait { abandoned.cancel(); it }
-          abandoned.onAwait { null }
-        }
+      } finally {
+        pending.cancel()
       }
-    } finally {
-      pending.cancel()
-    }
-    // The wallet answers while it is still in front, and Android blocks a background app's network, so what
+    // The wallet answers while it is still in front, and Android blocks a background app's network,
+    // so what
     // follows, such as checking the wallet on chain, waits until Formation is back.
     withTimeoutOrNull(BACK_IN_FRONT) { inFront.first { it } }
     return result
   }
 
-  // The adapter's messages describe its internals, such as a cancelled local association; say instead what
+  // The adapter's messages describe its internals, such as a cancelled local association; say
+  // instead what
   // happened from where the person stands.
   private fun failed(result: TransactionResult.Failure<*>): WalletResult.Failed {
     val cause = result.e
@@ -111,7 +131,8 @@ class MwaWallet(
     return WalletResult.Failed(
       when {
         // A wallet ends the association when its sheet is closed.
-        cause is CancellationException || code == ProtocolContract.ERROR_AUTHORIZATION_FAILED ||
+        cause is CancellationException ||
+          code == ProtocolContract.ERROR_AUTHORIZATION_FAILED ||
           code == ProtocolContract.ERROR_NOT_SIGNED -> DECLINED
         cause is IOException || cause is TimeoutException -> UNREACHABLE
         else -> UNFINISHED
@@ -131,7 +152,9 @@ class MwaWallet(
 
   override suspend fun connect(): WalletResult<WalletAccount> {
     val activity = sender() ?: return WalletResult.Failed("Open Formation to connect a wallet")
-    val result = answered { adapter.connect(activity).also { remember() } } ?: return WalletResult.Failed(NO_ANSWER)
+    val result =
+      answered { adapter.connect(activity).also { remember() } }
+        ?: return WalletResult.Failed(NO_ANSWER)
     return when (result) {
       is TransactionResult.Success -> {
         val auth = result.authResult
@@ -147,13 +170,17 @@ class MwaWallet(
 
   override suspend fun signIn(message: ByteArray): WalletResult<SignedMessage> {
     val activity = sender() ?: return WalletResult.Failed("Open Formation to connect a wallet")
-    val result = answered {
-      adapter.transact(activity) { auth ->
-        val account = auth.accounts.firstOrNull()?.publicKey ?: auth.publicKey
-        val signed = signMessagesDetached(arrayOf(message), arrayOf(account)).messages.firstOrNull()
-        account to signed?.signatures?.firstOrNull()
-      }.also { remember() }
-    } ?: return WalletResult.Failed(NO_ANSWER)
+    val result =
+      answered {
+        adapter
+          .transact(activity) { auth ->
+            val account = auth.accounts.firstOrNull()?.publicKey ?: auth.publicKey
+            val signed =
+              signMessagesDetached(arrayOf(message), arrayOf(account)).messages.firstOrNull()
+            account to signed?.signatures?.firstOrNull()
+          }
+          .also { remember() }
+      } ?: return WalletResult.Failed(NO_ANSWER)
     return when (result) {
       is TransactionResult.Success -> {
         val (account, signature) = result.payload
@@ -167,9 +194,12 @@ class MwaWallet(
 
   override suspend fun signAll(transactions: List<ByteArray>): WalletResult<List<ByteArray>> {
     val activity = sender() ?: return WalletResult.Failed("Open Formation to sign")
-    val result = answered {
-      adapter.transact(activity) { signTransactions(transactions.toTypedArray()) }.also { remember() }
-    } ?: return WalletResult.Failed(NO_ANSWER)
+    val result =
+      answered {
+        adapter
+          .transact(activity) { signTransactions(transactions.toTypedArray()) }
+          .also { remember() }
+      } ?: return WalletResult.Failed(NO_ANSWER)
     return when (result) {
       is TransactionResult.Success ->
         result.payload.signedPayloads
@@ -187,7 +217,8 @@ class MwaWallet(
     const val DECLINED = "Cancelled in the wallet. Try again when you're ready."
     const val UNREACHABLE = "Couldn't reach the wallet app. Try again."
     const val UNFINISHED = "The wallet couldn't finish that. Try again."
-    // Past the adapter's own waits after the wallet closes: up to 10 s to connect and 10 s to disconnect.
+    // Past the adapter's own waits after the wallet closes: up to 10 s to connect and 10 s to
+    // disconnect.
     val ANSWER_GRACE = 25.seconds
     val BACK_IN_FRONT = 10.seconds
   }

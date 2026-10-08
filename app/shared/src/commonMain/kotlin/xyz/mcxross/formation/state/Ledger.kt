@@ -81,7 +81,9 @@ interface RewardLedger {
 
   fun keep(ticket: ClaimTicket)
 
-  fun restore(tickets: List<ClaimTicket>) { tickets.forEach(::keep) }
+  fun restore(tickets: List<ClaimTicket>) {
+    tickets.forEach(::keep)
+  }
 
   suspend fun claim(ticket: ClaimTicket, recipient: String): Result<String>
 
@@ -90,11 +92,11 @@ interface RewardLedger {
   // Null when it can't tell, such as while offline.
   suspend fun stillLocked(opportunity: Opportunity): Boolean?
 
-  // Why [opportunity], as a host shows it, isn't a budget [wallet] can unlock on chain. Null when it is, and
+  // Why [opportunity], as a host shows it, isn't a budget [wallet] can unlock on chain. Null when
+  // it is, and
   // when this phone can't reach the chain to tell; the guest's claim checks again later.
   suspend fun rewardProblem(opportunity: Opportunity, wallet: String): String? = null
 }
-
 
 internal fun <T> loadList(store: KeyValueStore, key: String, serializer: KSerializer<T>): List<T> =
   store.get(key)?.let {

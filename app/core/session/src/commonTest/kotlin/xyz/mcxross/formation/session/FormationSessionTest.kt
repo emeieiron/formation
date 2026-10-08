@@ -33,9 +33,16 @@ import xyz.mcxross.formation.model.Skr
 @OptIn(ExperimentalCoroutinesApi::class)
 class FormationSessionTest {
   private val opportunity =
-    Opportunity(Budget(OpportunityId("entry"), "contest", "sgt", Skr.of(600), 3, 31, Long.MAX_VALUE, "Test"), ChallengeId("tap"), players = 3)
+    Opportunity(
+      Budget(OpportunityId("entry"), "contest", "sgt", Skr.of(600), 3, 31, Long.MAX_VALUE, "Test"),
+      ChallengeId("tap"),
+      players = 3,
+    )
 
-  private inner class Formation(val test: TestScope, rules: ChallengeRules<TapChallenge.State, TapChallenge.Tap> = TapChallenge) {
+  private inner class Formation(
+    val test: TestScope,
+    rules: ChallengeRules<TapChallenge.State, TapChallenge.Tap> = TapChallenge,
+  ) {
     val clock = Clock { test.testScheduler.currentTime }
     val host =
       FormationHost(
@@ -60,7 +67,15 @@ class FormationSessionTest {
     ): FormationClient {
       val client =
         FormationClient(
-          PlayerIdentity(device, name, 0, key, wallet, formats = mapOf("tap" to 1), capabilities = capabilities),
+          PlayerIdentity(
+            device,
+            name,
+            0,
+            key,
+            wallet,
+            formats = mapOf("tap" to 1),
+            capabilities = capabilities,
+          ),
           connect = {
             val (phone, seekerSide) = memoryLink()
             links[device] = seekerSide
@@ -82,15 +97,18 @@ class FormationSessionTest {
 
   @Test
   fun openingAndUpdatedFramesUseEachPlayersView() = runTest {
-    val privateRules = object : ChallengeRules<TapChallenge.State, TapChallenge.Tap> by TapChallenge {
-      override fun newGame(setup: ChallengeSetup): ChallengeGame<TapChallenge.State, TapChallenge.Tap> {
-        val game = TapChallenge.newGame(setup)
-        return object : ChallengeGame<TapChallenge.State, TapChallenge.Tap> by game {
-          override fun stateFor(player: xyz.mcxross.formation.model.PlayerId) =
-            game.state.copy(taps = game.state.taps.filterKeys { it != player.value })
+    val privateRules =
+      object : ChallengeRules<TapChallenge.State, TapChallenge.Tap> by TapChallenge {
+        override fun newGame(
+          setup: ChallengeSetup
+        ): ChallengeGame<TapChallenge.State, TapChallenge.Tap> {
+          val game = TapChallenge.newGame(setup)
+          return object : ChallengeGame<TapChallenge.State, TapChallenge.Tap> by game {
+            override fun stateFor(player: xyz.mcxross.formation.model.PlayerId) =
+              game.state.copy(taps = game.state.taps.filterKeys { it != player.value })
+          }
         }
       }
-    }
     val f = Formation(this, privateRules)
     val phones = listOf(f.join("Theo", seeker = true), f.join("Maya"), f.join("Kofi"))
     runCurrent()
@@ -101,7 +119,11 @@ class FormationSessionTest {
 
     fun checkFrames(expected: Int) {
       phones.forEach { phone ->
-        val state = FormationJson.decodeFromJsonElement(TapChallenge.stateSerializer, phone.frame.value!!.state)
+        val state =
+          FormationJson.decodeFromJsonElement(
+            TapChallenge.stateSerializer,
+            phone.frame.value!!.state,
+          )
         assertEquals(2, state.taps.size)
         assertTrue(phone.me.value!!.value !in state.taps)
         assertTrue(state.taps.values.all { it == expected })
@@ -347,11 +369,19 @@ class FormationSessionTest {
     val f = Formation(this)
     f.join("Theo", seeker = true)
     runCurrent()
-    val maya = f.join("Maya", link = { phone ->
-      object : LinkChannel by phone {
-        override val incoming = flow<String> { emitAll(phone.incoming); throw EOFException() }
-      }
-    })
+    val maya =
+      f.join(
+        "Maya",
+        link = { phone ->
+          object : LinkChannel by phone {
+            override val incoming =
+              flow<String> {
+                emitAll(phone.incoming)
+                throw EOFException()
+              }
+          }
+        },
+      )
     runCurrent()
     assertEquals(FormationClient.Status.Joined, maya.status.value)
 
@@ -398,16 +428,27 @@ class FormationSessionTest {
     runCurrent()
     phones.forEach { assertEquals(FormationClient.Status.Ended("Done for today"), it.status.value) }
   }
+
   @Test
   fun requiredInputsGateStartAndInterruptionCannotBecomeAWin() = runTest {
     val input = "sensor.tilt.v1"
-    val rules = object : ChallengeRules<TapChallenge.State, TapChallenge.Tap> by TapChallenge {
-      override fun requiredCapabilities(players: Int) = setOf(input)
-      override fun activeCapabilities(state: TapChallenge.State, player: xyz.mcxross.formation.model.PlayerId, players: Int) = setOf(input)
-    }
+    val rules =
+      object : ChallengeRules<TapChallenge.State, TapChallenge.Tap> by TapChallenge {
+        override fun requiredCapabilities(players: Int) = setOf(input)
+
+        override fun activeCapabilities(
+          state: TapChallenge.State,
+          player: xyz.mcxross.formation.model.PlayerId,
+          players: Int,
+        ) = setOf(input)
+      }
     val f = Formation(this, rules)
-    val phones = listOf(f.join("Host", seeker = true, capabilities = setOf(input)),
-      f.join("Guest", capabilities = setOf(input)), f.join("Other", capabilities = setOf(input)))
+    val phones =
+      listOf(
+        f.join("Host", seeker = true, capabilities = setOf(input)),
+        f.join("Guest", capabilities = setOf(input)),
+        f.join("Other", capabilities = setOf(input)),
+      )
     runCurrent()
     f.host.begin()
     runCurrent()
@@ -430,5 +471,4 @@ class FormationSessionTest {
     runCurrent()
     assertIs<Stage.Lost>(f.stage)
   }
-
 }

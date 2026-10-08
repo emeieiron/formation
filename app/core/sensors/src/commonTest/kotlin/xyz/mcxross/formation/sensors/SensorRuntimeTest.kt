@@ -14,13 +14,16 @@ import xyz.mcxross.formation.sensors.runtime.PreparationState
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SensorRuntimeTest {
-  @Test fun consumersShareRegistrationAndReleaseItAutomatically() = runTest {
+  @Test
+  fun consumersShareRegistrationAndReleaseItAutomatically() = runTest {
     val backend = FakeSensorBackend(SensorKind.ACCELERATION)
     val hub = SensorHub(backend, backgroundScope) { testScheduler.currentTime }
     hub.setForeground(true)
     val first = backgroundScope.launch { hub.acceleration.observe(SamplingRequest.Ui).collect {} }
     runCurrent()
-    val second = backgroundScope.launch { hub.acceleration.observe(SamplingRequest.Game).collect {} }
+    val second = backgroundScope.launch {
+      hub.acceleration.observe(SamplingRequest.Game).collect {}
+    }
     runCurrent()
     assertEquals(1, backend.active(SensorKind.ACCELERATION))
     assertEquals(listOf(60_000, 20_000), backend.periods)
@@ -32,7 +35,8 @@ class SensorRuntimeTest {
     assertEquals(0, backend.active(SensorKind.ACCELERATION))
   }
 
-  @Test fun suspensionDropsOldReadingsAndResumeRequiresNewInput() = runTest {
+  @Test
+  fun suspensionDropsOldReadingsAndResumeRequiresNewInput() = runTest {
     val backend = FakeSensorBackend(SensorKind.GRAVITY)
     val hub = SensorHub(backend, backgroundScope) { testScheduler.currentTime }
     hub.setForeground(true)
@@ -56,7 +60,8 @@ class SensorRuntimeTest {
     assertEquals(0, backend.active(SensorKind.GRAVITY))
   }
 
-  @Test fun registrationFailureIsReportedWithoutWaitingForTimeout() = runTest {
+  @Test
+  fun registrationFailureIsReportedWithoutWaitingForTimeout() = runTest {
     val backend = FakeSensorBackend(SensorKind.PROXIMITY).also { it.rejectRegistration = true }
     val hub = SensorHub(backend, backgroundScope) { testScheduler.currentTime }
     hub.setForeground(true)
@@ -74,7 +79,8 @@ class SensorRuntimeTest {
     prepared.close()
   }
 
-  @Test fun unchangedProximityRemainsUsableButStoppedMotionFails() = runTest {
+  @Test
+  fun unchangedProximityRemainsUsableButStoppedMotionFails() = runTest {
     val backend = FakeSensorBackend(SensorKind.GRAVITY, SensorKind.PROXIMITY)
     val hub = SensorHub(backend, backgroundScope) { testScheduler.currentTime }
     hub.setForeground(true)
@@ -92,12 +98,16 @@ class SensorRuntimeTest {
     tilt.close()
   }
 
-  @Test fun missingHardwareProducesAnActionableAssessment() = runTest {
+  @Test
+  fun missingHardwareProducesAnActionableAssessment() = runTest {
     val hub = SensorHub(FakeSensorBackend(), backgroundScope)
     val prepared = hub.prepare(listOf(SensorRequirement(InputCapability.COVER)))
     runCurrent()
     val blocked = assertIs<PreparationState.Blocked>(prepared.readiness.value)
-    assertEquals(Availability.Unavailable(UnavailableReason.MISSING_HARDWARE), blocked.assessment.issues.single().availability)
+    assertEquals(
+      Availability.Unavailable(UnavailableReason.MISSING_HARDWARE),
+      blocked.assessment.issues.single().availability,
+    )
     prepared.close()
   }
 }

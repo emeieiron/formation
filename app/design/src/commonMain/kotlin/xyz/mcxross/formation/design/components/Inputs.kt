@@ -28,17 +28,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -64,7 +64,8 @@ fun TextField(
   leadingIcon: ImageVector? = null,
   singleLine: Boolean = true,
   maxLines: Int = Int.MAX_VALUE,
-  visualTransformation: androidx.compose.ui.text.input.VisualTransformation = androidx.compose.ui.text.input.VisualTransformation.None,
+  visualTransformation: androidx.compose.ui.text.input.VisualTransformation =
+    androidx.compose.ui.text.input.VisualTransformation.None,
   maxLength: Int? = null,
   keyboardOptions: KeyboardOptions =
     KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Done),
@@ -93,9 +94,10 @@ fun TextField(
       onValueChange = { next ->
         onValueChange(if (maxLength != null) next.take(maxLength) else next)
       },
-      modifier = Modifier.fillMaxWidth().focusRequester(focus).semantics {
-        (label ?: placeholder)?.let { contentDescription = it }
-      },
+      modifier =
+        Modifier.fillMaxWidth().focusRequester(focus).semantics {
+          (label ?: placeholder)?.let { contentDescription = it }
+        },
       singleLine = singleLine,
       maxLines = maxLines,
       visualTransformation = visualTransformation,
@@ -153,7 +155,8 @@ fun CodeField(
       onValueChange(cleaned)
       if (cleaned.length == length) onDone()
     },
-    modifier = modifier.fillMaxWidth().focusRequester(focus).semantics { contentDescription = "Join code" },
+    modifier =
+      modifier.fillMaxWidth().focusRequester(focus).semantics { contentDescription = "Join code" },
     singleLine = true,
     cursorBrush = SolidColor(Color.Transparent),
     textStyle = Theme.type.code.copy(color = Color.Transparent),

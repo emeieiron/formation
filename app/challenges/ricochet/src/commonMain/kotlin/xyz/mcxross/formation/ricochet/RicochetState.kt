@@ -3,17 +3,22 @@ package xyz.mcxross.formation.ricochet
 import kotlinx.serialization.Serializable
 import xyz.mcxross.formation.model.PlayerId
 
-@Serializable
-data class Pulse(val x: Double, val y: Double, val vx: Double, val vy: Double)
+@Serializable data class Pulse(val x: Double, val y: Double, val vx: Double, val vy: Double)
 
 @Serializable
 data class Paddle(val player: PlayerId, val side: Int, val y: Double, val sequence: Long = 0)
 
-@Serializable
-data class Target(val id: Int, val x: Double, val y: Double)
+@Serializable data class Target(val id: Int, val x: Double, val y: Double)
 
 @Serializable
-enum class ImpactKind { Wall, Paddle, Target, Miss, Charge, Pierce }
+enum class ImpactKind {
+  Wall,
+  Paddle,
+  Target,
+  Miss,
+  Charge,
+  Pierce,
+}
 
 @Serializable
 data class Impact(
@@ -45,7 +50,9 @@ data class RicochetState(
   val impacts: List<Impact> = emptyList(),
   val finishedAt: Long? = null,
 ) {
-  val clears: Int get() = TARGETS - targets.size
+  val clears: Int
+    get() = TARGETS - targets.size
+
   fun paddle(player: PlayerId): Paddle = paddles.first { it.player == player }
 
   companion object {
@@ -54,5 +61,4 @@ data class RicochetState(
   }
 }
 
-@Serializable
-data class MovePaddle(val rally: Int, val sequence: Long, val y: Double)
+@Serializable data class MovePaddle(val rally: Int, val sequence: Long, val y: Double)

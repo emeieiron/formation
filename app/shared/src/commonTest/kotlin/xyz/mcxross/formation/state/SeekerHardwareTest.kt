@@ -31,10 +31,12 @@ class SeekerHardwareTest {
   private var requests = 0
   private var online = true
 
-  private fun revocations(store: KeyValueStore = Store()) = AttestationRevocations(store, { clock }) {
-    requests++
-    """{"entries":{"C35747A0":{"status":"REVOKED"},"8350192447815228107":{"status":"SUSPENDED"}}}""".takeIf { online }
-  }
+  private fun revocations(store: KeyValueStore = Store()) =
+    AttestationRevocations(store, { clock }) {
+      requests++
+      """{"entries":{"C35747A0":{"status":"REVOKED"},"8350192447815228107":{"status":"SUSPENDED"}}}"""
+        .takeIf { online }
+    }
 
   private fun hardware(phone: DeviceAttestation) = SeekerHardware(phone, revocations(), { clock })
 
@@ -48,7 +50,11 @@ class SeekerHardwareTest {
 
     online = false
     clock += 2 * 24 * 60 * 60 * 1_000L
-    assertEquals(setOf("c35747a0", "8350192447815228107"), revocations(store).current(), "a stale list still beats none")
+    assertEquals(
+      setOf("c35747a0", "8350192447815228107"),
+      revocations(store).current(),
+      "a stale list still beats none",
+    )
     assertEquals(2, requests)
   }
 
@@ -61,7 +67,8 @@ class SeekerHardwareTest {
 
   @Test
   fun aPhoneThatCantAttestIsReportedNotBlocked() = runTest {
-    val hardware = hardware(Phone { throw IllegalStateException("This phone can't attest its model.") })
+    val hardware =
+      hardware(Phone { throw IllegalStateException("This phone can't attest its model.") })
     assertEquals(false, hardware.proveThisPhone())
     assertEquals(HardwareCheck.Failed("This phone can't attest its model."), hardware.local.value)
   }

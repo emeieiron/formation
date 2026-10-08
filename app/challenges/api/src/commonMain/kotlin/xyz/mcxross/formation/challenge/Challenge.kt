@@ -13,13 +13,19 @@ abstract class Challenge<S : Any, I : Any> : ChallengeRules<S, I> {
   abstract val info: ChallengeInfo
 
   open fun requiredSensors(players: Int): List<SensorRequirement> = emptyList()
+
   open fun optionalSensors(players: Int): List<SensorRequirement> = emptyList()
+
   open fun activeSensors(state: S, player: PlayerId, players: Int): Set<InputCapability> =
     requiredSensors(players).map { it.capability }.toSet()
 
-  final override fun requiredCapabilities(players: Int) = requiredSensors(players).map { it.capability.id }.toSet() +
-    listOfNotNull(screenRequirement(players)?.let { ScreenRequirement.CAPABILITY })
-  final override fun optionalCapabilities(players: Int) = optionalSensors(players).map { it.capability.id }.toSet()
+  final override fun requiredCapabilities(players: Int) =
+    requiredSensors(players).map { it.capability.id }.toSet() +
+      listOfNotNull(screenRequirement(players)?.let { ScreenRequirement.CAPABILITY })
+
+  final override fun optionalCapabilities(players: Int) =
+    optionalSensors(players).map { it.capability.id }.toSet()
+
   final override fun activeCapabilities(state: S, player: PlayerId, players: Int) =
     activeSensors(state, player, players).map { it.id }.toSet()
 

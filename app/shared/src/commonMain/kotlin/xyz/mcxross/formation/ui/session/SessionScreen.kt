@@ -80,8 +80,10 @@ fun SessionScreen() {
     graph.navigator.remove(Screen.Session)
   }
 
-  val ended = status is FormationClient.Status.Ended || status is FormationClient.Status.Rejected ||
-    status is FormationClient.Status.Untrusted
+  val ended =
+    status is FormationClient.Status.Ended ||
+      status is FormationClient.Status.Rejected ||
+      status is FormationClient.Status.Untrusted
   BackHandler { if (ended) leave() else confirmLeave = true }
 
   val fullScreen = snapshot?.stage is Stage.Playing && active.challenge?.fullScreen == true
@@ -91,8 +93,11 @@ fun SessionScreen() {
         is FormationClient.Status.Rejected ->
           Problem("Couldn't join", st.reason.message, onBack = ::leave)
         is FormationClient.Status.Untrusted ->
-          Problem(if (me == null) "Couldn't join" else "Left the Formation", "${st.reason} Formations only run on a Seeker.",
-            onBack = ::leave)
+          Problem(
+            if (me == null) "Couldn't join" else "Left the Formation",
+            "${st.reason} Formations only run on a Seeker.",
+            onBack = ::leave,
+          )
         is FormationClient.Status.Ended ->
           Problem("The Formation ended", st.reason, onBack = ::leave)
         else -> {
@@ -164,7 +169,10 @@ private fun Phases(
   val shown = rememberFinale(snapshot)
   AnimatedContent(
     targetState = shown.stage::class.simpleName + shown.round,
-    transitionSpec = { (fadeIn(Motion.standard()) + slideInVertically(Motion.standard()) { it / 32 }) togetherWith fadeOut(Motion.exit()) },
+    transitionSpec = {
+      (fadeIn(Motion.standard()) + slideInVertically(Motion.standard()) { it / 32 }) togetherWith
+        fadeOut(Motion.exit())
+    },
     label = "phase",
   ) { _ ->
     when (val stage = shown.stage) {
@@ -184,8 +192,11 @@ private fun rememberFinale(snapshot: SessionSnapshot): SessionSnapshot {
   var playing by remember { mutableStateOf<SessionSnapshot?>(null) }
   var released by remember { mutableIntStateOf(-1) }
   val last = playing
-  val ending = last != null && last.round == snapshot.round && released != snapshot.round &&
-    (snapshot.stage is Stage.Won || snapshot.stage is Stage.Lost)
+  val ending =
+    last != null &&
+      last.round == snapshot.round &&
+      released != snapshot.round &&
+      (snapshot.stage is Stage.Won || snapshot.stage is Stage.Lost)
   SideEffect { if (snapshot.stage is Stage.Playing) playing = snapshot }
   if (ending) {
     LaunchedEffect(snapshot.round) {

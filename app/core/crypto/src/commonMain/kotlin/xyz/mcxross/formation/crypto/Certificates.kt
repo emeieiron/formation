@@ -8,7 +8,8 @@ class PublicKeyInfo(
   val encoded: ByteArray,
 )
 
-class Certificate private constructor(
+class Certificate
+private constructor(
   val encoded: ByteArray,
   internal val signed: ByteArray,
   val serial: String,
@@ -22,11 +23,13 @@ class Certificate private constructor(
   internal val signature: ByteArray,
   val extensions: Map<String, ByteArray>,
 ) {
-  val selfIssued: Boolean get() = issuer.contentEquals(subject)
+  val selfIssued: Boolean
+    get() = issuer.contentEquals(subject)
 
   fun attribute(oid: String): String? = subjectAttributes.firstOrNull { it.first == oid }?.second
 
-  fun signedBy(key: PublicKeyInfo): Boolean = Signatures.verify(signatureAlgorithm, key, signed, signature)
+  fun signedBy(key: PublicKeyInfo): Boolean =
+    Signatures.verify(signatureAlgorithm, key, signed, signature)
 
   companion object {
     const val COMMON_NAME = "2.5.4.3"
@@ -57,7 +60,8 @@ class Certificate private constructor(
           val items = extension.sequence()
           if (items.size !in 2..3) throw DerException("Malformed extension")
           val oid = items.first().oid()
-          if (extensions.put(oid, items.last().octets()) != null) throw DerException("Repeated extension $oid")
+          if (extensions.put(oid, items.last().octets()) != null)
+            throw DerException("Repeated extension $oid")
         }
       }
       val algorithmName = algorithm(outerAlgorithm)
@@ -68,10 +72,14 @@ class Certificate private constructor(
         serial = serial.toHex().trimStart('0').ifEmpty { "0" },
         issuer = issuer.encoded,
         subject = subject.encoded,
-        subjectAttributes = subject.sequence().flatMap { it.set() }.map {
-          val (type, value) = it.sequence().let { pair -> pair[0] to pair[1] }
-          type.oid() to value.string()
-        },
+        subjectAttributes =
+          subject
+            .sequence()
+            .flatMap { it.set() }
+            .map {
+              val (type, value) = it.sequence().let { pair -> pair[0] to pair[1] }
+              type.oid() to value.string()
+            },
         notBefore = validity[0].time(),
         notAfter = validity[1].time(),
         publicKey = publicKey(spki),
@@ -83,9 +91,12 @@ class Certificate private constructor(
 
     // Accepts one or more concatenated PEM blocks, in order.
     fun parsePem(text: String): List<Certificate> =
-      Regex("-----BEGIN CERTIFICATE-----([\\s\\S]*?)-----END CERTIFICATE-----").findAll(text).map {
-        parse(Base64.decode(it.groupValues[1].filterNot(Char::isWhitespace)))
-      }.toList()
+      Regex("-----BEGIN CERTIFICATE-----([\\s\\S]*?)-----END CERTIFICATE-----")
+        .findAll(text)
+        .map {
+          parse(Base64.decode(it.groupValues[1].filterNot(Char::isWhitespace)))
+        }
+        .toList()
 
     private fun algorithm(value: Der): String =
       (value.sequence().firstOrNull() ?: throw DerException("Empty algorithm")).oid()

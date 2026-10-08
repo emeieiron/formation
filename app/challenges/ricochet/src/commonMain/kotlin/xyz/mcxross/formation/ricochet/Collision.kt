@@ -18,7 +18,8 @@ internal fun targetCollision(pulse: Pulse, target: Target): Collision? {
   val halfWidth = Arena.TARGET_WIDTH / 2 + Arena.RADIUS
   val halfHeight = Arena.TARGET_HEIGHT / 2 + Arena.RADIUS
   fun slab(p: Double, v: Double, low: Double, high: Double): Pair<Double, Double>? {
-    if (abs(v) < 1e-12) return if (p in low..high) Double.NEGATIVE_INFINITY to Double.POSITIVE_INFINITY else null
+    if (abs(v) < 1e-12)
+      return if (p in low..high) Double.NEGATIVE_INFINITY to Double.POSITIVE_INFINITY else null
     val a = (low - p) / v
     val b = (high - p) / v
     return min(a, b) to max(a, b)

@@ -8,9 +8,18 @@ class RewardSplitTest {
   // The vault's own tests pin the same splits.
   @Test
   fun theOwnerGetsWeightTimesEachHelper() {
-    assertEquals(RewardSplit(Skr.of(300), Skr.of(225), Skr.of(75), 1), RewardSplit.of(Skr.of(300), 3, 1))
-    assertEquals(RewardSplit(Skr.of(300), Skr.of(150), Skr.of(50), 3), RewardSplit.of(Skr.of(300), 3, 3))
-    assertEquals(RewardSplit(Skr.of(300), Skr.of(75), Skr.of(25), 9), RewardSplit.of(Skr.of(300), 3, 9))
+    assertEquals(
+      RewardSplit(Skr.of(300), Skr.of(225), Skr.of(75), 1),
+      RewardSplit.of(Skr.of(300), 3, 1),
+    )
+    assertEquals(
+      RewardSplit(Skr.of(300), Skr.of(150), Skr.of(50), 3),
+      RewardSplit.of(Skr.of(300), 3, 3),
+    )
+    assertEquals(
+      RewardSplit(Skr.of(300), Skr.of(75), Skr.of(25), 9),
+      RewardSplit.of(Skr.of(300), 3, 9),
+    )
   }
 
   @Test

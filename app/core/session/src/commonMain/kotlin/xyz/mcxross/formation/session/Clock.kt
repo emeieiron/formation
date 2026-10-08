@@ -16,6 +16,7 @@ object MonotonicClock : Clock {
 // NTP style: of the recent samples, the one with the shortest round trip gives the best offset.
 class ClockSync(private val local: Clock) {
   private val samples = ArrayDeque<Sample>()
+
   private data class Sample(val rtt: Long, val offset: Long, val received: Long)
 
   @Volatile private var offset = 0L
@@ -26,7 +27,10 @@ class ClockSync(private val local: Clock) {
     private set
 
   val synced: Boolean
-    get() = lastSample?.let { local.now() - it in 0..MAX_AGE_MS && (rttMs ?: Long.MAX_VALUE) <= MAX_RTT_MS } == true
+    get() =
+      lastSample?.let {
+        local.now() - it in 0..MAX_AGE_MS && (rttMs ?: Long.MAX_VALUE) <= MAX_RTT_MS
+      } == true
 
   fun hostNow(): Long = local.now() + offset
 
@@ -44,7 +48,12 @@ class ClockSync(private val local: Clock) {
     offset = best.offset
   }
 
-  fun reset() { samples.clear(); offset = 0; rttMs = null; lastSample = null }
+  fun reset() {
+    samples.clear()
+    offset = 0
+    rttMs = null
+    lastSample = null
+  }
 
   companion object {
     const val MAX_AGE_MS = 10_000L

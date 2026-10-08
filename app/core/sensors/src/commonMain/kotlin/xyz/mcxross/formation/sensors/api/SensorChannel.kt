@@ -5,5 +5,6 @@ import kotlinx.coroutines.flow.StateFlow
 
 interface SensorChannel<T> {
   val availability: StateFlow<Availability>
+
   fun observe(request: SamplingRequest = SamplingRequest.Game): Flow<SensorUpdate<T>>
 }

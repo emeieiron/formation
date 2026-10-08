@@ -12,31 +12,46 @@ import xyz.mcxross.formation.design.icons.Icons
 import xyz.mcxross.formation.model.ChallengeId
 import xyz.mcxross.formation.model.Difficulty
 import xyz.mcxross.formation.model.PlayerId
-import xyz.mcxross.formation.session.ChallengeSetup
-import xyz.mcxross.formation.session.ChallengeGame
-import xyz.mcxross.formation.ricochet.ui.RicochetStage
 import xyz.mcxross.formation.ricochet.ui.AimingIntroduction
 import xyz.mcxross.formation.ricochet.ui.RicochetCover
+import xyz.mcxross.formation.ricochet.ui.RicochetStage
+import xyz.mcxross.formation.session.ChallengeGame
+import xyz.mcxross.formation.session.ChallengeSetup
 
 object Ricochet : Challenge<RicochetState, MovePaddle>() {
   override val formatVersion = 3
-  override val info = ChallengeInfo(
-    id = ChallengeId("ricochet"), code = 7, title = "Ricochet",
-    tagline = "One pulse. Two players.",
-    summary = "Clean exchanges build speed and charge a piercing return. Clear the targets together.",
-    steps = listOf(
-      Step(Icons.Tap, "Tap or drag vertically to move your outer paddle."),
-      Step(Icons.ArrowRight, "Catch the pulse. An edge hit angles the return."),
-      Step(Icons.Target, "Clear six targets before time runs out. Three misses end the attempt."),
-    ),
-    icon = Icons.Target, light = 0, senses = listOf(Sense.Touch, Sense.Timing), players = 2..2,
-  )
+  override val info =
+    ChallengeInfo(
+      id = ChallengeId("ricochet"),
+      code = 7,
+      title = "Ricochet",
+      tagline = "One pulse. Two players.",
+      summary =
+        "Clean exchanges build speed and charge a piercing return. Clear the targets together.",
+      steps =
+        listOf(
+          Step(Icons.Tap, "Tap or drag vertically to move your outer paddle."),
+          Step(Icons.ArrowRight, "Catch the pulse. An edge hit angles the return."),
+          Step(
+            Icons.Target,
+            "Clear six targets before time runs out. Three misses end the attempt.",
+          ),
+        ),
+      icon = Icons.Target,
+      light = 0,
+      senses = listOf(Sense.Touch, Sense.Timing),
+      players = 2..2,
+    )
   override val stateSerializer = RicochetState.serializer()
   override val inputSerializer = MovePaddle.serializer()
   override val introduction: @Composable () -> Unit = { AimingIntroduction() }
   override val cover: @Composable () -> Unit = { RicochetCover() }
-  override fun newGame(setup: ChallengeSetup): ChallengeGame<RicochetState, MovePaddle> = RicochetGame(setup)
-  override fun goal(players: Int, difficulty: Difficulty) = "6 targets · 3 misses · ${Pacing(difficulty).limitMs / 1_000} seconds"
+
+  override fun newGame(setup: ChallengeSetup): ChallengeGame<RicochetState, MovePaddle> =
+    RicochetGame(setup)
+
+  override fun goal(players: Int, difficulty: Difficulty) =
+    "6 targets · 3 misses · ${Pacing(difficulty).limitMs / 1_000} seconds"
 
   override fun autopilot(state: RicochetState, me: PlayerId, now: Long): Move<MovePaddle>? {
     if (state.finishedAt != null || now < state.startAt || now >= state.endsAt) return null
@@ -47,9 +62,13 @@ object Ricochet : Challenge<RicochetState, MovePaddle>() {
 
   override fun role(players: List<PlayerId>, seeker: PlayerId, me: PlayerId): Role {
     val left = players.first() == me
-    return Role(if (left) "Left paddle" else "Right paddle", "Your phone shows the ${if (left) "left" else "right"} half of the arena.",
-      if (left) Icons.ArrowLeft else Icons.ArrowRight)
+    return Role(
+      if (left) "Left paddle" else "Right paddle",
+      "Your phone shows the ${if (left) "left" else "right"} half of the arena.",
+      if (left) Icons.ArrowLeft else Icons.ArrowRight,
+    )
   }
 
-  @Composable override fun Stage(scope: StageScope<RicochetState, MovePaddle>) = RicochetStage(scope)
+  @Composable
+  override fun Stage(scope: StageScope<RicochetState, MovePaddle>) = RicochetStage(scope)
 }

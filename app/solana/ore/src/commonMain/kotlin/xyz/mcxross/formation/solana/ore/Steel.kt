@@ -12,14 +12,14 @@ internal class SteelReader(private val data: ByteArray, discriminator: Int, size
     require(data[0].toUByte().toInt() == discriminator) { "Unexpected ORE account discriminator" }
   }
 
-  fun bytes(size: Int): ByteArray =
-    data.copyOfRange(offset, offset + size).also { offset += size }
+  fun bytes(size: Int): ByteArray = data.copyOfRange(offset, offset + size).also { offset += size }
 
   fun key() = SolanaPublicKey(bytes(32))
 
-  fun u64(): ULong = bytes(8).withIndex().fold(0uL) { result, (i, byte) ->
-    result or (byte.toUByte().toULong() shl (i * 8))
-  }
+  fun u64(): ULong =
+    bytes(8).withIndex().fold(0uL) { result, (i, byte) ->
+      result or (byte.toUByte().toULong() shl (i * 8))
+    }
 
   fun i64(): Long = u64().toLong()
 

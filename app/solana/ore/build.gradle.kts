@@ -13,8 +13,17 @@ kotlin {
 }
 
 tasks.withType<Test>().configureEach {
-  systemProperty("formation.ore.devnet", providers.gradleProperty("oreDevnetTest").getOrElse("false"))
-  systemProperty("formation.ore.devnet.write", providers.gradleProperty("oreDevnetWriteTest").getOrElse("false"))
+  systemProperty(
+    "formation.ore.devnet",
+    providers.gradleProperty("oreDevnetTest").getOrElse("false"),
+  )
+  systemProperty(
+    "formation.ore.devnet.write",
+    providers.gradleProperty("oreDevnetWriteTest").getOrElse("false"),
+  )
   systemProperty("formation.repository", rootProject.projectDir.parentFile.absolutePath)
-  systemProperty("formation.ore.writeReport", layout.buildDirectory.file("reports/ore-devnet-writes.json").get().asFile.absolutePath)
+  systemProperty(
+    "formation.ore.writeReport",
+    layout.buildDirectory.file("reports/ore-devnet-writes.json").get().asFile.absolutePath,
+  )
 }

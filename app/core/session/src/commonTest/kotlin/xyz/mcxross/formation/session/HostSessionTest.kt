@@ -22,7 +22,12 @@ import xyz.mcxross.formation.model.Skr
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class HostSessionTest {
-  private val opportunity = Opportunity(Budget(OpportunityId("entry"), "contest", "sgt", Skr.of(600), 3, 31, Long.MAX_VALUE, "Test"), ChallengeId("tap"), players = 3)
+  private val opportunity =
+    Opportunity(
+      Budget(OpportunityId("entry"), "contest", "sgt", Skr.of(600), 3, 31, Long.MAX_VALUE, "Test"),
+      ChallengeId("tap"),
+      players = 3,
+    )
   private val wallet = Ed25519KeyPair.generate()
   private val phone = Ed25519KeyPair.generate()
 
@@ -33,11 +38,19 @@ class HostSessionTest {
     session: String = SESSION,
   ): HostCredentials {
     val text = HostChecks.authorization(Base58.encode(hostKey.publicKey), network, "2026-10-05")
-    return HostChecks.credentials(session, opportunity, Base58.encode(wallet.publicKey), phone, text,
-      Base58.encode(signer.sign(text.encodeToByteArray())))
+    return HostChecks.credentials(
+      session,
+      opportunity,
+      Base58.encode(wallet.publicKey),
+      phone,
+      text,
+      Base58.encode(signer.sign(text.encodeToByteArray())),
+    )
   }
 
-  private fun verifier() = HostVerifier { session, proof -> HostChecks.problem(proof, session, NETWORK) }
+  private fun verifier() = HostVerifier { session, proof ->
+    HostChecks.problem(proof, session, NETWORK)
+  }
 
   @Test
   fun aWalletAuthorizedPhoneHosts() {
@@ -48,18 +61,50 @@ class HostSessionTest {
   fun everyLinkInTheChainIsChecked() {
     fun problem(credentials: HostCredentials, session: String = SESSION) =
       HostChecks.problem(credentials.proof, session, NETWORK)
-    assertEquals("The Seeker's wallet didn't authorize this host.", problem(authorized(signer = Ed25519KeyPair.generate())))
-    assertEquals("The Seeker's wallet authorized a different phone.", problem(authorized(hostKey = Ed25519KeyPair.generate())))
-    assertEquals("This host is set up for another network.", problem(authorized(network = "mainnet-beta")))
-    assertEquals("The host's key didn't sign this Formation.", problem(authorized(), session = "session-2"))
-    assertEquals("The host's key didn't sign this Formation.",
-      HostChecks.problem(authorized().proof.copy(opportunity = opportunity.copy(budget = opportunity.budget.copy(amount = Skr.of(6_000)))), SESSION, NETWORK))
-    assertEquals("This host didn't show which Seeker it plays for.", HostChecks.problem(null, SESSION, NETWORK))
+    assertEquals(
+      "The Seeker's wallet didn't authorize this host.",
+      problem(authorized(signer = Ed25519KeyPair.generate())),
+    )
+    assertEquals(
+      "The Seeker's wallet authorized a different phone.",
+      problem(authorized(hostKey = Ed25519KeyPair.generate())),
+    )
+    assertEquals(
+      "This host is set up for another network.",
+      problem(authorized(network = "mainnet-beta")),
+    )
+    assertEquals(
+      "The host's key didn't sign this Formation.",
+      problem(authorized(), session = "session-2"),
+    )
+    assertEquals(
+      "The host's key didn't sign this Formation.",
+      HostChecks.problem(
+        authorized()
+          .proof
+          .copy(
+            opportunity = opportunity.copy(budget = opportunity.budget.copy(amount = Skr.of(6_000)))
+          ),
+        SESSION,
+        NETWORK,
+      ),
+    )
+    assertEquals(
+      "This host didn't show which Seeker it plays for.",
+      HostChecks.problem(null, SESSION, NETWORK),
+    )
   }
 
   private fun TestScope.host(credentials: HostCredentials?): FormationHost =
-    FormationHost(FormationInfo(SESSION, "K7QX", "Theo", opportunity), TapChallenge, backgroundScope,
-      { testScheduler.currentTime }, Random(1), HostTiming(briefingMs = 5_000, countdownMs = 1_000), host = credentials)
+    FormationHost(
+      FormationInfo(SESSION, "K7QX", "Theo", opportunity),
+      TapChallenge,
+      backgroundScope,
+      { testScheduler.currentTime },
+      Random(1),
+      HostTiming(briefingMs = 5_000, countdownMs = 1_000),
+      host = credentials,
+    )
 
   private fun TestScope.join(
     host: FormationHost,
@@ -67,17 +112,19 @@ class HostSessionTest {
     verifier: HostVerifier?,
     local: Boolean = false,
     link: (LinkChannel) -> LinkChannel = { it },
-  ): FormationClient = FormationClient(
-    PlayerIdentity(name, name, 0, Ed25519KeyPair.generate(), formats = mapOf("tap" to 1)),
-    connect = {
-      val (phone, seekerSide) = memoryLink()
-      backgroundScope.launch { host.serve(seekerSide, local = local) }
-      link(phone)
-    },
-    scope = backgroundScope,
-    clock = { testScheduler.currentTime },
-    verifier = verifier,
-  ).also { it.start() }
+  ): FormationClient =
+    FormationClient(
+        PlayerIdentity(name, name, 0, Ed25519KeyPair.generate(), formats = mapOf("tap" to 1)),
+        connect = {
+          val (phone, seekerSide) = memoryLink()
+          backgroundScope.launch { host.serve(seekerSide, local = local) }
+          link(phone)
+        },
+        scope = backgroundScope,
+        clock = { testScheduler.currentTime },
+        verifier = verifier,
+      )
+      .also { it.start() }
 
   @Test
   fun guestsJoinAnAuthorizedHost() = runTest {
@@ -93,7 +140,10 @@ class HostSessionTest {
   fun guestsRefuseAHostWithoutProof() = runTest {
     val maya = join(host(null), "Maya", verifier())
     runCurrent()
-    assertEquals(FormationClient.Status.Untrusted("This host didn't show which Seeker it plays for."), maya.status.value)
+    assertEquals(
+      FormationClient.Status.Untrusted("This host didn't show which Seeker it plays for."),
+      maya.status.value,
+    )
     assertNull(maya.me.value)
   }
 
@@ -103,32 +153,51 @@ class HostSessionTest {
     val copied = HostCredentials(authorized().proof, Ed25519KeyPair.generate())
     val maya = join(host(copied), "Maya", verifier())
     runCurrent()
-    assertEquals(FormationClient.Status.Untrusted("The Seeker's updates couldn't be verified."), maya.status.value)
+    assertEquals(
+      FormationClient.Status.Untrusted("The Seeker's updates couldn't be verified."),
+      maya.status.value,
+    )
   }
 
   @Test
   fun alteredUpdatesEndTheSession() = runTest {
     val host = host(authorized())
-    val maya = join(host, "Maya", verifier(), link = { phone ->
-      object : LinkChannel by phone {
-        override val incoming = phone.incoming.map { it.replace("Theo", "Mallo") }
-      }
-    })
+    val maya =
+      join(
+        host,
+        "Maya",
+        verifier(),
+        link = { phone ->
+          object : LinkChannel by phone {
+            override val incoming = phone.incoming.map { it.replace("Theo", "Mallo") }
+          }
+        },
+      )
     join(host, "Theo", verifier = null, local = true)
     runCurrent()
-    assertEquals(FormationClient.Status.Untrusted("The Seeker's updates couldn't be verified."), maya.status.value)
+    assertEquals(
+      FormationClient.Status.Untrusted("The Seeker's updates couldn't be verified."),
+      maya.status.value,
+    )
   }
 
   @Test
   fun unsignedUpdatesAreIgnored() = runTest {
-    val maya = join(host(authorized()), "Maya", verifier(), link = { phone ->
-      object : LinkChannel by phone {
-        override val incoming = phone.incoming.map { frame ->
-          val message = FormationJson.decodeFromString(ToPlayer.serializer(), frame)
-          if (message is ToPlayer.Signed) message.message else frame
-        }
-      }
-    })
+    val maya =
+      join(
+        host(authorized()),
+        "Maya",
+        verifier(),
+        link = { phone ->
+          object : LinkChannel by phone {
+            override val incoming =
+              phone.incoming.map { frame ->
+                val message = FormationJson.decodeFromString(ToPlayer.serializer(), frame)
+                if (message is ToPlayer.Signed) message.message else frame
+              }
+          }
+        },
+      )
     runCurrent()
     assertEquals(FormationClient.Status.Connecting, maya.status.value)
     assertNull(maya.snapshot.value)

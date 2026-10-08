@@ -7,7 +7,8 @@ import kotlin.test.assertTrue
 import xyz.mcxross.formation.platform.SoundCue
 
 class StoryPlaybackTest {
-  @Test fun cueCrossingsFireOnceAndSeekingDoesNotReplayEarlierAudio() {
+  @Test
+  fun cueCrossingsFireOnceAndSeekingDoesNotReplayEarlierAudio() {
     val playback = StoryPlayback()
     assertTrue(playback.advance(.65f).isEmpty())
     assertEquals(listOf(SoundCue.STORY_WAKE), playback.advance(.06f))
@@ -17,7 +18,8 @@ class StoryPlaybackTest {
     assertEquals(listOf(SoundCue.STORY_BEAT), playback.advance(.07f))
   }
 
-  @Test fun interruptedFramesDropStaleCuesAndCompletionHoldsItsLastPose() {
+  @Test
+  fun interruptedFramesDropStaleCuesAndCompletionHoldsItsLastPose() {
     val playback = StoryPlayback()
     assertTrue(playback.advance(17.5f).isEmpty())
     assertEquals(4, playback.chapter)
@@ -28,7 +30,8 @@ class StoryPlaybackTest {
     assertTrue(playback.advance(1f).isEmpty())
   }
 
-  @Test fun reducedMotionChaptersUseSettledPosesAndWaitForManualNavigation() {
+  @Test
+  fun reducedMotionChaptersUseSettledPosesAndWaitForManualNavigation() {
     val playback = StoryPlayback()
     for (chapter in 0..5) {
       playback.seek(chapter, reduced = true)

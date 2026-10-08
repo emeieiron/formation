@@ -98,7 +98,8 @@ fun Button(
       .semantics { if (loading) stateDescription = "In progress" }
       .background(solid)
       .then(
-        if (style == ButtonStyle.Ghost || style == ButtonStyle.Secondary) Modifier.border(Sizes.hairline, c.lineStrong, shape)
+        if (style == ButtonStyle.Ghost || style == ButtonStyle.Secondary)
+          Modifier.border(Sizes.hairline, c.lineStrong, shape)
         else Modifier
       )
       .padding(horizontal = size.padding, vertical = 12.dp),

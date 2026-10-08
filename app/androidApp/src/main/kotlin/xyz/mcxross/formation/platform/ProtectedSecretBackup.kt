@@ -20,7 +20,8 @@ internal class ProtectedSecretBackup(context: Context) {
       if (blob.firstOrNull() != VERSION) return@use null
       cipher.open(blob.copyOfRange(1, blob.size), aad(name))
     }
-  }.getOrNull()
+  }
+    .getOrNull()
 
   fun put(name: String, value: ByteArray) {
     require(value.size <= MAX_BYTES - 29) { "Secret exceeds protected storage limit" }
@@ -36,7 +37,10 @@ internal class ProtectedSecretBackup(context: Context) {
     }
   }
 
-  fun remove(name: String) { file(name).delete(); check(!contains(name)) { "Could not remove protected copy" } }
+  fun remove(name: String) {
+    file(name).delete()
+    check(!contains(name)) { "Could not remove protected copy" }
+  }
 
   private fun file(name: String): AtomicFile {
     require(name.matches(Regex("[a-z0-9-]{1,64}"))) { "Invalid secret name" }
@@ -57,5 +61,8 @@ internal class ProtectedSecretBackup(context: Context) {
     return output.toByteArray()
   }
 
-  private companion object { const val VERSION: Byte = 1; const val MAX_BYTES = 16_384 }
+  private companion object {
+    const val VERSION: Byte = 1
+    const val MAX_BYTES = 16_384
+  }
 }

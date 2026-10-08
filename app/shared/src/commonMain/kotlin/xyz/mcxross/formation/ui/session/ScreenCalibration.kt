@@ -38,7 +38,8 @@ import xyz.mcxross.formation.platform.ScreenPort
 import xyz.mcxross.formation.resources.*
 import xyz.mcxross.formation.session.ScreenProfile
 
-// Matches an on-screen outline to an ID-1 card, which is 53.98 mm wide, to recover pixels per millimetre.
+// Matches an on-screen outline to an ID-1 card, which is 53.98 mm wide, to recover pixels per
+// millimetre.
 @Composable
 internal fun ScreenCalibration(screen: ScreenPort, onDismiss: () -> Unit) {
   val density = LocalDensity.current
@@ -52,15 +53,23 @@ internal fun ScreenCalibration(screen: ScreenPort, onDismiss: () -> Unit) {
   var pxPerMm by remember { mutableDoubleStateOf(start) }
   val c = Theme.colors
   ModalSheet(onDismiss) {
-    SheetHeader(stringResource(Res.string.screen_calibration_title), subtitle = stringResource(Res.string.screen_calibration_body))
+    SheetHeader(
+      stringResource(Res.string.screen_calibration_title),
+      subtitle = stringResource(Res.string.screen_calibration_body),
+    )
     val outlineHeight = with(density) { (CARD_SHOWN_MM * pxPerMm).toFloat().toDp() }
     Canvas(
-      Modifier.fillMaxWidth().height(outlineHeight + 32.dp)
+      Modifier.fillMaxWidth()
+        .height(outlineHeight + 32.dp)
         .semantics { contentDescription = "Card outline. Drag to resize." }
         .pointerInput(Unit) {
           detectDragGestures { change, drag ->
             change.consume()
-            pxPerMm = (pxPerMm + drag.x / CARD_WIDTH_MM).coerceIn(ScreenProfile.MIN_PX_PER_MM, ScreenProfile.MAX_PX_PER_MM)
+            pxPerMm =
+              (pxPerMm + drag.x / CARD_WIDTH_MM).coerceIn(
+                ScreenProfile.MIN_PX_PER_MM,
+                ScreenProfile.MAX_PX_PER_MM,
+              )
           }
         }
     ) {
@@ -71,31 +80,66 @@ internal fun ScreenCalibration(screen: ScreenPort, onDismiss: () -> Unit) {
       val left = 24.dp.toPx()
       val top = 8.dp.toPx()
       drawRoundRect(
-        Brush.verticalGradient(0f to c.accent.copy(alpha = 0.18f), 1f to Color.Transparent, startY = top, endY = top + height),
-        Offset(left, top), Size(width, height), CornerRadius(radius),
+        Brush.verticalGradient(
+          0f to c.accent.copy(alpha = 0.18f),
+          1f to Color.Transparent,
+          startY = top,
+          endY = top + height,
+        ),
+        Offset(left, top),
+        Size(width, height),
+        CornerRadius(radius),
       )
-      drawRoundRect(c.accent, Offset(left, top), Size(width, height + radius * 2), CornerRadius(radius), style = Stroke(2.dp.toPx()))
+      drawRoundRect(
+        c.accent,
+        Offset(left, top),
+        Size(width, height + radius * 2),
+        CornerRadius(radius),
+        style = Stroke(2.dp.toPx()),
+      )
       val mark = 14.dp.toPx()
       drawLine(c.content, Offset(left, top), Offset(left + mark, top), 3.dp.toPx())
       drawLine(c.content, Offset(left, top), Offset(left, top + mark), 3.dp.toPx())
       drawLine(c.content, Offset(left + width, top), Offset(left + width - mark, top), 3.dp.toPx())
       drawLine(c.content, Offset(left + width, top), Offset(left + width, top + mark), 3.dp.toPx())
     }
-    Row(Modifier.fillMaxWidth().padding(horizontal = Space.xxl), horizontalArrangement = Arrangement.spacedBy(Space.m)) {
-      Button(stringResource(Res.string.screen_calibration_smaller), { pxPerMm = (pxPerMm * 0.996).coerceAtLeast(ScreenProfile.MIN_PX_PER_MM) },
-        Modifier.weight(1f), style = ButtonStyle.Secondary, size = ButtonSize.Medium, fillWidth = true)
-      Button(stringResource(Res.string.screen_calibration_larger), { pxPerMm = (pxPerMm * 1.004).coerceAtMost(ScreenProfile.MAX_PX_PER_MM) },
-        Modifier.weight(1f), style = ButtonStyle.Secondary, size = ButtonSize.Medium, fillWidth = true)
+    Row(
+      Modifier.fillMaxWidth().padding(horizontal = Space.xxl),
+      horizontalArrangement = Arrangement.spacedBy(Space.m),
+    ) {
+      Button(
+        stringResource(Res.string.screen_calibration_smaller),
+        { pxPerMm = (pxPerMm * 0.996).coerceAtLeast(ScreenProfile.MIN_PX_PER_MM) },
+        Modifier.weight(1f),
+        style = ButtonStyle.Secondary,
+        size = ButtonSize.Medium,
+        fillWidth = true,
+      )
+      Button(
+        stringResource(Res.string.screen_calibration_larger),
+        { pxPerMm = (pxPerMm * 1.004).coerceAtMost(ScreenProfile.MAX_PX_PER_MM) },
+        Modifier.weight(1f),
+        style = ButtonStyle.Secondary,
+        size = ButtonSize.Medium,
+        fillWidth = true,
+      )
     }
     SheetActions {
-      Button(stringResource(Res.string.screen_calibration_save), {
-        screen.calibrate(pxPerMm)
-        onDismiss()
-      })
-      Button(stringResource(Res.string.screen_calibration_reset), {
-        screen.calibrate(null)
-        onDismiss()
-      }, style = ButtonStyle.Ghost)
+      Button(
+        stringResource(Res.string.screen_calibration_save),
+        {
+          screen.calibrate(pxPerMm)
+          onDismiss()
+        },
+      )
+      Button(
+        stringResource(Res.string.screen_calibration_reset),
+        {
+          screen.calibrate(null)
+          onDismiss()
+        },
+        style = ButtonStyle.Ghost,
+      )
     }
   }
 }
