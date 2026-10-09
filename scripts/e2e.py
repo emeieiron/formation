@@ -4,13 +4,14 @@
 #
 #   scripts/e2e.py --title GAME_TITLE [--players N] [--difficulty Easy|Normal|Hard|Extreme]
 #                  [--wallet none|connect|ADDRESS] [--seeker SERIAL] [--guest SERIAL ...] [--no-build] [--approve]
-#                  [--layout uiautomator|android] [--driver autoplay|overdrive|mosaic|manual]
+#                  [--layout uiautomator|android|android-cli] [--driver autoplay|overdrive|mosaic|caravan|manual] [--caravan-smoke|--caravan-checkpoint] [--play-timeout SECONDS]
 #
 # --players sets the group size; the first that many running emulators play unless --seeker and --guest
 # name them. --wallet connect taps Connect in the first guest's lobby and waits for the wallet app's
 # approval; with --approve it taps the wallet's own Connect button too (it never types a password). On
 # chains, that guest's wallet balance is checked before and after. Screens are saved to program/target/e2e.
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -22,6 +23,7 @@ import xml.etree.ElementTree as ET
 from xml.sax.saxutils import escape, unescape
 from overdrive_driver import OverdriveFailed, play_overdrive
 from mosaic_driver import MosaicFailed, play_mosaic
+from caravan_driver import CaravanFailed, play_caravan, wait_for_caravan_win
 from android_layout import LayoutUnavailable
 from autoplay_driver import start_autoplay
 from chain_verification import configured_mint, mint_balance, verify_settlement
@@ -56,7 +58,10 @@ class Phone:
         self.layout = layout
 
     def adb(self, *args, check=True, text=True, stdin=None):
-        out = subprocess.run([ADB, "-s", self.serial, *args], capture_output=True, text=text, input=stdin)
+        try:
+            out = subprocess.run([ADB, "-s", self.serial, *args], capture_output=True, text=text, input=stdin, timeout=120 if args[0] == "install" else 30)
+        except subprocess.TimeoutExpired as error:
+            raise Failed(f"{self.role}: adb {args[0]} timed out") from error
         if check and out.returncode:
             raise Failed(f"{self.role}: adb {' '.join(args)}: {out.stderr}")
         return out.stdout
@@ -65,6 +70,9 @@ class Phone:
         return self.adb("shell", command)
 
     def nodes(self):
+        if self.layout == "android-cli":
+            from android_layout import cli_nodes
+            return cli_nodes(self.serial)
         if self.layout == "android":
             from android_layout import nodes
             return nodes(self.serial)
@@ -99,6 +107,9 @@ class Phone:
     # Busy emulators sometimes report another app as not responding; let it carry on. Android also explains
     # full screen the first time an app hides the system bars.
     def dismiss_stalls(self, root):
+        window = self.adb("shell", "dumpsys window", check=False)
+        if "mDreamingLockscreen=true" in window or "mShowingDream=true" in window or "mKeyguardShowing=true" in window:
+            raise Failed(f"{self.role}: unlock the emulator before running the journey")
         if self.find(".+ isn.t responding", prefix="regex", root=root) is not None:
             wait = self.find("Wait", root=root)
             if wait is not None:
@@ -149,6 +160,8 @@ class Phone:
         return match and unescape(match.group(1), {"&quot;": '"', "&apos;": "'"})
 
     def set_prefs(self, **values):
+        if all(self.pref(key) == value for key, value in values.items()):
+            return
         self.shell(f"am force-stop {APP}")
         xml = self.prefs() or "<?xml version='1.0' encoding='utf-8' standalone='yes' ?>\n<map>\n</map>\n"
         for key, value in values.items():
@@ -159,8 +172,10 @@ class Phone:
         self.adb("shell", f"run-as {APP} sh -c 'mkdir -p shared_prefs && cat > shared_prefs/formation.xml'", stdin=xml)
 
     def launch(self):
-        self.shell(f"am force-stop {APP}")
-        self.shell(f"am start -S --activity-clear-task -n {APP}/{ACTIVITY}")
+        if self.layout == "android-cli":
+            self.shell("am force-stop com.android.cli.interact.instrumentation")
+        self.shell("input keyevent 224; wm dismiss-keyguard; cmd statusbar collapse")
+        self.shell(f"am start -W -S --activity-clear-task -n {APP}/{ACTIVITY}")
         time.sleep(3)
 
     def foreground(self):
@@ -186,6 +201,27 @@ def build():
     args = ["./gradlew", "-q", ":androidApp:assembleDebug"]
     log("building " + " ".join(args[2:]))
     subprocess.run(args, cwd=os.path.join(ROOT, "app"), check=True)
+
+
+def apk_matches(phone, expected):
+    paths = phone.adb("shell", "pm", "path", APP, check=False).splitlines()
+    if not paths:
+        return False
+    path = paths[0].removeprefix("package:").strip()
+    if not re.fullmatch(r"/data/app/[A-Za-z0-9/_=+~.\-]+\.apk", path):
+        return False
+    checksum = phone.adb("shell", "sha256sum", path, check=False).split()
+    return bool(checksum) and checksum[0] == expected
+
+
+def install_build(phone, expected):
+    if apk_matches(phone, expected):
+        log(f"{phone.role}: installed APK matches the current build")
+        return
+    log(f"{phone.role}: installing the verified APK on {phone.serial}")
+    phone.adb("install", "-r", APK)
+    if not apk_matches(phone, expected):
+        raise Failed(f"{phone.role}: installed APK does not match the current build")
 
 
 def onboard(phone, name, light):
@@ -218,6 +254,14 @@ def onboard(phone, name, light):
     # Emulators aren't Seeker hardware, so onboarding ends on Home; the Seeker phone pretends from its
     # developer settings.
     scroll_until(phone, "GAMES", timeout=20)
+
+
+def verify_participant_identities(phones):
+    identities = [phone.pref("device") for phone in phones]
+    if any(not identity for identity in identities):
+        raise Failed("Every participant must have an initialized installation identity")
+    if len(set(identities)) != len(phones):
+        raise Failed("Participant installation identities are duplicated; reset the cloned test app data")
 
 
 def at_home(phone, root):
@@ -276,10 +320,19 @@ def host_group(seeker, title, players, difficulty=None):
     raise Failed(f"seeker: no funded reward for {title} in its preview")
 
 
-def scroll_until(phone, text, timeout=30):
+def scroll_until(phone, text, timeout=60):
     # Searches down the screen, then back up from the top: content that arrives while scrolling, such as a
     # Formation appearing at the top of Nearby, can land above the part already passed.
     deadline = time.time() + timeout
+    # First wait up to 8 seconds for dynamic content (e.g. Nearby beacon) to arrive before scrolling away
+    poll_deadline = min(deadline, time.time() + 8)
+    while time.time() < poll_deadline:
+        root = phone.nodes()
+        node = phone.find(text, root=root)
+        if node is not None:
+            return node
+        phone.dismiss_stalls(root)
+        time.sleep(1.0)
     down, last = True, None
     while time.time() < deadline:
         root = phone.nodes()
@@ -366,10 +419,13 @@ def main():
     parser.add_argument("--guest", action="append", help="repeat for each guest in a larger group")
     parser.add_argument("--players", type=int, default=2, help="group size; must be one the game offers")
     parser.add_argument("--no-build", action="store_true")
+    parser.add_argument("--caravan-checkpoint", action="store_true", help="debug fixture at 14999 steps for final result and devnet settlement; not a full-duration walk")
+    parser.add_argument("--caravan-smoke", action="store_true", help="verify early Caravan gameplay only; do not claim victory or settlement")
+    parser.add_argument("--play-timeout", type=int, help="seconds allowed for gameplay; defaults to 7800 for Caravan, 240 otherwise")
     parser.add_argument("--approve", action="store_true")
     parser.add_argument("--offline", action="store_true", help="the Seeker loses its connection at unlock and recovers after a restart")
-    parser.add_argument("--layout", choices=["uiautomator", "android"], default="uiautomator")
-    parser.add_argument("--driver", choices=["autoplay", "overdrive", "mosaic", "manual"], default="autoplay")
+    parser.add_argument("--layout", choices=["uiautomator", "android", "android-cli"], default="uiautomator")
+    parser.add_argument("--driver", choices=["autoplay", "overdrive", "mosaic", "manual", "caravan"], default="autoplay")
     args = parser.parse_args()
     args.started_at = int(time.time() * 1000)
     if not args.title.strip():
@@ -379,10 +435,21 @@ def main():
     if (args.driver == "overdrive" or args.offline) and args.players != 2:
         parser.error("The Overdrive driver and the offline check need a duo")
 
+    if args.caravan_checkpoint and (args.driver != "caravan" or args.title != "Caravan" or args.caravan_smoke):
+        parser.error("--caravan-checkpoint requires Caravan and cannot be combined with --caravan-smoke")
+    if args.caravan_smoke and (args.driver != "caravan" or args.title != "Caravan"):
+        parser.error("--caravan-smoke requires --title Caravan --driver caravan")
+    if args.driver == "caravan" and (args.title != "Caravan" or not 6 <= args.players <= 16):
+        parser.error("The Caravan driver requires --title Caravan and --players within 6..16")
+    args.play_timeout = args.play_timeout if args.play_timeout is not None else (7800 if args.driver == "caravan" else 240)
+    if args.play_timeout <= 0:
+        parser.error("--play-timeout must be positive")
     running = re.findall(r"^(emulator-\d+)\s+device$", subprocess.run([ADB, "devices"], capture_output=True, text=True).stdout, re.M)
     serials = [args.seeker, *args.guest] if args.seeker and args.guest else running
     if len(serials) < args.players:
         sys.exit(f"Start {args.players} emulators first")
+    if len(set(serials[:args.players])) != args.players:
+        parser.error("Each player requires a distinct emulator")
     seeker = Phone(serials[0], "seeker", args.layout)
     guests = [Phone(serial, "guest" if args.players == 2 else f"guest{index}", args.layout)
               for index, serial in enumerate(serials[1:args.players], 1)]
@@ -390,11 +457,20 @@ def main():
     phones = [seeker, *guests]
     title = args.title
     saved = None
+    animation_scales = {}
     try:
         if not args.no_build:
             build()
+        with open(APK, "rb") as source:
+            expected_apk = hashlib.file_digest(source, "sha256").hexdigest()
         for i, phone in enumerate(phones):
-            phone.adb("install", "-r", APK)
+            if args.driver == "caravan":
+                animation_scales[phone] = phone.shell("settings get global animator_duration_scale").strip()
+                phone.shell("settings put global animator_duration_scale 0")
+            # Match emulators.sh: Skia GL's partial updates can leave Compose frames incomplete.
+            if phone.serial.startswith("emulator-") and phone.shell("getprop debug.hwui.renderer").strip() == "skiagl":
+                phone.shell("setprop debug.hwui.use_partial_updates false")
+            install_build(phone, expected_apk)
             phone.adb("forward", f"tcp:{47000 + i}", "tcp:47000")
         # The test changes these; put back whatever the person had, such as a connected wallet.
         saved = {phone: {k: phone.pref(k) for k in ("wallet",)} for phone in phones}
@@ -404,28 +480,48 @@ def main():
             other.set_prefs(wallet=None)
         for index, phone in enumerate(phones):
             name, light = PEOPLE[index % len(PEOPLE)]
+            log(f"{phone.role}: opening the app and checking Home")
             phone.launch()
             onboard(phone, name if index < len(PEOPLE) else f"{name}{index}", light)
+        verify_participant_identities(phones)
         identity = json.loads(seeker.pref("seeker") or "null") or become_test_seeker(seeker)
         seeker_wallet = identity["wallet"]
         host_name = json.loads(seeker.pref("profile"))["name"]
-        log(f"seeker {seeker.serial} wallet {seeker_wallet}; guests {', '.join(g.serial for g in guests)}")
+        root = seeker.nodes()
+        if not at_home(seeker, root):
+            seeker.launch()
 
-        seeker.launch()
-
-        seeker.wait("Scan QR", timeout=20)
+        seeker.wait("Scan QR", timeout=60)
         log(f"seeker: hosting a {args.players}-player {title}")
         host_group(seeker, title, args.players, args.difficulty)
-        seeker.wait("JOIN CODE", timeout=20)
+        seeker.wait("JOIN CODE", timeout=40)
 
         for other in guests:
-            other.launch()
+            root = other.nodes()
+            if not at_home(other, root):
+                other.launch()
             log(f"{other.role}: looking for the Formation nearby")
             # Shorter screens keep Nearby below the fold.
             scroll_until(other, host_name, timeout=60)
-            other.tap(scroll_until(other, "Join", timeout=20))
+            join_btn = scroll_until(other, "Join", timeout=40)
+            other.tap(join_btn)
             # The lobby says "Waiting…" until the group is full.
-            other.wait("Waiting(…| for host)", prefix="regex", timeout=20)
+            deadline = time.time() + 90
+            while time.time() < deadline:
+                root = other.nodes()
+                if other.find("Waiting(…| for host)", prefix="regex", root=root) is not None:
+                    break
+                if other.find("Joining the Formation…", root=root) is not None:
+                    time.sleep(1.5)
+                    continue
+                btn = other.find("Join", root=root)
+                if btn is not None:
+                    other.tap(btn)
+                other.dismiss_stalls(root)
+                time.sleep(1.5)
+            else:
+                other.screenshot("missing-lobby")
+                raise Failed(f"{other.role}: never entered the lobby")
         guest.scroll_to("YOUR SHARE IF YOU UNLOCK IT")
         if args.wallet == "connect":
             guest.tap_text("Connect")
@@ -436,18 +532,39 @@ def main():
         before = skr_balance(chain_wallet) if chain_wallet else None
         log(f"guest: share lands in {payout_wallet or 'nowhere yet (claim later)'}")
 
-        seeker.tap_text("Begin", timeout=30)
+        log("seeker: beginning session")
+        seeker.wait("Begin", timeout=60)
+        deadline = time.time() + 60
+        while time.time() < deadline:
+            begin = seeker.find("Begin")
+            if begin is None:
+                break
+            seeker.tap(begin)
+            time.sleep(2)
         for phone in phones:
-            phone.tap_text("I'm ready", timeout=30)
+            log(f"{phone.role}: tapping I'm ready")
+            phone.tap_text("I'm ready", timeout=60)
         if args.driver == "overdrive":
             play_overdrive(seeker, guest, log)
         elif args.driver == "mosaic":
             play_mosaic(phones, args.players, log)
+        elif args.driver == "caravan":
+            play_caravan(phones, args.players, log, smoke=args.caravan_smoke or args.caravan_checkpoint)
+            if args.caravan_checkpoint:
+                caravan_checkpoint(seeker)
+                for phone in phones:
+                    phone.wait("14999", timeout=30)
+                    phone.screenshot("caravan-checkpoint")
+                start_autoplay(phones, log)
+            if args.caravan_smoke:
+                log("SMOKE PASS: early gameplay verified; victory and settlement were not exercised")
+                return
         elif args.driver == "manual":
             log("playing manually; operate the touch controls on every phone")
         else:
             start_autoplay(phones, log)
-        unlock = seeker.wait(r"Unlock [\d,.]+ SKR", prefix="regex", timeout=240)
+        unlock = (wait_for_caravan_win(seeker, log, args.play_timeout) if args.driver == "caravan"
+                  else seeker.wait(r"Unlock [\d,.]+ SKR", prefix="regex", timeout=args.play_timeout))
         if args.offline:
             offline_unlock(seeker, guest, unlock)
             finish(args, seeker, guests, chain_wallet, before)
@@ -461,7 +578,7 @@ def main():
         for other in guests[1:] if chain_wallet else guests:
             other.scroll_to("YOU EARNED")
         finish(args, seeker, guests, chain_wallet, before)
-    except (Failed, OverdriveFailed, MosaicFailed, LayoutUnavailable) as e:
+    except (Failed, OverdriveFailed, MosaicFailed, LayoutUnavailable, CaravanFailed) as e:
         for phone in phones:
             phone.screenshot("failed")
         log(f"FAIL: {e} (screens in {os.path.relpath(OUT, ROOT)})")
@@ -469,8 +586,31 @@ def main():
     finally:
         for phone, prefs in (saved or {}).items():
             phone.set_prefs(**prefs)
+        for phone, scale in animation_scales.items():
+            if scale == "null":
+                phone.shell("settings delete global animator_duration_scale")
+            else:
+                phone.shell(f"settings put global animator_duration_scale {float(scale)}")
         if args.offline:
             seeker.shell("svc wifi enable; svc data enable")
+
+
+def caravan_checkpoint(seeker):
+    package = seeker.shell(f"dumpsys package {APP}")
+    if "DEBUGGABLE" not in package or CHAIN != "devnet":
+        raise Failed("The Caravan checkpoint requires a debug build on devnet")
+    pid = seeker.shell(f"pidof {APP}").strip()
+    if not pid.isdigit():
+        raise Failed("Caravan checkpoint requires one running app process")
+    port = seeker.adb("forward", "tcp:0", f"jdwp:{pid}").strip()
+    try:
+        result = subprocess.run(["java", "--add-modules", "jdk.jdi", os.path.join(ROOT, "scripts", "CaravanCheckpoint.java"), port],
+                                capture_output=True, text=True, timeout=60)
+        if result.returncode:
+            raise Failed("Caravan checkpoint failed: " + result.stderr.strip())
+        log(result.stdout.strip())
+    finally:
+        seeker.adb("forward", "--remove", f"tcp:{port}", check=False)
 
 
 def offline_unlock(seeker, guest, unlock):
