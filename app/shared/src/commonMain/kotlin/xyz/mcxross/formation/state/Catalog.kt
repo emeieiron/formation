@@ -1,5 +1,6 @@
 package xyz.mcxross.formation.state
 
+import xyz.mcxross.formation.caravan.Caravan
 import xyz.mcxross.formation.challenge.Challenge
 import xyz.mcxross.formation.challenge.ChallengeRegistry
 import xyz.mcxross.formation.model.Budget
@@ -12,7 +13,7 @@ import xyz.mcxross.formation.ricochet.Ricochet
 object ChallengeCatalog {
   private val registry =
     ChallengeRegistry(
-      challenges = listOf(Overdrive, Ricochet, Mosaic),
+      challenges = listOf(Overdrive, Ricochet, Mosaic, Caravan),
       retiredIds =
         setOf("rally", "circuit", "sync", "formation", "rush").map(::ChallengeId).toSet(),
       retiredCodes = (1..5).toSet(),

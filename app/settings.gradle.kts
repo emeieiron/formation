@@ -50,6 +50,8 @@ include(":challenges:ricochet")
 
 include(":challenges:mosaic")
 
+include(":challenges:caravan")
+
 include(":solana:vault")
 
 include(":solana:ore")
