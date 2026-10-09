@@ -21,29 +21,42 @@ class NearbyScanner(
   private val fetch: suspend (HostAddress) -> String?,
   private val json: Json = FormationJson,
   private val intervalMs: Long = 2_000,
+  private val clock: Clock = MonotonicClock,
 ) {
   val status = finder.status
 
-  fun scan(): Flow<List<NearbyFormation>> = channelFlow {
-    val candidates = MutableStateFlow<Set<HostAddress>>(emptySet())
-    launch { finder.candidates.collect { candidates.value = it } }
-    while (true) {
-      val found =
-        candidates.value
-          .map { address -> async { lookup(address) } }
-          .awaitAll()
-          .filterNotNull()
-          // The same Seeker can answer on several addresses; keep one of each session.
-          .groupBy { it.beacon.session }
-          .map { (_, same) -> same.minBy { it.address.toString() } }
-          .sortedWith(
-            compareByDescending<NearbyFormation> { it.beacon.open }.thenBy { it.beacon.host }
-          )
-      send(found)
-      delay(intervalMs)
-    }
-  }
-    .distinctUntilChanged()
+  fun scan(): Flow<List<NearbyFormation>> =
+    channelFlow {
+        val candidates = MutableStateFlow<Set<HostAddress>>(emptySet())
+        val cache = mutableMapOf<HostAddress, Pair<NearbyFormation, Long>>()
+        launch { finder.candidates.collect { candidates.value = it } }
+        while (true) {
+          val now = clock.now()
+          val results =
+            candidates.value.map { address -> async { address to lookup(address) } }.awaitAll()
+          for ((address, found) in results) {
+            if (found != null) {
+              cache[address] = found to now
+            }
+          }
+          val active = candidates.value
+          cache.entries.retainAll { (addr, entry) ->
+            addr in active && (now - entry.second < 10_000L)
+          }
+          val found =
+            cache.values
+              .map { it.first }
+              // The same Seeker can answer on several addresses; keep one of each session.
+              .groupBy { it.beacon.session }
+              .map { (_, same) -> same.minBy { it.address.toString() } }
+              .sortedWith(
+                compareByDescending<NearbyFormation> { it.beacon.open }.thenBy { it.beacon.host }
+              )
+          send(found)
+          delay(intervalMs)
+        }
+      }
+      .distinctUntilChanged()
 
   suspend fun lookup(address: HostAddress): NearbyFormation? =
     try {
@@ -56,8 +69,6 @@ class NearbyScanner(
       null
     }
 
-  private fun decode(text: String): Beacon? = runCatching {
-    json.decodeFromString(Beacon.serializer(), text)
-  }
-    .getOrNull()
+  private fun decode(text: String): Beacon? =
+    runCatching { json.decodeFromString(Beacon.serializer(), text) }.getOrNull()
 }

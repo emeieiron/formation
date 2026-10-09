@@ -52,6 +52,8 @@ include(":challenges:mosaic")
 
 include(":challenges:longshot")
 
+include(":challenges:caravan")
+
 include(":solana:vault")
 
 include(":solana:ore")

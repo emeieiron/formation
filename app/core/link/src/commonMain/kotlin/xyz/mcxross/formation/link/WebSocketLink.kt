@@ -61,7 +61,7 @@ class WebSocketConnector(private val client: HttpClient, private val timeoutMs: 
   }
 }
 
-class BeaconProbe(private val client: HttpClient, private val timeoutMs: Long = 1_500) {
+class BeaconProbe(private val client: HttpClient, private val timeoutMs: Long = 1_800) {
   suspend fun fetch(address: HostAddress): String? =
     withTimeoutOrNull(timeoutMs) {
       try {

@@ -35,7 +35,7 @@ jobs:
           :androidApp:assembleDebug
       - name: Test the scripts
         working-directory: scripts
-        run: python3 -m unittest test_overdrive_driver test_mosaic_driver test_chain_verification test_verify_release_demo
+        run: python3 -m unittest test_overdrive_driver test_mosaic_driver test_caravan_driver test_android_layout test_chain_verification test_verify_release_demo
 
   ios:
     runs-on: macos-15

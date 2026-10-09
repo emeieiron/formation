@@ -3,12 +3,27 @@ package xyz.mcxross.formation.state
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import xyz.mcxross.formation.caravan.Caravan
+import xyz.mcxross.formation.longshot.Longshot
 import xyz.mcxross.formation.model.Budget
 import xyz.mcxross.formation.model.ChallengeId
 import xyz.mcxross.formation.model.OpportunityId
 import xyz.mcxross.formation.model.Skr
 
 class CatalogRewardsTest {
+  @Test
+  fun longshotAndCaravanCoexistWithIndependentCodesAndRewardModes() {
+    assertEquals(5, ChallengeCatalog.all.size)
+    assertEquals(Longshot, ChallengeCatalog.byCode(9))
+    assertEquals(Caravan, ChallengeCatalog.byCode(10))
+    assertEquals(ChallengeCatalog.all.size, ChallengeCatalog.all.map { it.info.code }.toSet().size)
+    val budget = Budget(OpportunityId("entry"), "contest", "sgt", Skr.of(300), 3, 27, 2000, "Test")
+    val walk = xyz.mcxross.formation.model.Opportunity(budget, Caravan.id, 6)
+    assertTrue(ChallengeCatalog.supports(walk))
+    assertEquals(listOf(6, 7, 8), ChallengeCatalog.sizesFor(Caravan.id, budget.copy(maxGuests = 7)))
+    assertTrue(ChallengeCatalog.rewardsFor(Longshot.id, listOf(budget), 1000).isEmpty())
+  }
+
   @Test
   fun longshotIsAvailableWithoutAcceptingSponsorBudgets() {
     val game = xyz.mcxross.formation.longshot.Longshot

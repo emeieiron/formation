@@ -8,6 +8,9 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import xyz.mcxross.formation.link.HostAddress
 import xyz.mcxross.formation.link.HostFinder
@@ -78,6 +81,64 @@ class ClockAndNearbyTest {
       )
     assertNull(scanner.lookup(HostAddress("192.168.1.99", 47000)))
     assertEquals(2_000L, testScheduler.currentTime)
+  }
+
+  @Test
+  fun aTransientProbeFailureRetainsTheBeaconUntilItsCacheExpires() = runTest {
+    val address = HostAddress("10.0.2.2", 47000)
+    val finder =
+      object : HostFinder {
+        override val candidates = MutableStateFlow(setOf(address))
+      }
+    var response: String? = beacon("cached-session")
+    val scanner =
+      NearbyScanner(
+        finder,
+        fetch = { response },
+        intervalMs = 50,
+        clock = Clock { testScheduler.currentTime },
+      )
+    var latest = emptyList<NearbyFormation>()
+    backgroundScope.launch { scanner.scan().collect { latest = it } }
+    advanceTimeBy(100)
+    runCurrent()
+    assertEquals("cached-session", latest.single().beacon.session)
+    response = null
+    advanceTimeBy(5_000)
+    runCurrent()
+    assertEquals("cached-session", latest.single().beacon.session)
+    advanceTimeBy(5_100)
+    runCurrent()
+    assertTrue(latest.isEmpty())
+    response = beacon("recovered-session")
+    advanceTimeBy(50)
+    runCurrent()
+    assertEquals("recovered-session", latest.single().beacon.session)
+  }
+
+  @Test
+  fun anAddressRemovedFromDiscoveryDoesNotKeepACachedFormation() = runTest {
+    val address = HostAddress("10.0.2.2", 47000)
+    val finder =
+      object : HostFinder {
+        override val candidates = MutableStateFlow(setOf(address))
+      }
+    val scanner =
+      NearbyScanner(
+        finder,
+        fetch = { beacon("cached-session") },
+        intervalMs = 50,
+        clock = Clock { testScheduler.currentTime },
+      )
+    var latest = emptyList<NearbyFormation>()
+    backgroundScope.launch { scanner.scan().collect { latest = it } }
+    advanceTimeBy(100)
+    runCurrent()
+    assertEquals(1, latest.size)
+    finder.candidates.value = emptySet()
+    advanceTimeBy(50)
+    runCurrent()
+    assertTrue(latest.isEmpty())
   }
 
   @Test

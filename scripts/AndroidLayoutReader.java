@@ -15,7 +15,7 @@ public class AndroidLayoutReader {
     var input = new BufferedReader(new InputStreamReader(System.in));
     while (input.readLine() != null) {
       try (var socket = new Socket("127.0.0.1", port)) {
-        socket.setSoTimeout(10_000);
+        socket.setSoTimeout(30_000);
         StreamExtKt.writeProto(socket.getOutputStream(), request.build());
         var response = StreamExtKt.readProto(socket.getInputStream(), InteractProto.ServerResponse.parser()).getLayout();
         System.out.println(response.hasRoot() ? Json.INSTANCE.serialize(response.getRoot(), flags) : "[]");

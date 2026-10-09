@@ -28,6 +28,7 @@ kotlin {
       implementation(projects.challenges.ricochet)
       implementation(projects.challenges.mosaic)
       implementation(projects.challenges.longshot)
+      implementation(projects.challenges.caravan)
       implementation(projects.solana.ore)
 
       implementation(projects.solana.vault)

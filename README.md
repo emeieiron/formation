@@ -1,4 +1,4 @@
-![Formation: one Seeker hosts, any phone joins. Pick your challenge: Overdrive, Ricochet or Mosaic. Win together and share the rewards.](docs/images/formation-header.png)
+![Formation: one Seeker hosts, any phone joins. Pick your challenge: Overdrive, Ricochet, Mosaic, Longshot or Caravan.](docs/images/formation-header.png)
 
 # Formation
 
@@ -45,7 +45,7 @@ Real Genesis Tokens only exist on mainnet, so on devnet every host, a Seeker own
 
 ## Games
 
-Four games ship today, using the shared session flow through the [game API](app/challenges/api/README.md). Longshot mines ORE on devnet with the picker’s test SOL; the other players make free predictions.
+Five games ship today, using the shared session flow through the [game API](app/challenges/api/README.md). Longshot mines ORE on devnet with the picker’s test SOL; the other players make free predictions.
 
 | Game | Players | In short |
 | --- | --- | --- |
@@ -53,6 +53,7 @@ Four games ship today, using the shared session flow through the [game API](app/
 | [Ricochet](docs/ricochet.md) | 2 | Two phones form one arena; keep a pulse in play and clear the targets |
 | [Mosaic](docs/mosaic.md) | 6 or 9 | Lay the phones out to rebuild the Solana mark and pinch every seam closed |
 | [Longshot](docs/longshot.md) | 2–8 | One player picks 1–25; everyone else calls WIN or LOSE before ORE reveals its winning tile |
+| [Caravan](docs/caravan.md) | 6–16 | Each player walks 15,000 steps; stay within 30 steps of the rear to finish together |
 
 <table>
   <tr>
@@ -62,6 +63,14 @@ Four games ship today, using the shared session flow through the [game API](app/
   <tr>
     <td align="center"><sub>Overdrive: wave 10 of 12, six seconds left</sub></td>
     <td align="center"><sub>Ricochet: two phones, one arena</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/images/mosaic.png" alt="Six phones forming the Solana mark in a finished game of Mosaic"></td>
+    <td width="50%"><img src="docs/images/caravan.png" alt="Two phones mid-walk in Caravan: leader on the left, lagging walker prompted to pick up pace on the right"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Mosaic: six phones, one mark</sub></td>
+    <td align="center"><sub>Caravan: six to sixteen walkers, 15,000 steps each</sub></td>
   </tr>
 </table>
 
@@ -159,7 +168,7 @@ cargo test -p formation-vault
 
 # Scripts
 cd ../scripts
-python3 -m unittest test_overdrive_driver test_mosaic_driver test_chain_verification test_verify_release_demo
+python3 -m unittest test_overdrive_driver test_mosaic_driver test_caravan_driver test_android_layout test_chain_verification test_verify_release_demo
 ```
 
 ### End-to-end journeys
@@ -172,7 +181,11 @@ scripts/e2e.py --title Ricochet --layout android
 
 | Option | Use |
 | --- | --- |
-| `--driver overdrive \| mosaic \| autoplay \| manual` | Who plays: a game-specific driver, the built-in autoplay, or you |
+| `--driver overdrive \| mosaic \| caravan \| autoplay \| manual` | Who plays: a game-specific driver, the built-in autoplay, or you |
+| `--caravan-checkpoint` | After early gameplay checks, seed a debug-only checkpoint at 14,999 steps each; verify the last steps, result, unlock, and devnet settlement. This does not verify a full-duration walk |
+| `--caravan-smoke` | Check Caravan step counting, synchronization, and pack recovery without claiming a complete win or settlement |
+| `--layout android-cli` | Read layouts through the supported Android CLI; suitable for Caravan and other journeys without reflex timing |
+| `--play-timeout SECONDS` | Maximum wait for a win; Caravan defaults to 7,800 seconds to preserve its 15,000-step rules |
 | `--players N` | Group size; one emulator per player |
 | `--difficulty Easy \| Normal \| Hard \| Extreme` | For games that offer a choice |
 | `--wallet ADDRESS \| connect` | Pay the guest's share to a wallet, or connect one through the wallet app |
