@@ -45,13 +45,14 @@ Real Genesis Tokens only exist on mainnet, so on devnet every host, a Seeker own
 
 ## Games
 
-Three games ship today. They are a starting set: every game plugs into the same session and reward flow through the [game API](app/challenges/api/README.md), and new ones can be added without changing that flow.
+Four games ship today, using the shared session flow through the [game API](app/challenges/api/README.md). Longshot mines ORE on devnet with the picker’s test SOL; the other players make free predictions.
 
 | Game | Players | In short |
 | --- | --- | --- |
 | [Overdrive](docs/overdrive.md) | 2 | Call out your partner's symbol and rotate your square to catch each pulse |
 | [Ricochet](docs/ricochet.md) | 2 | Two phones form one arena; keep a pulse in play and clear the targets |
 | [Mosaic](docs/mosaic.md) | 6 or 9 | Lay the phones out to rebuild the Solana mark and pinch every seam closed |
+| [Longshot](docs/longshot.md) | 2–8 | One player picks 1–25; everyone else calls WIN or LOSE before ORE reveals its winning tile |
 
 <table>
   <tr>

@@ -46,34 +46,40 @@ data class Budget(
   fun split(guests: Int): RewardSplit = RewardSplit.of(amount, ownerWeight, guests)
 }
 
-// A budget as one Formation plays it: the game and group size the host chose.
+// The game and group size of a Formation, with either a funded budget or a social session ID.
 @Serializable
 data class Opportunity(
-  val budget: Budget,
+  val budget: Budget?,
   val challenge: ChallengeId,
   // Includes the Seeker.
   val players: Int,
   val difficulty: Difficulty = Difficulty.NORMAL,
+  val socialId: OpportunityId? = null,
 ) {
   init {
     require(players >= MIN_PLAYERS) { "A Formation needs at least $MIN_PLAYERS players" }
-    require(budget.fits(players)) { "This budget can't pay ${players - 1} guests" }
+    require(players <= MAX_PLAYERS)
+    require((budget == null) == (socialId != null)) { "Choose either a reward or a social session" }
+    require(socialId == null || socialId.value.isNotBlank())
+    require(budget == null || budget.fits(players)) {
+      "This budget can't pay ${players - 1} guests"
+    }
   }
 
   val id: OpportunityId
-    get() = budget.id
+    get() = budget?.id ?: requireNotNull(socialId)
 
   val reward: Skr
-    get() = budget.amount
+    get() = budget?.amount ?: Skr.ZERO
 
   val expiresAt: Long
-    get() = budget.playUntil
+    get() = budget?.playUntil ?: Long.MAX_VALUE
 
   val sponsor: String
-    get() = budget.sponsor
+    get() = budget?.sponsor.orEmpty()
 
   val title: String?
-    get() = budget.title
+    get() = budget?.title
 
   val helpers: Int
     get() = players - 1
@@ -81,7 +87,10 @@ data class Opportunity(
   val tier: Tier
     get() = Tier.of(players)
 
-  fun split(helpers: Int = this.helpers): RewardSplit = budget.split(helpers)
+  val hasReward: Boolean
+    get() = budget != null
+
+  fun split(helpers: Int = this.helpers): RewardSplit = requireNotNull(budget).split(helpers)
 
   companion object {
     const val MIN_PLAYERS = 2

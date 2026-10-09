@@ -7,6 +7,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
@@ -42,11 +43,12 @@ class FormationSessionTest {
   private inner class Formation(
     val test: TestScope,
     rules: ChallengeRules<TapChallenge.State, TapChallenge.Tap> = TapChallenge,
+    terms: Opportunity = opportunity,
   ) {
     val clock = Clock { test.testScheduler.currentTime }
     val host =
       FormationHost(
-        FormationInfo("session-1", "K7QX", "Theo", opportunity),
+        FormationInfo("session-1", "K7QX", "Theo", terms),
         rules,
         test.backgroundScope,
         clock,
@@ -63,6 +65,7 @@ class FormationSessionTest {
       key: Ed25519KeyPair = Ed25519KeyPair.generate(),
       wallet: String? = null,
       capabilities: Set<String> = emptySet(),
+      connectDelayMs: () -> Long = { 0 },
       link: (LinkChannel) -> LinkChannel = { it },
     ): FormationClient {
       val client =
@@ -77,6 +80,7 @@ class FormationSessionTest {
             capabilities = capabilities,
           ),
           connect = {
+            delay(connectDelayMs())
             val (phone, seekerSide) = memoryLink()
             links[device] = seekerSide
             test.backgroundScope.launch { host.serve(seekerSide, local = seeker) }
@@ -135,6 +139,35 @@ class FormationSessionTest {
     phones.forEach { it.play(tap()) }
     runCurrent()
     checkFrames(1)
+  }
+
+  @Test
+  fun socialCompletionNeverCreatesARewardSealAndCanReplay() = runTest {
+    val terms = Opportunity(null, TapChallenge.id, 3, socialId = OpportunityId("social"))
+    val f = Formation(this, terms = terms)
+    val phones = listOf(f.join("Theo", seeker = true), f.join("Maya"), f.join("Kofi"))
+    runCurrent()
+    val beacon = FormationJson.decodeFromString(Beacon.serializer(), f.host.beacon())
+    assertEquals(false, beacon.hasReward)
+    assertEquals(Skr.ZERO, beacon.reward)
+    f.host.begin()
+    runCurrent()
+    phones.forEach { it.ready(true) }
+    runCurrent()
+    val playing = assertIs<Stage.Playing>(f.stage)
+    advanceTimeBy(playing.goAt - testScheduler.currentTime + 1)
+    repeat(2) {
+      phones.forEach { it.play(tap()) }
+      runCurrent()
+    }
+    assertIs<Stage.Finished>(f.stage)
+    phones.forEach { assertIs<Stage.Finished>(it.snapshot.value!!.stage) }
+    f.host.unlocking()
+    runCurrent()
+    assertIs<Stage.Finished>(f.stage)
+    f.host.runItBack()
+    runCurrent()
+    assertIs<Stage.Briefing>(f.stage)
   }
 
   @Test
@@ -362,6 +395,79 @@ class FormationSessionTest {
     assertEquals(true, f.host.snapshot.value.player(seat)!!.connected)
     assertEquals(3, f.host.snapshot.value.players.size)
     assertIs<Stage.Lost>(f.stage, "A timed attempt restarts after a connection interruption")
+  }
+
+  @Test
+  fun resumableGamePreservesProgressAfterWalletReconnect() = runTest {
+    val rules =
+      object : ChallengeRules<TapChallenge.State, TapChallenge.Tap> by TapChallenge {
+        override val reconnectGraceMs = 180_000L
+        override val resumesAfterReconnect = true
+      }
+    val f = Formation(this, rules)
+    var reconnectDelay = 0L
+    val phones =
+      listOf(
+        f.join("Theo", seeker = true),
+        f.join("Maya", connectDelayMs = { reconnectDelay }),
+        f.join("Kofi"),
+      )
+    runCurrent()
+    f.host.begin()
+    runCurrent()
+    phones.forEach { it.ready(true) }
+    runCurrent()
+    val playing = assertIs<Stage.Playing>(f.stage)
+    advanceTimeBy(playing.goAt - testScheduler.currentTime + 1)
+    phones.forEach { it.play(tap()) }
+    runCurrent()
+    val before = phones[1].frame.value
+    val seat = phones[1].me.value
+
+    reconnectDelay = 45_000L
+    f.links.getValue("Maya").close()
+    runCurrent()
+    advanceTimeBy(46_000L)
+    runCurrent()
+    assertEquals(FormationClient.Status.Joined, phones[1].status.value)
+    assertEquals(seat, phones[1].me.value)
+    assertEquals(playing, f.stage)
+    assertEquals(before, phones[1].frame.value)
+    phones.forEach { it.play(tap()) }
+    runCurrent()
+    assertIs<Stage.Won>(f.stage)
+  }
+
+  @Test
+  fun resumableGameStillEndsWhenReconnectGraceExpires() = runTest {
+    val rules =
+      object : ChallengeRules<TapChallenge.State, TapChallenge.Tap> by TapChallenge {
+        override val reconnectGraceMs = 1_000L
+        override val resumesAfterReconnect = true
+      }
+    val f = Formation(this, rules)
+    var reconnectDelay = 0L
+    val phones =
+      listOf(
+        f.join("Theo", seeker = true),
+        f.join("Maya", connectDelayMs = { reconnectDelay }),
+        f.join("Kofi"),
+      )
+    runCurrent()
+    f.host.begin()
+    runCurrent()
+    phones.forEach { it.ready(true) }
+    runCurrent()
+    reconnectDelay = 2_000L
+    f.links.getValue("Maya").close()
+    runCurrent()
+    advanceTimeBy(3_000L)
+    runCurrent()
+    assertEquals(FormationClient.Status.Joined, phones[1].status.value)
+    assertIs<Stage.Lost>(f.stage)
+    phones.forEach { it.play(tap()) }
+    runCurrent()
+    assertIs<Stage.Lost>(f.stage)
   }
 
   @Test

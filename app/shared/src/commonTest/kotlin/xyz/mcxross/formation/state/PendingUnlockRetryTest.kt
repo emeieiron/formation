@@ -57,7 +57,8 @@ class PendingUnlockRetryTest {
             it.formation.copy(
               opportunity =
                 opportunity.copy(
-                  budget = opportunity.budget.copy(id = OpportunityId("another-entry"))
+                  budget =
+                    requireNotNull(opportunity.budget).copy(id = OpportunityId("another-entry"))
                 )
             )
         )

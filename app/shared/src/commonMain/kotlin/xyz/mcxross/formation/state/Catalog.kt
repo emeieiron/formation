@@ -2,6 +2,7 @@ package xyz.mcxross.formation.state
 
 import xyz.mcxross.formation.challenge.Challenge
 import xyz.mcxross.formation.challenge.ChallengeRegistry
+import xyz.mcxross.formation.longshot.Longshot
 import xyz.mcxross.formation.model.Budget
 import xyz.mcxross.formation.model.ChallengeId
 import xyz.mcxross.formation.model.Opportunity
@@ -12,7 +13,7 @@ import xyz.mcxross.formation.ricochet.Ricochet
 object ChallengeCatalog {
   private val registry =
     ChallengeRegistry(
-      challenges = listOf(Overdrive, Ricochet, Mosaic),
+      challenges = listOf(Overdrive, Ricochet, Mosaic, Longshot),
       retiredIds =
         setOf("rally", "circuit", "sync", "formation", "rush").map(::ChallengeId).toSet(),
       retiredCodes = (1..5).toSet(),
@@ -31,7 +32,7 @@ object ChallengeCatalog {
 
   // The group sizes of game [id] that [budget] can pay, smallest first.
   fun sizesFor(id: ChallengeId, budget: Budget): List<Int> =
-    get(id)?.info?.groupSizes.orEmpty().filter(budget::fits).sorted()
+    get(id)?.info?.takeIf { it.rewards }?.groupSizes.orEmpty().filter(budget::fits).sorted()
 
   fun rewardsFor(id: ChallengeId, budgets: List<Budget>, at: Long): List<Budget> =
     budgets.filter { it.playUntil > at && sizesFor(id, it).isNotEmpty() }.sortedBy { it.playUntil }

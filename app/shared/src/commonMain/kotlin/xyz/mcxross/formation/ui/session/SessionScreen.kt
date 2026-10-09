@@ -66,6 +66,7 @@ fun SessionScreen() {
   }
   val status by active.status.collectAsState()
   val snapshot by active.snapshot.collectAsState()
+  val mining by graph.mining.state.collectAsState()
   val me by active.client.me.collectAsState()
   var confirmLeave by remember { mutableStateOf(false) }
 
@@ -121,6 +122,16 @@ fun SessionScreen() {
           "This win has not been saved yet. Leaving may lose the result."
         else if (snapshot?.stage is Stage.Won)
           "The win is saved. Resume from Home if the group still needs to finish sealing it."
+        else if (
+          snapshot?.formation?.opportunity?.challenge ==
+            xyz.mcxross.formation.longshot.Longshot.id &&
+            mining.outstandingPositions.any {
+              it.reference.startsWith("${snapshot?.formation?.session}/")
+            }
+        )
+          "Mining continues after you leave. Recover any proceeds from Home."
+        else if (active.isHost && snapshot?.formation?.opportunity?.hasReward == false)
+          "Everyone will leave this room."
         else if (active.isHost)
           "Everyone will be sent home and the reward stays locked for another time."
         else "The group can't finish without you unless the Seeker finds someone else.",
@@ -181,6 +192,7 @@ private fun Phases(
       is Stage.Playing -> Play(session, shown, stage, me, onLeave)
       is Stage.Won -> Won(session, shown, stage, me, onDone)
       is Stage.Lost -> Lost(session, shown, stage, me, onLeave)
+      is Stage.Finished -> Finished(session, stage, onDone)
       is Stage.Closed -> Problem("The Formation ended", stage.reason, onBack = onDone)
     }
   }
@@ -256,5 +268,19 @@ internal fun Problem(title: String, body: String, onBack: () -> Unit) {
       Spacer(Modifier.weight(1.2f))
     }
     BottomActions { Button("Back home", onBack) }
+  }
+}
+
+@Composable
+private fun Finished(session: ActiveSession, stage: Stage.Finished, onDone: () -> Unit) {
+  Column(
+    Modifier.fillMaxSize().padding(Space.gutter),
+    horizontalAlignment = Alignment.CenterHorizontally,
+  ) {
+    Spacer(Modifier.weight(1f))
+    Text(stage.result.headline, style = Theme.type.title1, textAlign = TextAlign.Center)
+    Spacer(Modifier.weight(1f))
+    if (session.isHost) Button("Play again", { session.runItBack() })
+    Button("Leave", onDone, style = ButtonStyle.Ghost)
   }
 }

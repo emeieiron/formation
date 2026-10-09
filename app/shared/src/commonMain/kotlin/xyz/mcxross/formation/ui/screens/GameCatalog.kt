@@ -187,15 +187,17 @@ private fun GameCard(
   val info = game.info
   val canOpen = playable || game.introduction != null
   val action =
-    stringResource(
-      when {
-        !focused -> Res.string.action_select_game
-        playable -> Res.string.action_game_rewards
-        !canHost -> Res.string.action_game_details
-        else -> Res.string.action_practice_game
-      },
-      info.title,
-    )
+    if (playable && !info.rewards) "Play ${info.title}"
+    else
+      stringResource(
+        when {
+          !focused -> Res.string.action_select_game
+          playable -> Res.string.action_game_rewards
+          !canHost -> Res.string.action_game_details
+          else -> Res.string.action_practice_game
+        },
+        info.title,
+      )
   val interaction =
     if (!focused || canOpen)
       Modifier.pressable(onOpen, shape = Shapes.card, travel = true, onClickLabel = action)

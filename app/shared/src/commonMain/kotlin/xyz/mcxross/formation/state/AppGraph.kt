@@ -20,6 +20,7 @@ import xyz.mcxross.formation.link.HostAddress
 import xyz.mcxross.formation.link.LinkDefaults
 import xyz.mcxross.formation.link.WebSocketConnector
 import xyz.mcxross.formation.link.memoryLink
+import xyz.mcxross.formation.longshot.Longshot
 import xyz.mcxross.formation.model.Opportunity
 import xyz.mcxross.formation.platform.HotspotInfo
 import xyz.mcxross.formation.platform.PlatformServices
@@ -42,8 +43,12 @@ import xyz.mcxross.formation.solana.FormationVault
 import xyz.mcxross.formation.solana.SgtFinder
 import xyz.mcxross.formation.solana.SolanaRpc
 import xyz.mcxross.formation.solana.VaultConfig
+import xyz.mcxross.formation.solana.ore.OreDeployment
+import xyz.mcxross.formation.solana.ore.OreMiningRpc
+import xyz.mcxross.formation.solana.ore.OreRpc
 import xyz.mcxross.formation.state.diagnostics.LocalDiagnostics
 import xyz.mcxross.formation.state.diagnostics.TraceSource
+import xyz.mcxross.formation.state.mining.DevnetMiningRepository
 import xyz.mcxross.formation.ui.nav.Navigator
 import xyz.mcxross.formation.ui.nav.Screen
 
@@ -59,6 +64,13 @@ class AppGraph(
       platform.config.rpcUrl,
       fallback = platform.config.fallbackRpcUrl,
     )
+  private val oreDeployment = OreDeployment.Devnet.copy(rpcUrl = platform.config.oreRpcUrl)
+  private val oreChain =
+    OreMiningRpc(
+      OreRpc(platform.network.http, oreDeployment),
+      SolanaRpc(platform.network.http, oreDeployment.rpcUrl, commitment = "finalized"),
+    )
+  val mining = DevnetMiningRepository(oreChain, platform.oreWallet, platform.store)
   val navigator = Navigator()
   val diagnostics = LocalDiagnostics(platform.store, ::now)
   val simulator =
@@ -72,6 +84,7 @@ class AppGraph(
     }
   val sounds = SoundEffects(platform.store, platform.sound, scope)
   internal val challengeAudio = ChallengeAudio(sounds)
+  private val checkSeeker = seekerCheck ?: sgtCheck(rpc)
   val seeker =
     SeekerState(
       platform.store,
@@ -79,7 +92,7 @@ class AppGraph(
       platform.wallet,
       platform.device.seeker,
       platform.config.cluster,
-      seekerCheck ?: sgtCheck(rpc),
+      checkSeeker,
       platform.config.faucetUrl?.let { url ->
         TestFaucet(platform.network.http, url, "Formation/${platform.config.version}")::fund
       },
@@ -90,7 +103,22 @@ class AppGraph(
   // for them.
   private val hostVerifier = HostVerifier { session, proof ->
     HostChecks.problem(proof, session, platform.config.cluster)
-      ?: proof?.let { this.ledger.rewardProblem(it.opportunity, it.wallet) }
+      ?: proof?.let {
+        when {
+          !ChallengeCatalog.supports(it.opportunity) ->
+            "This game does not support these session terms."
+          it.opportunity.hasReward -> this.ledger.rewardProblem(it.opportunity, it.wallet)
+          else ->
+            checkSeeker
+              .sgtOf(it.wallet)
+              .fold(
+                onSuccess = { mint ->
+                  if (mint == null) "This host does not hold a Seeker Genesis Token." else null
+                },
+                onFailure = { "Could not verify the Seeker. Check your connection and retry." },
+              )
+        }
+      }
   }
   val role: StateFlow<PhoneRole> =
     seeker.identity
@@ -192,7 +220,7 @@ class AppGraph(
     endSession()
     val challenge =
       ChallengeCatalog[opportunity.challenge] ?: error("This app doesn't know that challenge yet")
-    check(opportunity.players in challenge.info.groupSizes) {
+    check(ChallengeCatalog.supports(opportunity)) {
       "This game does not support this group size."
     }
     if (recovery == null) {
@@ -236,6 +264,14 @@ class AppGraph(
         observe = diagnostics.sink(TraceSource.CLIENT, tag),
       )
     client.start()
+    if (challenge.id == Longshot.id) {
+      LongshotRounds(
+        host,
+        client,
+        oreChain,
+        sessionScope,
+      )
+    }
     val address = platform.network.addresses().firstOrNull()?.let { HostAddress(it, port) }
     ActiveSession(
         client,

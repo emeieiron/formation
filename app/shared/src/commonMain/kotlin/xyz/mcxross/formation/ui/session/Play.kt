@@ -91,7 +91,8 @@ internal fun Play(
   LaunchedEffect(counting) {
     if (!counting && now.value - stage.goAt < GO_BEAT_MS) graph.platform.haptics.heavy()
   }
-  val developer = graph.platform.config.developer
+  val developer =
+    graph.platform.config.developer && challenge?.id != xyz.mcxross.formation.longshot.Longshot.id
   val autoplay by graph.autoplay.collectAsState()
   if (challenge == null) {
     Problem(
@@ -114,7 +115,9 @@ internal fun Play(
         SessionBar(
           challenge.info.title,
           challenge.info.light,
-          session.client.sync.rttMs,
+          session.client.sync.rttMs.takeUnless {
+            challenge.id == xyz.mcxross.formation.longshot.Longshot.id
+          },
           autoplay && developer,
           onLeave,
         )
@@ -124,6 +127,7 @@ internal fun Play(
           @Suppress("UNCHECKED_CAST")
           StageHost(
             challenge as Challenge<Any, Any>,
+            session,
             current,
             snapshot,
             me,
@@ -235,6 +239,7 @@ private fun SessionBar(
 @Composable
 private fun <S : Any, I : Any> StageHost(
   challenge: Challenge<S, I>,
+  session: ActiveSession,
   frame: ToPlayer.Frame,
   snapshot: SessionSnapshot,
   me: PlayerId,
@@ -282,7 +287,18 @@ private fun <S : Any, I : Any> StageHost(
   }
   if (decoded != null || scope.current != null) {
     if (scope.current == null) scope.current = decoded
-    challenge.Stage(scope)
+    if (challenge.id == xyz.mcxross.formation.longshot.Longshot.id) {
+      @Suppress("UNCHECKED_CAST")
+      xyz.mcxross.formation.ui.mining.LongshotSession(
+        scope
+          as
+          StageScope<
+            xyz.mcxross.formation.longshot.LongshotState,
+            xyz.mcxross.formation.longshot.LongshotInput,
+          >,
+        session,
+      )
+    } else challenge.Stage(scope)
   }
 }
 

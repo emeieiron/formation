@@ -198,7 +198,7 @@ class SolanaLedger(
         }) {
         submissions.execute(saved)
       }
-      val budget = opportunity.budget
+      val budget = requireNotNull(opportunity.budget)
       val contest = SolanaPublicKey.from(budget.contest)
       val entryAddress = SolanaPublicKey.from(opportunity.id.value)
       val onChain = rpc.account(entryAddress)?.let { VaultEntry.decode(entryAddress, it.data) }
@@ -350,7 +350,7 @@ class SolanaLedger(
   }
 
   override suspend fun rewardProblem(opportunity: Opportunity, wallet: String): String? {
-    val budget = opportunity.budget
+    val budget = requireNotNull(opportunity.budget)
     val contestAddress = SolanaPublicKey.from(budget.contest)
     val sgt = SolanaPublicKey.from(budget.sgt)
     val (contestAccount, entryAccount) =
@@ -411,7 +411,7 @@ class SolanaLedger(
     val (contest, entry) =
       rpc.multipleAccounts(
         listOf(
-          SolanaPublicKey.from(opportunity.budget.contest),
+          SolanaPublicKey.from(requireNotNull(opportunity.budget).contest),
           SolanaPublicKey.from(opportunity.id.value),
         )
       )
@@ -421,7 +421,10 @@ class SolanaLedger(
           EntryState.REGISTERED
       else ->
         contest != null &&
-          VaultContest.decode(SolanaPublicKey.from(opportunity.budget.contest), contest.data)
+          VaultContest.decode(
+              SolanaPublicKey.from(requireNotNull(opportunity.budget).contest),
+              contest.data,
+            )
             .inPlay(now() / 1_000)
     }
   }

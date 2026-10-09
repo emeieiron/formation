@@ -1,0 +1,66 @@
+{
+  "cluster": "devnet",
+  "rpcUrl": "https://api.devnet.solana.com",
+  "genesisHash": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  "programs": {
+    "ore": "5aXjVRQ9CsdCVkhTqjiAfsP5KVG32gtA9RFdrXB4Kjhp",
+    "entropy": "5kJgQsJL4KnbQ5Ec1eSjCN1nSbbigAP2YGkekcTHpdt3",
+    "oreMint": "9VhKKzbK7LkzzrEC4miiegqRSdtYiuuwp2iqHfzRzi1W"
+  },
+  "mint": "ACWuBYysK8DbT5GVCHvaVQ7NWDippahvyfb9JJJ9hhb9",
+  "accounts": {
+    "board": "AHvr5zQU7UgbZ6Lf1ZzyVZNjb8DYLpBVnC9eApd2vgCH",
+    "config": "7rc8rw4uHhUZsM2xgkBw3uW9KMKSgEhd9zWaxKnyPmZa",
+    "treasury": "BqTBRbk6DvwUH1ydBAD8DCYCv2hoygBPJ2MFH8S8vHGr",
+    "var": "6CVbEiJUsrgZ6jK8MHHS6bTSaDx39HN1RaJqVX6Qv35V",
+    "mint_authority": "8whPRoKWnJLG6CKARPnZ2uosqfpxvRZ6j2uTeXDMnF9J"
+  },
+  "authorityWallet": "9U7jMaMyBBdxxEp4zA5L8DgovQBPsdx6njY5EMXaxEMy",
+  "roundSlots": 150,
+  "intermissionSlots": 5,
+  "upstream": {
+    "ore": "48c203bd75db3cc45105ec29d8f8db719e5a2263",
+    "entropy": "f26ae03cccab6188effb0a170b8123cf4bb54c94",
+    "ore-mint": "67cbf80dc5c20d78a44a5169473d806f284297d2"
+  },
+  "binaryVerification": [
+    {
+      "name": "entropy_program",
+      "program": "5kJgQsJL4KnbQ5Ec1eSjCN1nSbbigAP2YGkekcTHpdt3",
+      "program_data": "CSje7378TMJEd7D2G7wmXGT9TWmCBdFct6nSMYK8wYKR",
+      "sha256": "d15ba09dcb2b112aa54e30d94070ad5323e08b7121c8d79042bb6ec90e2e8260",
+      "upgrade_authority": "9U7jMaMyBBdxxEp4zA5L8DgovQBPsdx6njY5EMXaxEMy",
+      "deployment_slot": 508033835
+    },
+    {
+      "name": "ore_mint",
+      "program": "9VhKKzbK7LkzzrEC4miiegqRSdtYiuuwp2iqHfzRzi1W",
+      "program_data": "2cCC8iWyGJ87SManXCChHBfd4aDqyLc4n4GaL37EDdrm",
+      "sha256": "57903fc09289515ca568e232d165e8bbdec1bca787ea1fcacf9e68229fb41900",
+      "upgrade_authority": "9U7jMaMyBBdxxEp4zA5L8DgovQBPsdx6njY5EMXaxEMy",
+      "deployment_slot": 508035632
+    },
+    {
+      "name": "ore",
+      "program": "5aXjVRQ9CsdCVkhTqjiAfsP5KVG32gtA9RFdrXB4Kjhp",
+      "program_data": "2aQyCccRsyPjxc3HuBH13PYVSUfd8ohxiWLGWuANWGkb",
+      "sha256": "68d3b2c12948fe2ad068f0a83dd41c1c3e6d532d6dc35ce2b8255e35e6a2dd33",
+      "upgrade_authority": "9U7jMaMyBBdxxEp4zA5L8DgovQBPsdx6njY5EMXaxEMy",
+      "deployment_slot": 508035687
+    }
+  ],
+  "worker": {
+    "pid": 45000,
+    "running": true,
+    "host": "local development machine",
+    "net_spend_budget_lamports": 100000000,
+    "entropy_samples_remaining": 1021
+  },
+  "verification": {
+    "passed": true,
+    "rounds": 3,
+    "mint_supply_units": 360000000000,
+    "claimed_ore_units": 300000000000,
+    "verified_at_utc": "2026-10-06T08:50:10Z"
+  }
+}

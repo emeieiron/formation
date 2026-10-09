@@ -107,7 +107,9 @@ class FormationHost(
         players = opp.players,
         joined = s.players.size,
         open = s.stage == Stage.Lobby && !s.full,
-        helperShare = opp.split(helpers).helper,
+        helperShare =
+          if (opp.hasReward) opp.split(helpers).helper else xyz.mcxross.formation.model.Skr.ZERO,
+        hasReward = opp.hasReward,
         tier = opp.tier.label,
       ),
     )
@@ -122,12 +124,20 @@ class FormationHost(
       toBriefing()
   }
 
+  fun observe(round: Int, observation: GameObservation) = command {
+    val playing = stage as? Stage.Playing ?: return@command
+    val running = game ?: return@command
+    if (this.round != round || clock.now() < playing.goAt) return@command
+    running.observe(observation, clock.now())
+    settle(running)
+  }
+
   fun startNow() = command { if (stage is Stage.Briefing) startRound() }
 
-  fun runItBack() = command { if (stage is Stage.Lost) toBriefing() }
+  fun runItBack() = command { if (stage is Stage.Lost || stage is Stage.Finished) toBriefing() }
 
   fun backToLobby() = command {
-    if (stage is Stage.Lost || stage is Stage.Briefing) {
+    if (stage is Stage.Lost || stage is Stage.Finished || stage is Stage.Briefing) {
       seats.removeAll { it.conn == null && !it.seeker }
       seats.forEach { it.ready = false }
       stage = Stage.Lobby
@@ -279,10 +289,15 @@ class FormationHost(
       returning.screen = null
       returning.sensorReady = rules.requiredCapabilities(info.opportunity.players).isEmpty()
       returning.conn = conn
-      val interruptedPlay = stage is Stage.Playing && returning.disconnectedAt != null
+      val disconnectedAt = returning.disconnectedAt
+      val interruptedPlay = stage is Stage.Playing && disconnectedAt != null
+      val canResume =
+        rules.resumesAfterReconnect &&
+          disconnectedAt != null &&
+          clock.now() - disconnectedAt < (rules.reconnectGraceMs ?: timing.disconnectGraceMs)
       returning.disconnectedAt = null
       returning.clockReady = false
-      if (interruptedPlay)
+      if (interruptedPlay && !canResume)
         finish(
           RoundResult("The connection was interrupted. Try again.", null, emptyList(), clock.now()),
           won = false,
@@ -491,7 +506,8 @@ class FormationHost(
           return
         }
         val missing = seats.firstOrNull {
-          it.conn == null && now - (it.disconnectedAt ?: now) >= timing.disconnectGraceMs
+          it.conn == null &&
+            now - (it.disconnectedAt ?: now) >= (rules.reconnectGraceMs ?: timing.disconnectGraceMs)
         }
         if (missing != null) {
           finish(
@@ -536,10 +552,10 @@ class FormationHost(
     game = null
     seats.forEach { it.ready = false }
     stage =
-      if (won) {
+      if (won && info.opportunity.hasReward) {
         val seal = Sealing.seal(info.opportunity, info.session, seats.map { it.toPlayer() }, result)
         Stage.Won(result, seal, Unlock.Waiting)
-      } else Stage.Lost(result)
+      } else if (won) Stage.Finished(result) else Stage.Lost(result)
     publish()
   }
 

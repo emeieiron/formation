@@ -43,6 +43,11 @@ android {
     buildConfigField("String", "SOLANA_RPC_URL", "\"${rpcUrl.get()}\"")
     buildConfigField("String", "SOLANA_FALLBACK_RPC_URL", "\"${publicRpcUrl.get()}\"")
     buildConfigField("String", "SOLANA_CLUSTER", "\"${cluster.get()}\"")
+    buildConfigField(
+      "String",
+      "ORE_RPC_URL",
+      "\"${providers.gradleProperty("formation.oreRpcUrl").getOrElse("https://api.devnet.solana.com")}\"",
+    )
     buildConfigField("String", "FAUCET_URL", "\"${faucetUrl.get()}\"")
   }
 

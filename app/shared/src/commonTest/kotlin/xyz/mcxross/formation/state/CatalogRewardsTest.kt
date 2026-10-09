@@ -10,6 +10,21 @@ import xyz.mcxross.formation.model.Skr
 
 class CatalogRewardsTest {
   @Test
+  fun longshotIsAvailableWithoutAcceptingSponsorBudgets() {
+    val game = xyz.mcxross.formation.longshot.Longshot
+    val social =
+      xyz.mcxross.formation.model.Opportunity(null, game.id, 3, socialId = OpportunityId("room"))
+    val budget = Budget(OpportunityId("entry"), "contest", "sgt", Skr.of(300), 3, 27, 2000, "Test")
+    assertTrue(ChallengeCatalog.supports(social))
+    assertEquals(false, ChallengeCatalog.supports(social.copy(budget = budget, socialId = null)))
+    assertEquals(
+      false,
+      ChallengeCatalog.supports(social.copy(challenge = ChallengeId("overdrive"), players = 2)),
+    )
+    assertTrue(ChallengeCatalog.rewardsFor(game.id, listOf(budget), 1000).isEmpty())
+  }
+
+  @Test
   fun previewOffersOnlyCurrentBudgetsThatFitTheGame() {
     val game = ChallengeId("mosaic")
     val current =

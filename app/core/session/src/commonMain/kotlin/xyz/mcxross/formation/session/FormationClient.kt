@@ -300,9 +300,11 @@ class FormationClient(
       }
       is ToPlayer.Session -> {
         if (verifier != null && message.snapshot.formation.opportunity != reward)
-          return untrusted("The Seeker's updates don't match the reward it showed.")
+          return untrusted("The Seeker's updates don't match the session it showed.")
         var snapshot = message.snapshot
         val completed = snapshot.stage as? Stage.Won
+        if (completed != null && !snapshot.formation.opportunity.hasReward)
+          return untrusted("A social session cannot request a reward seal.")
         if (completed != null) {
           val problem = runCatching { completionCheckpoint(snapshot) }.exceptionOrNull()
           if (problem != null) {

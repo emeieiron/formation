@@ -43,6 +43,7 @@ class AndroidPlatform(private val context: Context) : PlatformServices {
       version = BuildConfig.VERSION_NAME,
       developer = BuildConfig.DEBUG,
       rpcUrl = BuildConfig.SOLANA_RPC_URL,
+      oreRpcUrl = BuildConfig.ORE_RPC_URL,
       cluster = BuildConfig.SOLANA_CLUSTER,
       fallbackRpcUrl =
         BuildConfig.SOLANA_FALLBACK_RPC_URL.takeUnless { it == BuildConfig.SOLANA_RPC_URL },
@@ -111,6 +112,11 @@ class AndroidPlatform(private val context: Context) : PlatformServices {
 
   override val wallet: WalletPort =
     MwaWallet(context, cluster = config.cluster, secrets = secrets) { bridge?.walletSender }
+
+  override val oreWallet: WalletPort =
+    MwaWallet(context, "devnet", secrets, tokenKey = "mwa-ore-devnet-auth-token") {
+      bridge?.walletSender
+    }
 
   override val external =
     object : ExternalPort {

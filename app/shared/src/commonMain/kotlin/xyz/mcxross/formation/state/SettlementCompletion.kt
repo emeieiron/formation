@@ -12,7 +12,7 @@ internal class SettlementCompletion(
     ledger.keep(
       ClaimTicket(
         win.opportunity.id,
-        win.opportunity.budget.contest,
+        requireNotNull(win.opportunity.budget).contest,
         win.opportunity.challenge,
         "Seeker",
         win.seal.ownerAmount,

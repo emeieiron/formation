@@ -41,5 +41,7 @@ class ChallengeRegistry(
   fun byCode(code: Int): Challenge<*, *>? = byCode[code]
 
   fun supports(opportunity: Opportunity): Boolean =
-    get(opportunity.challenge)?.info?.groupSizes?.contains(opportunity.players) == true
+    get(opportunity.challenge)?.info?.let {
+      opportunity.players in it.groupSizes && opportunity.hasReward == it.rewards
+    } == true
 }

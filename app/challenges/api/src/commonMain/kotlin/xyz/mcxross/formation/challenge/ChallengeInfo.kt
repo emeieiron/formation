@@ -22,6 +22,7 @@ data class ChallengeInfo(
   val groupSizes: Set<Int> = players.toSet(),
   // The settings a host can choose from, the first being the default. A game that ignores
   // difficulty lists none.
+  val rewards: Boolean = true,
   val difficulties: List<Difficulty> =
     listOf(Difficulty.NORMAL, Difficulty.EASY, Difficulty.HARD, Difficulty.EXTREME),
 )

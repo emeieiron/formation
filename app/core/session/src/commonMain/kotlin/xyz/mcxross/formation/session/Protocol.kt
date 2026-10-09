@@ -10,7 +10,7 @@ import xyz.mcxross.formation.model.PlayerId
 import xyz.mcxross.formation.model.Skr
 
 // Bump whenever phones and Seekers on different versions could misunderstand each other.
-const val PROTOCOL_VERSION = 7
+const val PROTOCOL_VERSION = 8
 
 val FormationJson = Json {
   ignoreUnknownKeys = true
@@ -62,6 +62,8 @@ sealed interface Stage {
     val unlock: Unlock,
     val storageProblem: String? = null,
   ) : Stage
+
+  @Serializable @SerialName("finished") data class Finished(val result: RoundResult) : Stage
 
   @Serializable @SerialName("lost") data class Lost(val result: RoundResult) : Stage
 
@@ -231,4 +233,5 @@ data class Beacon(
   val open: Boolean,
   val helperShare: Skr,
   val tier: String,
+  val hasReward: Boolean = true,
 )

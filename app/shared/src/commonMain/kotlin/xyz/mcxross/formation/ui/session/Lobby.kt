@@ -151,21 +151,22 @@ internal fun Lobby(
             color = c.contentSecondary,
           )
           Spacer(Modifier.height(Space.xs))
-          Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-              Icons.Lock,
-              stringResource(Res.string.a11y_locked_reward),
-              size = 14.dp,
-              tint = c.contentSecondary,
-            )
-            Spacer(Modifier.width(Space.s))
-            SkrAmount(
-              o.reward.format(0),
-              style = Theme.type.footnote,
-              color = c.reward,
-              coin = false,
-            )
-          }
+          if (o.hasReward)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              Icon(
+                Icons.Lock,
+                stringResource(Res.string.a11y_locked_reward),
+                size = 14.dp,
+                tint = c.contentSecondary,
+              )
+              Spacer(Modifier.width(Space.s))
+              SkrAmount(
+                o.reward.format(0),
+                style = Theme.type.footnote,
+                color = c.reward,
+                coin = false,
+              )
+            }
         }
       }
       Spacer(Modifier.height(Space.xl))
@@ -193,7 +194,8 @@ internal fun Lobby(
         Spacer(Modifier.height(Space.xl))
         AssemblyRoster(snapshot.players, o.players, me, Modifier.fillMaxWidth())
       }
-      if (session.isHost) JoinPanel(session, snapshot) else GuestPanel(snapshot, me)
+      if (session.isHost) JoinPanel(session, snapshot)
+      else if (o.hasReward) GuestPanel(snapshot, me)
       ChallengeCatalog[o.challenge]?.let { challenge ->
         Column(Modifier.padding(horizontal = Space.gutter, vertical = Space.xl)) {
           Overline("The goal")

@@ -353,7 +353,9 @@ internal fun Lost(
       Stats(stage.result)
       Spacer(Modifier.height(Space.l))
       Text(
-        "The reward is still locked. Try again together.",
+        if (snapshot.formation.opportunity.hasReward)
+          "The reward is still locked. Try again together."
+        else "Reconnect and try another round together.",
         style = Theme.type.footnote,
         color = c.contentTertiary,
       )

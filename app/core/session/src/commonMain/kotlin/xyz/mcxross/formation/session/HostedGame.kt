@@ -20,6 +20,8 @@ internal class HostedGame<S : Any, I : Any>(
 
   fun tick(now: Long) = game.tick(now)
 
+  fun observe(observation: GameObservation, now: Long) = game.observe(observation, now)
+
   fun state(): JsonElement = json.encodeToJsonElement(rules.stateSerializer, game.state)
 
   fun stateFor(player: PlayerId): JsonElement =

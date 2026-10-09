@@ -27,10 +27,13 @@ kotlin {
       implementation(projects.challenges.overdrive)
       implementation(projects.challenges.ricochet)
       implementation(projects.challenges.mosaic)
+      implementation(projects.challenges.longshot)
+      implementation(projects.solana.ore)
 
       implementation(projects.solana.vault)
 
       implementation(libs.compose.components.resources)
+      implementation(libs.androidx.lifecycle.viewmodelCompose)
       implementation(libs.navigationevent.compose)
       implementation(libs.androidx.lifecycle.runtimeCompose)
       implementation(libs.kotlinx.serialization.json)

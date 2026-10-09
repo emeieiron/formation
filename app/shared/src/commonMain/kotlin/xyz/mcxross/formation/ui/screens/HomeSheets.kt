@@ -3,6 +3,7 @@ package xyz.mcxross.formation.ui.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,10 +17,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import xyz.mcxross.formation.challenge.Challenge
 import xyz.mcxross.formation.challenge.ChallengeInfo
@@ -43,6 +46,7 @@ import xyz.mcxross.formation.design.tokens.Space
 import xyz.mcxross.formation.model.Budget
 import xyz.mcxross.formation.model.Difficulty
 import xyz.mcxross.formation.model.Opportunity
+import xyz.mcxross.formation.model.OpportunityId
 import xyz.mcxross.formation.resources.Res
 import xyz.mcxross.formation.resources.action_join
 import xyz.mcxross.formation.resources.label_code
@@ -51,6 +55,7 @@ import xyz.mcxross.formation.resources.state_searching
 import xyz.mcxross.formation.session.NearbyFormation
 import xyz.mcxross.formation.state.ChallengeCatalog
 import xyz.mcxross.formation.state.OpenDraw
+import xyz.mcxross.formation.state.newUuid
 import xyz.mcxross.formation.ui.components.ChallengeGlyph
 import xyz.mcxross.formation.ui.components.RewardSplitView
 import xyz.mcxross.formation.ui.components.TierTag
@@ -59,18 +64,23 @@ import xyz.mcxross.formation.ui.components.timeLeft
 @Composable
 internal fun OpportunitySheet(
   game: Challenge<*, *>,
-  budget: Budget,
+  budget: Budget?,
   onDismiss: () -> Unit,
-  onStart: (Opportunity) -> Unit,
+  onStart: suspend (Opportunity) -> Unit,
 ) {
   val c = Theme.colors
   val info = game.info
-  val sizes = ChallengeCatalog.sizesFor(game.id, budget)
+  val sizes =
+    if (budget == null) info.groupSizes.sorted() else ChallengeCatalog.sizesFor(game.id, budget)
+  val socialId = remember { OpportunityId(newUuid()) }
   var players by remember(sizes) { mutableStateOf(sizes.firstOrNull()) }
   val levels = info.difficulties
   var difficulty by remember { mutableStateOf(levels.firstOrNull() ?: Difficulty.NORMAL) }
   var starting by remember { mutableStateOf(false) }
-  val o = players?.let { Opportunity(budget, game.id, it, difficulty) }
+  val scope = rememberCoroutineScope()
+  val o = players?.let {
+    Opportunity(budget, game.id, it, difficulty, socialId.takeIf { budget == null })
+  }
   ModalSheet(onDismiss, dismissible = !starting) {
     Column(
       Modifier.fillMaxWidth()
@@ -89,21 +99,28 @@ internal fun OpportunitySheet(
         o?.let { TierTag(it.tier) }
       }
       Spacer(Modifier.height(Space.xl))
-      Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Lock, null, tint = c.reward, size = 26.dp)
-        Spacer(Modifier.width(Space.s))
-        SkrAmount(budget.amount.format(0), style = Theme.type.numeralLarge, color = c.content)
-      }
-      Text(
-        "Up to ${budget.maxGuests} guests · ${timeLeft(budget.playUntil, xyz.mcxross.formation.state.now())}",
-        style = Theme.type.subhead,
-        color = c.contentSecondary,
-      )
+      if (budget != null) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          Icon(Icons.Lock, null, tint = c.reward, size = 26.dp)
+          Spacer(Modifier.width(Space.s))
+          SkrAmount(budget.amount.format(0), style = Theme.type.numeralLarge, color = c.content)
+        }
+        Text(
+          "Up to ${budget.maxGuests} guests · ${timeLeft(budget.playUntil, xyz.mcxross.formation.state.now())}",
+          style = Theme.type.subhead,
+          color = c.contentSecondary,
+        )
+      } else
+        Text(
+          "ORE mining · free predictions",
+          style = Theme.type.subhead,
+          color = c.contentSecondary,
+        )
       if (sizes.size > 1) {
         Spacer(Modifier.height(Space.l))
         Overline("Players")
         Spacer(Modifier.height(Space.s))
-        Row(horizontalArrangement = Arrangement.spacedBy(Space.s)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(Space.s)) {
           sizes.forEach { size -> Chip("$size", size == players, { players = size }) }
         }
       }
@@ -117,7 +134,7 @@ internal fun OpportunitySheet(
       }
       o?.let {
         Spacer(Modifier.height(Space.xl))
-        RewardSplitView(it.split(), ownerLabel = "You, the Seeker")
+        if (it.hasReward) RewardSplitView(it.split(), ownerLabel = "You, the Seeker")
         Spacer(Modifier.height(Space.xl))
         Overline("The goal")
         Spacer(Modifier.height(Space.xs))
@@ -126,14 +143,25 @@ internal fun OpportunitySheet(
       Spacer(Modifier.height(Space.l))
       HowToPlay(info)
       Spacer(Modifier.height(Space.l))
-      Text("Sponsored by ${budget.sponsor}", style = Theme.type.footnote, color = c.contentTertiary)
+      if (budget != null)
+        Text(
+          "Sponsored by ${budget.sponsor}",
+          style = Theme.type.footnote,
+          color = c.contentTertiary,
+        )
     }
     SheetActions {
       Button(
         "Start Formation",
         {
-          starting = true
-          o?.let(onStart)
+          scope.launch {
+            starting = true
+            try {
+              o?.let { onStart(it) }
+            } finally {
+              starting = false
+            }
+          }
         },
         style = ButtonStyle.Primary,
         loading = starting,

@@ -82,6 +82,37 @@ class SolanaRpc(
   suspend fun genesisHash(): String =
     call("getGenesisHash", buildJsonArray {}).jsonPrimitive.content
 
+  suspend fun transactionDetails(signature: String): JsonObject? =
+    call(
+        "getTransaction",
+        buildJsonArray {
+          add(signature)
+          add(
+            buildJsonObject {
+              put("commitment", commitment)
+              put("encoding", "json")
+              put("maxSupportedTransactionVersion", 0)
+            }
+          )
+        },
+      )
+      .takeUnless { it == JsonNull }
+      ?.jsonObject
+
+  suspend fun requestAirdrop(wallet: SolanaPublicKey, lamports: Long): String {
+    require(lamports > 0)
+    return call(
+        "requestAirdrop",
+        buildJsonArray {
+          add(wallet.base58())
+          add(lamports)
+          add(options())
+        },
+      )
+      .jsonPrimitive
+      .content
+  }
+
   suspend fun slot(): Long = call("getSlot", buildJsonArray { add(options()) }).jsonPrimitive.long
 
   suspend fun chainTimeMillis(): Long? {

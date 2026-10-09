@@ -99,10 +99,13 @@ import xyz.mcxross.formation.state.ChallengeCatalog
 import xyz.mcxross.formation.state.Links
 import xyz.mcxross.formation.state.PhoneRole
 import xyz.mcxross.formation.state.SeekerStatus
+import xyz.mcxross.formation.state.mining.MiningViewModel
 import xyz.mcxross.formation.ui.LocalGraph
 import xyz.mcxross.formation.ui.components.Slots
 import xyz.mcxross.formation.ui.components.challengeInfo
 import xyz.mcxross.formation.ui.components.shortAddress
+import xyz.mcxross.formation.ui.mining.MiningRecovery
+import xyz.mcxross.formation.ui.mining.ownedViewModel
 import xyz.mcxross.formation.ui.nav.Screen
 
 @Composable
@@ -141,7 +144,7 @@ fun HomeScreen(presentation: HomePresentation) {
       graph.nearby.scan().collect { value = it }
     }
   var opened by remember {
-    mutableStateOf<Pair<xyz.mcxross.formation.challenge.Challenge<*, *>, Budget>?>(null)
+    mutableStateOf<Pair<xyz.mcxross.formation.challenge.Challenge<*, *>, Budget?>?>(null)
   }
   var gameActions by remember {
     mutableStateOf<xyz.mcxross.formation.challenge.Challenge<*, *>?>(null)
@@ -186,6 +189,8 @@ fun HomeScreen(presentation: HomePresentation) {
   val developer = graph.platform.config.developer
   val pendingWins by graph.pending.pending.collectAsState()
   val completed by graph.completed.entries.collectAsState()
+  val miningVm = ownedViewModel(graph.mining) { MiningViewModel(graph.mining) }
+  val mining by miningVm.state.collectAsState()
 
   LaunchedEffect(seeker) { seeker?.let { graph.ledger.refresh(it) } }
   LaunchedEffect(Unit) { graph.seeker.autoVerify() }
@@ -247,6 +252,17 @@ fun HomeScreen(presentation: HomePresentation) {
         }
       }
 
+      if (mining.needsAttention)
+        item(key = "longshot-recovery") {
+          MiningRecovery(
+            mining,
+            miningVm::connect,
+            miningVm::refresh,
+            miningVm::settle,
+            modifier = Modifier.padding(horizontal = Space.gutter, vertical = Space.m),
+            title = true,
+          )
+        }
       val unclaimed = tickets.filter { !it.claimed && it.unlocked && !it.lapsed }
       if (unclaimed.isNotEmpty()) {
         item(key = "ready-rewards") {
@@ -358,16 +374,21 @@ fun HomeScreen(presentation: HomePresentation) {
           )
         }
       }
-      val hostable = gameRewards.values.sumOf { it.size }
+      val hostable =
+        gameRewards.values.sumOf { it.size } + ChallengeCatalog.all.count { !it.info.rewards }
       fun LazyListScope.games() =
         gameCatalog(
           ChallengeCatalog.all,
           canHost = me != null,
           seekerPhone = role != PhoneRole.PLAYER,
-          playable = gameRewards.filterValues { it.isNotEmpty() }.keys,
+          playable =
+            gameRewards.filterValues { it.isNotEmpty() }.keys +
+              ChallengeCatalog.all.filter { !it.info.rewards && me != null }.map { it.id },
           motionActive = active && coverVisible,
           entrance = { entrance.value },
-          onOpen = { gameActions = it },
+          onOpen = {
+            if (!it.info.rewards && me != null) opened = it to null else gameActions = it
+          },
         )
 
       if (role == PhoneRole.PLAYER) {
@@ -460,19 +481,17 @@ fun HomeScreen(presentation: HomePresentation) {
       budget,
       onDismiss = { opened = null },
       onStart = { o ->
-        scope.launch {
-          graph
-            .host(o)
-            .fold(
-              onSuccess = {
-                opened = null
-                graph.navigator.push(Screen.Session)
-              },
-              onFailure = {
-                toaster.show(it.message ?: "Couldn't start the Formation", Tone.Negative)
-              },
-            )
-        }
+        graph
+          .host(o)
+          .fold(
+            onSuccess = {
+              opened = null
+              graph.navigator.push(Screen.Session)
+            },
+            onFailure = {
+              toaster.show(it.message ?: "Couldn't start the Formation", Tone.Negative)
+            },
+          )
       },
     )
   }
@@ -558,30 +577,31 @@ private fun NearbyCard(
         )
       }
       Spacer(Modifier.height(Space.m))
-      Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Space.m)) {
-        Column(Modifier.weight(1f)) {
-          Icon(
-            Icons.Lock,
-            stringResource(Res.string.a11y_locked_reward),
-            tint = c.contentSecondary,
-            size = 16.dp,
-          )
-          SkrAmount(
-            b.reward.format(0),
-            style = Theme.type.numeral,
-            color = c.reward,
-            coin = false,
-          )
+      if (b.hasReward)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Space.m)) {
+          Column(Modifier.weight(1f)) {
+            Icon(
+              Icons.Lock,
+              stringResource(Res.string.a11y_locked_reward),
+              tint = c.contentSecondary,
+              size = 16.dp,
+            )
+            SkrAmount(
+              b.reward.format(0),
+              style = Theme.type.numeral,
+              color = c.reward,
+              coin = false,
+            )
+          }
+          Column(Modifier.weight(1f)) {
+            Text(
+              stringResource(Res.string.label_your_share),
+              style = Theme.type.caption,
+              color = c.contentSecondary,
+            )
+            SkrAmount(b.helperShare.format(0), style = Theme.type.subheadStrong, coin = false)
+          }
         }
-        Column(Modifier.weight(1f)) {
-          Text(
-            stringResource(Res.string.label_your_share),
-            style = Theme.type.caption,
-            color = c.contentSecondary,
-          )
-          SkrAmount(b.helperShare.format(0), style = Theme.type.subheadStrong, coin = false)
-        }
-      }
     }
   }
 }

@@ -20,6 +20,9 @@ interface PlatformServices {
   val sound: SoundPlayer
   val network: LocalNetwork
   val wallet: WalletPort
+  val oreWallet: WalletPort
+    get() = wallet
+
   val external: ExternalPort
   val hotspot: HotspotPort?
   val screen: ScreenPort
@@ -103,6 +106,8 @@ data class AppConfig(
   // Where real Genesis Tokens don't exist, the faucet that makes a phone a test Seeker; null on
   // mainnet.
   val faucetUrl: String? = null,
+  // Longshot uses the separately configured ORE devnet deployment.
+  val oreRpcUrl: String = "https://api.devnet.solana.com",
 )
 
 data class DeviceInfo(val model: String, val emulator: Boolean, val seeker: Boolean = false)

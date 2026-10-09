@@ -11,6 +11,7 @@ enum class DiagnosticCode {
   SESSION_WON,
   SESSION_LOST,
   SESSION_CLOSED,
+  SESSION_FINISHED,
   CONNECT_START,
   CONNECT_JOINED,
   CONNECT_RETRY,
@@ -45,4 +46,5 @@ internal val Stage.diagnosticCode: DiagnosticCode
       is Stage.Won -> DiagnosticCode.SESSION_WON
       is Stage.Lost -> DiagnosticCode.SESSION_LOST
       is Stage.Closed -> DiagnosticCode.SESSION_CLOSED
+      is Stage.Finished -> DiagnosticCode.SESSION_FINISHED
     }

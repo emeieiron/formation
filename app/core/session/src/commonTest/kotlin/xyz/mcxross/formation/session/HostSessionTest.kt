@@ -83,7 +83,10 @@ class HostSessionTest {
         authorized()
           .proof
           .copy(
-            opportunity = opportunity.copy(budget = opportunity.budget.copy(amount = Skr.of(6_000)))
+            opportunity =
+              opportunity.copy(
+                budget = requireNotNull(opportunity.budget).copy(amount = Skr.of(6_000))
+              )
           ),
         SESSION,
         NETWORK,

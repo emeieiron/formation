@@ -10,6 +10,14 @@ interface ChallengeRules<S : Any, I : Any> {
   val formatVersion: Int
     get() = 1
 
+  // Wallet approval can temporarily put a participant in another app.
+  val reconnectGraceMs: Long?
+    get() = null
+
+  // Untimed games can preserve their state when a participant returns within the grace period.
+  val resumesAfterReconnect: Boolean
+    get() = false
+
   fun requiredCapabilities(players: Int): Set<String> = emptySet()
 
   fun optionalCapabilities(players: Int): Set<String> = emptySet()
@@ -49,7 +57,12 @@ interface ChallengeGame<S : Any, I : Any> {
   fun input(from: PlayerId, input: I, now: Long)
 
   fun tick(now: Long)
+
+  // Trusted in-process observations; never decoded from player inputs.
+  fun observe(observation: GameObservation, now: Long) {}
 }
+
+interface GameObservation
 
 sealed interface GameStatus {
   data object Running : GameStatus

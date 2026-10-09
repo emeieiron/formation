@@ -150,6 +150,7 @@ internal constructor(
     val unlocked = won.unlock as? Unlock.Unlocked
     val me = client.me.value ?: return
     val opportunity = snapshot.formation.opportunity
+    val budget = opportunity.budget ?: return
     val share = won.seal.roster.firstOrNull { it.player == me }
     val mine = snapshot.player(me)
     val ticket =
@@ -157,7 +158,7 @@ internal constructor(
         share != null ->
           ClaimTicket(
             opportunity = opportunity.id,
-            contest = opportunity.budget.contest,
+            contest = budget.contest,
             challenge = opportunity.challenge,
             host = snapshot.formation.host,
             amount = share.amount,
@@ -174,7 +175,7 @@ internal constructor(
         mine?.seeker == true && unlocked != null ->
           ClaimTicket(
             opportunity = opportunity.id,
-            contest = opportunity.budget.contest,
+            contest = budget.contest,
             challenge = opportunity.challenge,
             host = snapshot.formation.host,
             amount = won.seal.ownerAmount,

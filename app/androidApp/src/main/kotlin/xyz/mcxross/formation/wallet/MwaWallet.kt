@@ -38,6 +38,7 @@ class MwaWallet(
   private val context: Context,
   cluster: String,
   private val secrets: SecretStore,
+  private val tokenKey: String = "mwa-auth-token",
   private val sender: () -> ActivityResultSender?,
 ) : WalletPort {
   private val adapter =
@@ -57,7 +58,7 @@ class MwaWallet(
             else -> Solana.Mainnet
           }
         // The wallet's approval is remembered across launches, so later signing doesn't ask again.
-        authToken = secrets.get(TOKEN)?.decodeToString()?.ifEmpty { null }
+        authToken = secrets.get(tokenKey)?.decodeToString()?.ifEmpty { null }
       }
 
   private val requests = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -140,7 +141,7 @@ class MwaWallet(
     )
   }
 
-  private fun remember() = secrets.put(TOKEN, (adapter.authToken ?: "").encodeToByteArray())
+  private fun remember() = secrets.put(tokenKey, (adapter.authToken ?: "").encodeToByteArray())
 
   override fun installed(): Boolean =
     context.packageManager
@@ -212,7 +213,6 @@ class MwaWallet(
   }
 
   private companion object {
-    const val TOKEN = "mwa-auth-token"
     const val NO_ANSWER = "The wallet closed without answering. Try again."
     const val DECLINED = "Cancelled in the wallet. Try again when you're ready."
     const val UNREACHABLE = "Couldn't reach the wallet app. Try again."
