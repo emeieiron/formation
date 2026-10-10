@@ -66,10 +66,12 @@ The [rewards guide](docs/rewards.md) covers contest types, the split and claims 
 - **Real mining.** The picker deploys 0.001 test SOL on their tile in ORE's current round, approved in Solflare. The transaction carries a memo that ties it to the Formation turn.
 - **Checked on chain.** The host reads the finalized transaction and accepts the turn only if it contains exactly the expected deploy, for the picked tile and the current round. A turn without confirmed mining has no result.
 - **Read from ORE.** The winning tile comes from the round's account, using the same derivation as ORE's program. Formation doesn't decide the outcome.
+- **Rounds close themselves.** An ORE round doesn't end by itself: someone has to finish its randomness and call `reset`. The [ORE worker](ore-worker/README.md), a Cloudflare Worker, does this for every round a player starts, so a Longshot turn never waits on a person or a machine left running.
+- **Fair by construction.** The winning value hashes a seed committed before the round with the hash of the round's final slot, which no one knows in advance. The worker can only finish a round, not choose how it ends.
 - **Proceeds stay with the miner.** **Recover proceeds** checkpoints the round and claims any SOL and ORE the miner earned back to their wallet.
 - **A reusable client.** [`app/solana/ore`](app/solana/ore/README.md) is a Kotlin Multiplatform client for ORE's accounts and instructions. It derives addresses, builds deploy, checkpoint and claim instructions, and checks account owners, layouts and the cluster before trusting a read.
 
-ORE isn't deployed on devnet, so Formation deploys ORE v3.8.25 there from pinned upstream sources (`ore`, `entropy` and `ore-mint`), unchanged apart from an instruction that initializes its accounts on a fresh cluster. `program/ore-devnet.json` records the upstream commits and the hash of each deployed binary. `scripts/ore_devnet.py` builds, deploys and verifies it. The [ORE worker](ore-worker/README.md), a Cloudflare Worker, resolves each round once it ends, so Longshot needs no machine left running.
+ORE isn't deployed on devnet, so Formation deploys ORE v3.8.25 there from pinned upstream sources (`ore`, `entropy` and `ore-mint`), unchanged apart from an instruction that initializes its accounts on a fresh cluster. `program/ore-devnet.json` records the upstream commits and the hash of each deployed binary. `scripts/ore_devnet.py` builds, deploys and verifies it. The live worker reports its state, including the last round it resolved, at [formation-ore-worker.em-eieiron.workers.dev](https://formation-ore-worker.em-eieiron.workers.dev).
 
 ## Why groups come back
 

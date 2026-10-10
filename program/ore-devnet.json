@@ -50,11 +50,10 @@
     }
   ],
   "worker": {
-    "pid": 45000,
-    "running": true,
-    "host": "local development machine",
-    "net_spend_budget_lamports": 100000000,
-    "entropy_samples_remaining": 1021
+    "host": "Cloudflare Worker (ore-worker)",
+    "url": "https://formation-ore-worker.em-eieiron.workers.dev",
+    "fee_payer": "3VyNBUng3CssoGqs8zbdyBpPnimAD77eX6EhLnSJVVSk",
+    "min_balance_lamports": 10000000
   },
   "verification": {
     "passed": true,
