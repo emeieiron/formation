@@ -94,4 +94,4 @@ Fund the worker from the deployment wallet by running this command from the repo
 scripts/devnet.py fund WORKER_ADDRESS SOL
 ```
 
-Delete the local keypair file once the secret is set. Stop any local `scripts/ore_devnet.py worker` before deploying.
+Delete the local keypair file once the secret is set. After changing a secret later, run `npm run deploy` again: the running loop keeps the values it started with until it restarts. Stop any local `scripts/ore_devnet.py worker` before deploying.
