@@ -1,0 +1,24 @@
+{
+  "name": "formation-ore-worker",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    // Formation's ORE devnet deployment (program/ore-devnet.json). Board, config, treasury, entropy var and mint
+    // authority are derived from these.
+    "ORE_PROGRAM": "5aXjVRQ9CsdCVkhTqjiAfsP5KVG32gtA9RFdrXB4Kjhp",
+    "ENTROPY_PROGRAM": "5kJgQsJL4KnbQ5Ec1eSjCN1nSbbigAP2YGkekcTHpdt3",
+    "ORE_MINT_PROGRAM": "9VhKKzbK7LkzzrEC4miiegqRSdtYiuuwp2iqHfzRzi1W",
+    "ORE_MINT": "ACWuBYysK8DbT5GVCHvaVQ7NWDippahvyfb9JJJ9hhb9",
+    "FEE_COLLECTOR": "9U7jMaMyBBdxxEp4zA5L8DgovQBPsdx6njY5EMXaxEMy",
+    // 0.01 SOL: the worker pauses below this and resumes once its account is topped up.
+    "MIN_BALANCE_LAMPORTS": "10000000"
+  },
+  // Secrets: RPC_URL, a devnet RPC endpoint that accepts Cloudflare (the public one refuses it); WORKER_KEY, the
+  // worker's own fee-paying keypair as a JSON array of 64 bytes; ENTROPY_ROOT, the hex root of the entropy hash
+  // chain. Set each with `wrangler secret put NAME`.
+  "durable_objects": { "bindings": [{ "name": "ROUNDS", "class_name": "OreRounds" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["OreRounds"] }],
+  // The alarm loop re-arms itself; this only restarts it after a deploy or an eviction.
+  "triggers": { "crons": ["* * * * *"] }
+}

@@ -11,6 +11,9 @@ The idea is that a Seeker is a key to a shared experience rather than a solo dev
 - [Watch Formation](#watch-formation)
 - [Try Formation](#try-formation)
 - [How a Formation works](#how-a-formation-works)
+- [SKR in Formation](#skr-in-formation)
+- [ORE in Formation](#ore-in-formation)
+- [Why groups come back](#why-groups-come-back)
 - [Games](#games)
 - [Architecture](#architecture)
 - [Repository](#repository)
@@ -42,6 +45,39 @@ Real Genesis Tokens only exist on mainnet, so on devnet every host, a Seeker own
 3. **The group plays.** The host's phone runs the game; every phone sees its part of it.
 4. **Everyone seals the result.** Each phone signs the win, so no one can change the outcome or the list of players afterwards.
 5. **The reward unlocks.** The owner approves the unlock in their wallet. Players with a connected wallet are paid immediately; the others keep a proof on the phone and claim later.
+
+## SKR in Formation
+
+SKR is what a Formation plays for. The reward is the reason the group gathers, and the vault decides who gets it.
+
+- **Sponsors lock real SKR.** A contest's pool sits in the vault until groups win it. Whatever no one earns returns to the sponsor after the claim window.
+- **Sponsors choose who can play.** A contest can be first come, reserved for one Seeker, or a draw that picks Seeker owners with verifiable randomness.
+- **Genesis Token holders unlock it by hosting.** Owning a Seeker earns nothing on its own. The owner has to bring a group together and win.
+- **Every player is paid.** The owner gets a set multiple of each guest's share, and the vault enforces a minimum guest share, so hosting pays and so does helping.
+- **SKR reaches people without a wallet.** Each guest's share is committed on chain when the group wins. A guest with a wallet is paid then; one without keeps a claim on the phone and collects it later, so new people come away holding SKR.
+
+The [rewards guide](docs/rewards.md) covers contest types, the split and claims in detail.
+
+## ORE in Formation
+
+[Longshot](docs/longshot.md) turns an ORE round into a party game. ORE runs a 5×5 board in rounds: miners deploy SOL onto tiles, and each round ends with one winning tile. In Longshot, one player picks a tile and mines it, and everyone else calls whether it will win.
+
+- **Real mining.** The picker deploys 0.001 test SOL on their tile in ORE's current round, approved in Solflare. The transaction carries a memo that ties it to the Formation turn.
+- **Checked on chain.** The host reads the finalized transaction and accepts the turn only if it contains exactly the expected deploy, for the picked tile and the current round. A turn without confirmed mining has no result.
+- **Read from ORE.** The winning tile comes from the round's account, using the same derivation as ORE's program. Formation doesn't decide the outcome.
+- **Proceeds stay with the miner.** **Recover proceeds** checkpoints the round and claims any SOL and ORE the miner earned back to their wallet.
+- **A reusable client.** [`app/solana/ore`](app/solana/ore/README.md) is a Kotlin Multiplatform client for ORE's accounts and instructions. It derives addresses, builds deploy, checkpoint and claim instructions, and checks account owners, layouts and the cluster before trusting a read.
+
+ORE isn't deployed on devnet, so Formation deploys ORE v3.8.25 there from pinned upstream sources (`ore`, `entropy` and `ore-mint`), unchanged apart from an instruction that initializes its accounts on a fresh cluster. `program/ore-devnet.json` records the upstream commits and the hash of each deployed binary. `scripts/ore_devnet.py` builds, deploys and verifies it. The [ORE worker](ore-worker/README.md), a Cloudflare Worker, resolves each round once it ends, so Longshot needs no machine left running.
+
+## Why groups come back
+
+- **There's a game for any group.** Five games cover everything from a pair at a desk (Overdrive, Ricochet) to a party of up to eight (Longshot), a table of six or nine (Mosaic) and a walking group of up to sixteen (Caravan).
+- **It only works together.** Overdrive, Ricochet, Mosaic and Caravan each need every phone, so a win is something the group did, not something one player carried. Longshot adds a round of calls around a real ORE mine.
+- **Joining is free.** Guests need the app and nothing else: no wallet, no account. They join from Nearby, a QR code or a four-letter code.
+- **Rewards recur.** New contests keep budgets coming, a contest can let one token win more than once, and draws give every Seeker owner a chance.
+- **Unclaimed winnings bring guests back.** A guest who won without a wallet has SKR waiting in the app until they connect one and claim it.
+- **The game set grows.** New games plug into the same session and reward flow through the [game API](app/challenges/api/README.md), without touching the vault.
 
 ## Games
 
@@ -92,6 +128,7 @@ Five games ship today, using the shared session flow through the [game API](app/
 | `app` | Kotlin Multiplatform app, games, shared libraries, and platform integrations |
 | `program` | Solana vault program, integration tests, and program interface |
 | `faucet` | Cloudflare Worker that gives test Seekers devnet SOL and a test Genesis Token |
+| `ore-worker` | Cloudflare Worker that resolves rounds of the ORE devnet deployment for Longshot |
 | `scripts` | Devnet setup, emulator helpers, end-to-end journeys |
 | `docs` | How to play each game, and the reward system |
 
@@ -169,6 +206,10 @@ cargo test -p formation-vault
 # Scripts
 cd ../scripts
 python3 -m unittest test_overdrive_driver test_mosaic_driver test_caravan_driver test_android_layout test_chain_verification test_verify_release_demo
+
+# Cloudflare Workers, in faucet and in ore-worker
+npm ci
+npm run check
 ```
 
 ### End-to-end journeys

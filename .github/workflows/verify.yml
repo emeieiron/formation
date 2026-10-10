@@ -98,6 +98,27 @@ jobs:
           cargo build-sbf --manifest-path formation-vault/Cargo.toml
           cargo test -p formation-vault
 
+  workers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        worker: [faucet, ore-worker]
+    defaults:
+      run:
+        working-directory: ${{ matrix.worker }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ${{ matrix.worker }}/package-lock.json
+      - name: Type-check the Worker
+        run: |
+          npm ci
+          npm run check
+
   dependency-review:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest

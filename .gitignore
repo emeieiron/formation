@@ -35,6 +35,7 @@ id.json
 .env
 
 # Tooling output
+.wrangler/
 *.hprof
 *.log
 
