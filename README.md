@@ -20,6 +20,7 @@ The idea is that a Seeker is a key to a shared experience rather than a solo dev
 - [Building](#building)
 - [Testing](#testing)
 - [Trust model](#trust-model)
+- [License](#license)
 
 ## Watch Formation
 
@@ -238,3 +239,19 @@ Records of each run are saved under `program/target/e2e`.
 ## Trust model
 
 The vault guarantees who can unlock, where every share goes, the split and that each share is paid once. It can't see the game itself, so a modified host app could submit a result that wasn't really played, and a claim key proves a phone, not a person. Weigh this against the size of the rewards before funding contests with real value.
+
+## License
+
+    Copyright 2026 McXross
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
